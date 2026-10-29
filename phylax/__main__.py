@@ -12,8 +12,8 @@ from .web import serve
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="sentinelot", description="Local-first passive IT/OT vulnerability visibility")
-    parser.add_argument("--db", default="data/sentinelot.db", help="SQLite database path")
+    parser = argparse.ArgumentParser(prog="phylax", description="Local-first passive IT/OT vulnerability visibility")
+    parser.add_argument("--db", default="data/phylax.db", help="SQLite database path")
     commands = parser.add_subparsers(dest="command", required=True)
     web = commands.add_parser("serve", help="Start the loopback-only dashboard")
     web.add_argument("--host", default="127.0.0.1")

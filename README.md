@@ -23,21 +23,21 @@ Still incomplete: direct PCAP processing (Zeek must be run separately to create 
 Python 3.10 or newer; no third-party packages are required.
 
 ```bash
-python3 -m sentinelot --db data/sentinelot.db serve
+python3 -m phylax --db data/phylax.db serve
 ```
 
-Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The server refuses non-loopback bind addresses. The database is created at `data/sentinelot.db` by default; pass `--db /path/to/file.sqlite` to choose another location. Keep the database and any uploaded inventory on a trusted local machine.
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The server refuses non-loopback bind addresses. The database is created at `data/phylax.db` by default; pass `--db /path/to/file.sqlite` to choose another location. Keep the database and any uploaded inventory on a trusted local machine.
 
 CLI workflow:
 
 ```bash
-python3 -m sentinelot --db data/sentinelot.db import-assets examples/assets.csv
-python3 -m sentinelot --db data/sentinelot.db load-fixture examples/vulnerability-fixture.json
-python3 -m sentinelot --db data/sentinelot.db correlate
-python3 -m sentinelot --db data/sentinelot.db export-report --format json --output report.json
-python3 -m sentinelot --db data/sentinelot.db sync-feeds
-python3 -m sentinelot --db data/sentinelot.db analyze-zeek examples/conn.log --policy examples/network-policy.json
-python3 -m sentinelot --db data/sentinelot.db analyze-zeek examples/modbus.log --kind modbus --policy examples/network-policy.json
+python3 -m phylax --db data/phylax.db import-assets examples/assets.csv
+python3 -m phylax --db data/phylax.db load-fixture examples/vulnerability-fixture.json
+python3 -m phylax --db data/phylax.db correlate
+python3 -m phylax --db data/phylax.db export-report --format json --output report.json
+python3 -m phylax --db data/phylax.db sync-feeds
+python3 -m phylax --db data/phylax.db analyze-zeek examples/conn.log --policy examples/network-policy.json
+python3 -m phylax --db data/phylax.db analyze-zeek examples/modbus.log --kind modbus --policy examples/network-policy.json
 ```
 
 Feed synchronization requires internet access. It can be triggered from the dashboard or CLI; offline inventory, cached records, log analysis, correlation, and reports work without it. Set `NVD_API_KEY` in the environment to use an NVD API key; no key is required. Feed health displays the last success and marks data stale after 24 hours. A failed source does not delete its cached records.
@@ -71,7 +71,7 @@ Zeek conn/Modbus ────┘                 └── passive policy detect
 JSON fixture ────────┘
 ```
 
-`sentinelot/core.py` contains SQLite persistence, import/export, correlation, prioritization, and reporting. `sentinelot/feeds.py` normalizes the [NVD CVE API 2.0](https://nvd.nist.gov/developers/vulnerabilities), [CISA KEV JSON catalog](https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json), and [CISA ICS advisories RSS](https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml). `sentinelot/monitoring.py` parses Zeek logs and evaluates explicit policy. Zeek `conn.log` fields follow the [official Zeek connection log reference](https://docs.zeek.org/en/current/reference/logs/conn.html); Modbus fields follow the [CISA ICSNPP-Modbus documentation](https://github.com/cisagov/icsnpp-modbus). `sentinelot/web.py` serves the local dashboard; `sentinelot/__main__.py` exposes CLI operations.
+`phylax/core.py` contains SQLite persistence, import/export, correlation, prioritization, and reporting. `phylax/feeds.py` normalizes the [NVD CVE API 2.0](https://nvd.nist.gov/developers/vulnerabilities), [CISA KEV JSON catalog](https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json), and [CISA ICS advisories RSS](https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml). `phylax/monitoring.py` parses Zeek logs and evaluates explicit policy. Zeek `conn.log` fields follow the [official Zeek connection log reference](https://docs.zeek.org/en/current/reference/logs/conn.html); Modbus fields follow the [CISA ICSNPP-Modbus documentation](https://github.com/cisagov/icsnpp-modbus). `phylax/web.py` serves the local dashboard; `phylax/__main__.py` exposes CLI operations.
 
 Priority is a transparent rule-based urgency indicator, independent of severity and applicability: KEV adds 3 points; critical/high/medium source severity adds 3/2/1; critical/high/medium asset criticality adds 3/2/1; confirmed applicability adds 2. Scores map to critical (8+), high (6–7), medium (3–5), or low (0–2). Unknown values add no points. This local prioritization does not imply compromise or an attack.
 

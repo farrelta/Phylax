@@ -162,11 +162,11 @@ class Handler(BaseHTTPRequestHandler):
             from io import StringIO
             out = StringIO()
             self.store.export_assets_csv(out)
-            self._send(out.getvalue().encode(), "text/csv; charset=utf-8", download="sentinelot-assets.csv")
+            self._send(out.getvalue().encode(), "text/csv; charset=utf-8", download="phylax-assets.csv")
         elif path == "/report.json":
-            self._send(self.store.report("json").encode(), "application/json; charset=utf-8", download="sentinelot-report.json")
+            self._send(self.store.report("json").encode(), "application/json; charset=utf-8", download="phylax-report.json")
         elif path == "/report.csv":
-            self._send(self.store.report("csv").encode(), "text/csv; charset=utf-8", download="sentinelot-report.csv")
+            self._send(self.store.report("csv").encode(), "text/csv; charset=utf-8", download="phylax-report.csv")
         else:
             self._send(b"Not found", "text/plain; charset=utf-8", 404)
 

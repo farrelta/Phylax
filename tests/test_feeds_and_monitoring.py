@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sentinelot.core import Store
-from sentinelot.feeds import ICS_RSS_URL, KEV_URL, normalize_ics_rss, normalize_kev, normalize_nvd, nvd_pages, sync_store
-from sentinelot.monitoring import NetworkEvent, evaluate, ingest_file, is_modbus_write, parse_zeek
+from phylax.core import Store
+from phylax.feeds import ICS_RSS_URL, KEV_URL, normalize_ics_rss, normalize_kev, normalize_nvd, nvd_pages, sync_store
+from phylax.monitoring import NetworkEvent, evaluate, ingest_file, is_modbus_write, parse_zeek
 
 
 NVD_ROW = {
@@ -212,7 +212,7 @@ class MonitoringTests(unittest.TestCase):
         self.assertEqual(diagnostics, [])
 
     def test_policy_validation_rejects_invalid_addresses_and_windows(self) -> None:
-        from sentinelot.monitoring import validate_policy
+        from phylax.monitoring import validate_policy
         with self.assertRaises(ValueError):
             validate_policy({"protected_assets": ["controller-01"]})
         with self.assertRaises(ValueError):
@@ -265,7 +265,7 @@ class MonitoringTests(unittest.TestCase):
             self.assertTrue(any(item["status"] == "CONFIRMED_MATCH" for item in report["findings"]))
             self.assertTrue(any(item["rule_id"] == "unauthorized_modbus_writer" for item in report["network_alerts"]))
             self.assertTrue(any("MODBUS-DEMO-WRITE" in item["event_ref"] for item in report["network_alerts"]))
-            from sentinelot.web import assets_page, intelligence_page, network_page, page
+            from phylax.web import assets_page, intelligence_page, network_page, page
             self.assertIn("controller-01", assets_page(store, "Demo PLC"))
             self.assertIn("CVE-2099-0001", intelligence_page(store))
             self.assertIn("MODBUS-DEMO-WRITE", network_page(store))

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sentinelot.core import Store
+from phylax.core import Store
 
 
 ROOT = Path(__file__).resolve().parents[1]

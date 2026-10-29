@@ -192,7 +192,7 @@ class Store:
                 if confidence.casefold() not in CONFIDENCES:
                     errors.append({"row": line, "error": f"Unsupported identity_confidence: {confidence}"})
                     continue
-                asset_id = row.get("asset_id") or str(uuid.uuid5(uuid.NAMESPACE_URL, f"sentinelot:{ip}:{row.get('mac_address', '')}"))
+                asset_id = row.get("asset_id") or str(uuid.uuid5(uuid.NAMESPACE_URL, f"phylax:{ip}:{row.get('mac_address', '')}"))
                 values = {
                     "asset_id": asset_id, "ip_address": ip, "mac_address": row.get("mac_address", ""),
                     "hostname": row.get("hostname", ""), "asset_type": asset_type,
