@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+data/
+.venv/
+examples/
+report.json
