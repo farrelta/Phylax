@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .core import Store
+from .feeds import sync_store
+from .monitoring import ingest_file, validate_policy
 from .web import serve
 
 
@@ -22,6 +26,11 @@ def main() -> None:
     exp = commands.add_parser("export-report", help="Export JSON or CSV findings")
     exp.add_argument("--format", choices=("json", "csv"), default="json")
     exp.add_argument("--output", required=True)
+    commands.add_parser("sync-feeds", help="Synchronize NVD, CISA KEV, and ICS advisory sources")
+    network = commands.add_parser("analyze-zeek", help="Import a Zeek conn.log or Modbus log passively")
+    network.add_argument("file")
+    network.add_argument("--kind", choices=("conn", "modbus"))
+    network.add_argument("--policy", help="JSON passive communication policy")
     args = parser.parse_args()
     if args.command == "serve":
         serve(args.db, args.host, args.port)
@@ -40,6 +49,23 @@ def main() -> None:
         elif args.command == "export-report":
             Path(args.output).write_text(store.report(args.format), encoding="utf-8")
             print(f"Wrote {args.output}")
+        elif args.command == "sync-feeds":
+            def report_progress(source: str, stage: str, message: str) -> None:
+                timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+                print(f"[{timestamp}] [{source}] {stage.upper()}: {message}", file=sys.stderr, flush=True)
+
+            report_progress("Phylax", "start", "Syncing NVD recent CVE changes, the full CISA KEV catalog, and CISA ICS advisory RSS. Feed failures are independent; cached records are retained.")
+            results = sync_store(store, progress=report_progress)
+            report_progress("Phylax", "progress", "Re-evaluating local assets against stored vulnerability intelligence.")
+            findings = store.correlate()
+            succeeded = sum(1 for result in results.values() if result["ok"])
+            report_progress("Phylax", "done", f"Feed sync complete: {succeeded}/{len(results)} sources healthy; correlation updated {sum(findings.values())} findings.")
+            for source, result in results.items():
+                print(f"{source}: {'ok' if result['ok'] else 'unavailable'} {result.get('records', result.get('error', ''))}")
+        elif args.command == "analyze-zeek":
+            import json
+            policy = validate_policy(json.loads(Path(args.policy).read_text(encoding="utf-8"))) if args.policy else {}
+            print(ingest_file(store, args.file, kind=args.kind, policy=policy))
     finally:
         store.close()
 
