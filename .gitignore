@@ -1,6 +1,6 @@
 __pycache__/
 *.py[cod]
 data/
+.env
 .venv/
-examples/
 report.json

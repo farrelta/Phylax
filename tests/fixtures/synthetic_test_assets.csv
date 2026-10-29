@@ -1,0 +1,5 @@
+asset_id,ip_address,mac_address,hostname,asset_type,vendor,product,version,operating_system,zone,criticality,identification_source,identity_confidence,last_seen,notes,verified
+controller-01,192.0.2.10,,PLC-01,PLC,Example Controls,Demo PLC,1.2.3,,OT,critical,manual,high,2026-10-29T00:00:00Z,Synthetic training asset,true
+hmi-01,192.0.2.20,,HMI-01,HMI,Example Controls,Demo HMI,,,OT,high,manual,medium,2026-10-29T00:00:00Z,Synthetic asset with unknown firmware,false
+workstation-01,192.0.2.30,,ENG-01,engineering workstation,,,,Windows 11,IT,medium,manual,low,2026-10-29T00:00:00Z,Synthetic workstation with unknown product,false
+server-01,192.0.2.40,,HIST-01,server,Example Systems,Historian,4.0,Linux,DMZ,high,manual,high,2026-10-29T00:00:00Z,Synthetic historian,true

@@ -85,8 +85,7 @@ def _cpe_components(criteria: str) -> tuple[str, str, str]:
 def normalize_nvd(vulnerability: dict[str, Any], retrieved_at: str) -> dict[str, Any]:
     cve = vulnerability.get("cve", vulnerability)
     severity, cvss = _cvss(cve)
-    products: dict[tuple[str, str], set[str]] = {}
-    has_range: set[tuple[str, str]] = set()
+    products: dict[tuple[str, str], dict[str, Any]] = {}
     unresolved_conditions = False
 
     def visit(node: dict[str, Any]) -> None:
@@ -101,17 +100,26 @@ def normalize_nvd(vulnerability: dict[str, Any], retrieved_at: str) -> dict[str,
             if not vendor or not product or vendor in {"*", "-"} or product in {"*", "-"}:
                 continue
             key = (vendor, product)
-            ranged = any(match.get(field) for field in ("versionStartIncluding", "versionStartExcluding", "versionEndIncluding", "versionEndExcluding"))
-            if version in {"*", "-"} or ranged:
-                has_range.add(key)
+            entry = products.setdefault(key, {"versions": set(), "version_ranges": [], "version_semantics_unknown": False})
+            version_range = {
+                "start_including": str(match.get("versionStartIncluding") or ""),
+                "start_excluding": str(match.get("versionStartExcluding") or ""),
+                "end_including": str(match.get("versionEndIncluding") or ""),
+                "end_excluding": str(match.get("versionEndExcluding") or ""),
+            }
+            has_bounds = any(version_range.values())
+            if has_bounds:
+                entry["version_ranges"].append(version_range)
+            elif version in {"*", "-"}:
+                entry["version_semantics_unknown"] = True
             else:
-                products.setdefault(key, set()).add(version)
+                entry["versions"].add(version)
         for child in node.get("nodes", []):
             visit(child)
 
     for config in cve.get("configurations", []):
         visit(config)
-    affected = [{"vendor": vendor, "product": product, "versions": sorted(versions) if (vendor, product) not in has_range else [], "conditions_unresolved": unresolved_conditions} for (vendor, product), versions in products.items()]
+    affected = [{"vendor": vendor, "product": product, "versions": sorted(entry["versions"]), "version_ranges": entry["version_ranges"], "version_semantics_unknown": entry["version_semantics_unknown"], "conditions_unresolved": unresolved_conditions} for (vendor, product), entry in products.items()]
     references = [item.get("url", "") for item in cve.get("references", []) if item.get("url")]
     return {
         "cve_id": cve.get("id", ""), "summary": _first_description(cve.get("descriptions", [])),

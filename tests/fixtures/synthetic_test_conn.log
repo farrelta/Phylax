@@ -1,0 +1,2 @@
+{"ts":"2026-10-29T04:00:00Z","uid":"CONN-DEMO-01","id.orig_h":"192.0.2.30","id.orig_p":50100,"id.resp_h":"192.0.2.10","id.resp_p":502,"proto":"tcp","service":"modbus","conn_state":"SF"}
+{"ts":"2026-10-29T04:05:00Z","uid":"CONN-DEMO-02","id.orig_h":"192.0.2.99","id.orig_p":42300,"id.resp_h":"192.0.2.10","id.resp_p":502,"proto":"tcp","service":"modbus","conn_state":"SF"}

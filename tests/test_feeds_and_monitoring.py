@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from phylax.core import Store
+from phylax.core import Store, _version_applicability
 from phylax.feeds import ICS_RSS_URL, KEV_URL, normalize_ics_rss, normalize_kev, normalize_nvd, nvd_pages, sync_store
 from phylax.monitoring import NetworkEvent, evaluate, ingest_file, is_modbus_write, parse_zeek
 
@@ -31,7 +31,7 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(result["cve_id"], "CVE-2024-12345")
         self.assertEqual(result["severity"], "HIGH")
         self.assertEqual(result["cvss"], 8.1)
-        self.assertEqual(result["affected_products"], [{"vendor": "example_controls", "product": "demo_plc", "versions": [], "conditions_unresolved": False}])
+        self.assertEqual(result["affected_products"], [{"vendor": "example_controls", "product": "demo_plc", "versions": ["1.2.3"], "version_ranges": [{"start_including": "", "start_excluding": "", "end_including": "", "end_excluding": "2.0"}], "version_semantics_unknown": False, "conditions_unresolved": False}])
         self.assertEqual(result["source_url"], "https://vendor.example/advisory")
         self.assertEqual(result["references"], ["https://vendor.example/advisory"])
 
@@ -40,6 +40,37 @@ class FeedTests(unittest.TestCase):
         record["cve"]["configurations"][0]["nodes"][0]["operator"] = "AND"
         result = normalize_nvd(record, "2026-10-29T00:00:00Z")
         self.assertTrue(result["affected_products"][0]["conditions_unresolved"])
+
+    def test_nvd_numeric_version_ranges_use_inclusive_exclusive_bounds_conservatively(self) -> None:
+        product = {
+            "versions": [],
+            "version_ranges": [{"start_including": "1.0", "start_excluding": "", "end_including": "2.0", "end_excluding": ""}],
+            "version_semantics_unknown": False,
+        }
+        self.assertFalse(_version_applicability("0.9.9", product))
+        self.assertTrue(_version_applicability("1.0", product))
+        self.assertTrue(_version_applicability("1.7.3", product))
+        self.assertTrue(_version_applicability("2.0.0", product))
+        self.assertFalse(_version_applicability("2.0.1", product))
+        product["version_ranges"] = [{"start_including": "", "start_excluding": "1.0", "end_including": "", "end_excluding": "2.0"}]
+        self.assertFalse(_version_applicability("1.0", product))
+        self.assertFalse(_version_applicability("2.0", product))
+        self.assertTrue(_version_applicability("1.5", product))
+        self.assertIsNone(_version_applicability("1.5-beta", product))
+
+    def test_correlation_uses_nvd_ranges_and_rejects_unsupported_version_formats(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            store = Store(Path(temp) / "range.sqlite")
+            store.import_csv(io.StringIO("asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence,verified\nplc,192.0.2.10,PLC,example_controls,demo_plc,1.9.9,OT,critical,high,true\n"))
+            store.ingest_normalized([normalize_nvd(NVD_ROW, "2026-10-29T00:00:00Z")])
+            self.assertEqual(store.correlate().get("CONFIRMED_MATCH"), 1)
+            store.connection.execute("UPDATE assets SET version='2.0' WHERE asset_id='plc'")
+            store.connection.commit()
+            self.assertEqual(store.correlate().get("NO_MATCH_TO_THIS_ADVISORY"), 1)
+            store.connection.execute("UPDATE assets SET version='1.9-beta' WHERE asset_id='plc'")
+            store.connection.commit()
+            self.assertEqual(store.correlate().get("NEEDS_REVIEW"), 1)
+            store.close()
 
     def test_nvd_pagination_uses_offsets_and_stops_at_total(self) -> None:
         calls = []
@@ -255,11 +286,11 @@ class MonitoringTests(unittest.TestCase):
     def test_e2e_inventory_fixture_correlation_network_alert_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             store = Store(Path(temp) / "e2e.sqlite")
-            store.import_csv(Path(__file__).resolve().parents[1] / "examples/assets.csv")
-            store.ingest_fixture(Path(__file__).resolve().parents[1] / "examples/vulnerability-fixture.json")
+            store.import_csv(Path(__file__).resolve().parents[1] / "tests/fixtures/synthetic_test_assets.csv")
+            store.ingest_fixture(Path(__file__).resolve().parents[1] / "tests/fixtures/synthetic_test_vulnerability.json")
             self.assertEqual(store.correlate()["CONFIRMED_MATCH"], 1)
-            logs = Path(__file__).resolve().parents[1] / "examples/modbus.log"
-            policy = json.loads((Path(__file__).resolve().parents[1] / "examples/network-policy.json").read_text())
+            logs = Path(__file__).resolve().parents[1] / "tests/fixtures/synthetic_test_modbus.log"
+            policy = json.loads((Path(__file__).resolve().parents[1] / "tests/fixtures/test_network_policy.json").read_text())
             self.assertEqual(ingest_file(store, logs, kind="modbus", policy=policy)["alerts_created"], 2)
             report = json.loads(store.report("json"))
             self.assertTrue(any(item["status"] == "CONFIRMED_MATCH" for item in report["findings"]))

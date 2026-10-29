@@ -23,9 +23,9 @@ class VerticalSliceTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def load_demo(self) -> None:
-        with (ROOT / "examples/assets.csv").open(encoding="utf-8") as stream:
+        with (ROOT / "tests/fixtures/synthetic_test_assets.csv").open(encoding="utf-8") as stream:
             self.assertEqual(self.store.import_csv(stream)["imported"], 4)
-        self.store.ingest_fixture(ROOT / "examples/vulnerability-fixture.json")
+        self.store.ingest_fixture(ROOT / "tests/fixtures/synthetic_test_vulnerability.json")
 
     def test_csv_import_validation_and_export_round_trip(self) -> None:
         csv_data = "ip_address,asset_type,zone,criticality,identity_confidence\n192.0.2.1,PLC,OT,high,high\n192.0.2.1,PLC,OT,high,high\nnot-an-ip,PLC,OT,high,high\n,PLC,OT,high,high\n192.0.2.2,spaceship,OT,low,low\n"
@@ -57,13 +57,13 @@ class VerticalSliceTests(unittest.TestCase):
         self.assertIn("POTENTIAL_MATCH", statuses)
         self.assertEqual(len(report["asset_identity_reviews"]), 2)
         confirmed = next(item for item in report["findings"] if item["status"] == "CONFIRMED_MATCH")
-        self.assertIn("explicitly listed", " ".join(json.loads(confirmed["evidence"])))
+        self.assertIn("matches source-defined", " ".join(json.loads(confirmed["evidence"])))
         self.assertIn("does not establish compromise", report["known_limitations"][-1])
 
     def test_low_or_unverified_identity_cannot_be_confirmed(self) -> None:
         csv_data = "asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence,verified\nmedium,192.0.2.5,PLC,Example Controls,Demo PLC,1.2.3,OT,high,medium,false\nlow,192.0.2.6,PLC,Example Controls,Demo PLC,1.2.3,OT,high,low,true\n"
         self.store.import_csv(io.StringIO(csv_data))
-        self.store.ingest_fixture(ROOT / "examples/vulnerability-fixture.json")
+        self.store.ingest_fixture(ROOT / "tests/fixtures/synthetic_test_vulnerability.json")
         counts = self.store.correlate()
         self.assertEqual(counts["POTENTIAL_MATCH"], 1)
         self.assertEqual(counts["NEEDS_REVIEW"], 1)
@@ -74,7 +74,7 @@ class VerticalSliceTests(unittest.TestCase):
     def test_recorrelation_removes_findings_after_identity_becomes_unrelated_or_unknown(self) -> None:
         csv_data = "asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence,verified\nasset-a,192.0.2.7,PLC,Example Controls,Demo PLC,1.2.3,OT,high,high,true\n"
         self.store.import_csv(io.StringIO(csv_data))
-        self.store.ingest_fixture(ROOT / "examples/vulnerability-fixture.json")
+        self.store.ingest_fixture(ROOT / "tests/fixtures/synthetic_test_vulnerability.json")
         self.assertEqual(self.store.correlate()["CONFIRMED_MATCH"], 1)
         self.store.connection.execute("UPDATE assets SET product='Unrelated PLC' WHERE asset_id='asset-a'")
         self.store.connection.commit()
@@ -89,7 +89,7 @@ class VerticalSliceTests(unittest.TestCase):
     def test_same_manufacturer_different_product_does_not_match(self) -> None:
         csv_data = "asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence\na,192.0.2.5,PLC,Example Controls,Unrelated Controller,1.2.3,OT,high,high\n"
         self.store.import_csv(io.StringIO(csv_data))
-        self.store.ingest_fixture(ROOT / "examples/vulnerability-fixture.json")
+        self.store.ingest_fixture(ROOT / "tests/fixtures/synthetic_test_vulnerability.json")
         self.assertEqual(self.store.correlate(), {})
         self.assertEqual(self.store.dashboard()["unacknowledged_alerts"], 0)
 
@@ -107,7 +107,7 @@ class VerticalSliceTests(unittest.TestCase):
     def test_fixture_rejects_bad_identifier_and_duplicate_is_upsert(self) -> None:
         with self.assertRaises(ValueError):
             self.store.ingest_fixture({"vulnerabilities": [{"cve_id": "not-a-cve", "summary": "bad"}]})
-        fixture = json.loads((ROOT / "examples/vulnerability-fixture.json").read_text())
+        fixture = json.loads((ROOT / "tests/fixtures/synthetic_test_vulnerability.json").read_text())
         self.store.ingest_fixture(fixture)
         self.store.ingest_fixture(fixture)
         count = self.store.connection.execute("SELECT COUNT(*) FROM vulnerabilities").fetchone()[0]
