@@ -332,20 +332,31 @@ class Store:
         assets = self.assets()
         vulns = [dict(r) for r in self.connection.execute("SELECT * FROM vulnerabilities")]
         for asset in assets:
+            if not asset["vendor"].strip() or not asset["product"].strip():
+                # Incomplete inventory identity is tracked separately; do not fan it out
+                # into one meaningless NEEDS_REVIEW row per CVE.
+                self.connection.execute("DELETE FROM findings WHERE asset_id=?", (asset["asset_id"],))
+                continue
             for vuln in vulns:
                 affected = json.loads(vuln["affected_products"])
                 product_match = next((p for p in affected if _normalized(p["vendor"]) == _normalized(asset["vendor"]) and _normalized(p["product"]) == _normalized(asset["product"])), None)
-                if not asset["vendor"] or not asset["product"]:
-                    status, evidence, missing = "NEEDS_REVIEW", ["Asset product identity is incomplete"], ["vendor", "product"]
-                elif product_match is None:
+                if product_match is None:
                     # Do not create unrelated manufacturer-wide findings.
+                    self.connection.execute("DELETE FROM findings WHERE asset_id=? AND cve_id=?", (asset["asset_id"], vuln["cve_id"]))
                     continue
                 elif product_match.get("conditions_unresolved"):
                     status, evidence, missing = "NEEDS_REVIEW", [f"Exact vendor/product identity appears in source conditions: {product_match['vendor']} {product_match['product']}"], ["source configuration prerequisites are not evaluated by this matcher"]
+                elif asset["identity_confidence"] == "low":
+                    status, evidence, missing = "NEEDS_REVIEW", [f"Candidate product matches source: {product_match['vendor']} {product_match['product']}"], ["asset identity confidence is low; verify vendor and product"]
                 elif not asset["version"]:
-                    status, evidence, missing = "POTENTIAL_MATCH", [f"Exact vendor/product identity matches source: {product_match['vendor']} {product_match['product']}"], ["asset version; source version applicability cannot be evaluated"]
+                    status, evidence = "POTENTIAL_MATCH", [f"Candidate vendor/product identity matches source: {product_match['vendor']} {product_match['product']}"]
+                    missing = ["asset version; source version applicability cannot be evaluated"]
+                    if asset["identity_confidence"] != "high" or not asset["verified"]:
+                        missing.append("asset identity has not been confirmed at high confidence")
                 elif not product_match.get("versions"):
                     status, evidence, missing = "NEEDS_REVIEW", [f"Exact vendor/product identity matches source: {product_match['vendor']} {product_match['product']}"], ["source does not define affected version semantics"]
+                elif asset["identity_confidence"] != "high" or not asset["verified"]:
+                    status, evidence, missing = "POTENTIAL_MATCH", [f"Candidate vendor/product/version matches source: {product_match['vendor']} {product_match['product']} {asset['version']}"], ["asset identity has not been confirmed at high confidence"]
                 elif asset["version"] in product_match["versions"]:
                     status, evidence, missing = "CONFIRMED_MATCH", [f"Exact vendor/product match: {product_match['vendor']} {product_match['product']}", f"Asset version {asset['version']} is explicitly listed by source"], []
                 else:
@@ -373,8 +384,12 @@ class Store:
 
     def dashboard(self) -> dict[str, Any]:
         network_alerts = [dict(r) for r in self.connection.execute("""SELECT a.*,e.event_ref,e.timestamp AS event_timestamp,e.source_ip,e.destination_ip,e.source_file,asset.asset_id AS destination_asset_id,asset.hostname AS destination_hostname FROM network_alerts a JOIN network_events e USING(event_id) LEFT JOIN assets asset ON asset.ip_address=e.destination_ip ORDER BY a.created_at DESC""")]
+        identity_review_assets = [dict(r) for r in self.connection.execute("""SELECT asset_id,ip_address,hostname,asset_type,vendor,product,version,identity_confidence,verified,identification_source
+            FROM assets WHERE TRIM(vendor)='' OR TRIM(product)='' OR identity_confidence!='high' OR verified=0 ORDER BY ip_address,asset_id""")]
         return {
             "assets": self.connection.execute("SELECT COUNT(*) FROM assets").fetchone()[0],
+            "assets_needing_identity_review": len(identity_review_assets),
+            "identity_review_assets": identity_review_assets,
             "confirmed_assets": self.connection.execute("SELECT COUNT(DISTINCT asset_id) FROM findings WHERE status='CONFIRMED_MATCH'").fetchone()[0],
             "potential_assets": self.connection.execute("SELECT COUNT(DISTINCT asset_id) FROM findings WHERE status='POTENTIAL_MATCH'").fetchone()[0],
             "kev_findings": self.connection.execute("SELECT COUNT(*) FROM findings f JOIN vulnerabilities v USING(cve_id) WHERE v.kev=1 AND f.status IN ('CONFIRMED_MATCH','POTENTIAL_MATCH')").fetchone()[0],
@@ -400,7 +415,7 @@ class Store:
             row = dict(item)
             row["references"] = json.loads(row.pop("references_json", "[]"))
             findings.append(row)
-        payload = {"generated_at": utc_now(), "scope": "local inventory and locally stored intelligence", "known_limitations": ["No active scanning or device control is performed.", "Version matching currently uses only exact version strings explicitly supplied by the source.", "A missing match does not establish that an asset is safe.", "A vulnerability finding does not establish compromise."], "findings": findings, "network_alerts": data["network_alerts"]}
+        payload = {"generated_at": utc_now(), "scope": "local inventory and locally stored intelligence", "known_limitations": ["No active scanning or device control is performed.", "Version matching currently uses only exact version strings explicitly supplied by the source.", "Assets with incomplete or unverified identity are listed separately and are not treated as safe or matched to every CVE.", "A missing match does not establish that an asset is safe.", "A vulnerability finding does not establish compromise."], "findings": findings, "asset_identity_reviews": data["identity_review_assets"], "network_alerts": data["network_alerts"]}
         if format == "json":
             return json.dumps(payload, indent=2)
         if format == "csv":
@@ -412,6 +427,9 @@ class Store:
             writer.writeheader()
             for row in rows:
                 writer.writerow({**row, "record_type": "vulnerability_finding", "evidence": "; ".join(json.loads(row["evidence"])), "missing_evidence": "; ".join(json.loads(row["missing_evidence"])), "references": "; ".join(row["references"])})
+            for row in data["identity_review_assets"]:
+                missing = [name for name, value in (("vendor", row["vendor"]), ("product", row["product"]), ("high identity confidence", row["identity_confidence"] == "high"), ("operator verification", row["verified"])) if not value]
+                writer.writerow({**row, "record_type": "asset_identity_review", "status": "NEEDS_REVIEW", "summary": "Asset identity needs review; no CVE applicability conclusion was made.", "missing_evidence": "; ".join(missing)})
             for row in data["network_alerts"]:
                 writer.writerow({"record_type": "network_alert", "severity": row["severity"], "rule_id": row["rule_id"], "alert_id": row["alert_id"], "event_ref": row["event_ref"], "timestamp": row["event_timestamp"], "source_ip": row["source_ip"], "destination_ip": row["destination_ip"], "summary": row["explanation"], "policy_evidence": row["policy_evidence"]})
             return out.getvalue()

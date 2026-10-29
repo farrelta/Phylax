@@ -43,19 +43,48 @@ class VerticalSliceTests(unittest.TestCase):
         counts = self.store.correlate()
         self.assertEqual(counts["CONFIRMED_MATCH"], 1)
         self.assertEqual(counts["POTENTIAL_MATCH"], 1)
-        self.assertEqual(counts["NEEDS_REVIEW"], 1)
+        self.assertNotIn("NEEDS_REVIEW", counts)
         data = self.store.dashboard()
         self.assertEqual(data["confirmed_assets"], 1)
         self.assertEqual(data["potential_assets"], 1)
+        self.assertEqual(data["assets_needing_identity_review"], 2)
+        self.assertIn("workstation-01", {asset["asset_id"] for asset in data["identity_review_assets"]})
         self.assertEqual(data["kev_findings"], 2)
         self.assertEqual(data["unacknowledged_alerts"], 2)
         report = json.loads(self.store.report("json"))
         statuses = {item["status"] for item in report["findings"]}
         self.assertIn("CONFIRMED_MATCH", statuses)
         self.assertIn("POTENTIAL_MATCH", statuses)
+        self.assertEqual(len(report["asset_identity_reviews"]), 2)
         confirmed = next(item for item in report["findings"] if item["status"] == "CONFIRMED_MATCH")
         self.assertIn("explicitly listed", " ".join(json.loads(confirmed["evidence"])))
         self.assertIn("does not establish compromise", report["known_limitations"][-1])
+
+    def test_low_or_unverified_identity_cannot_be_confirmed(self) -> None:
+        csv_data = "asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence,verified\nmedium,192.0.2.5,PLC,Example Controls,Demo PLC,1.2.3,OT,high,medium,false\nlow,192.0.2.6,PLC,Example Controls,Demo PLC,1.2.3,OT,high,low,true\n"
+        self.store.import_csv(io.StringIO(csv_data))
+        self.store.ingest_fixture(ROOT / "examples/vulnerability-fixture.json")
+        counts = self.store.correlate()
+        self.assertEqual(counts["POTENTIAL_MATCH"], 1)
+        self.assertEqual(counts["NEEDS_REVIEW"], 1)
+        self.assertEqual(counts.get("CONFIRMED_MATCH", 0), 0)
+        statuses = {row["asset_id"]: row["status"] for row in self.store.dashboard()["findings"]}
+        self.assertEqual(statuses, {"medium": "POTENTIAL_MATCH", "low": "NEEDS_REVIEW"})
+
+    def test_recorrelation_removes_findings_after_identity_becomes_unrelated_or_unknown(self) -> None:
+        csv_data = "asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence,verified\nasset-a,192.0.2.7,PLC,Example Controls,Demo PLC,1.2.3,OT,high,high,true\n"
+        self.store.import_csv(io.StringIO(csv_data))
+        self.store.ingest_fixture(ROOT / "examples/vulnerability-fixture.json")
+        self.assertEqual(self.store.correlate()["CONFIRMED_MATCH"], 1)
+        self.store.connection.execute("UPDATE assets SET product='Unrelated PLC' WHERE asset_id='asset-a'")
+        self.store.connection.commit()
+        self.assertEqual(self.store.correlate(), {})
+        self.assertEqual(self.store.connection.execute("SELECT COUNT(*) FROM findings").fetchone()[0], 0)
+        self.assertEqual(self.store.connection.execute("SELECT COUNT(*) FROM alerts").fetchone()[0], 0)
+        self.store.connection.execute("UPDATE assets SET product='',vendor='' WHERE asset_id='asset-a'")
+        self.store.connection.commit()
+        self.assertEqual(self.store.correlate(), {})
+        self.assertEqual(self.store.dashboard()["assets_needing_identity_review"], 1)
 
     def test_same_manufacturer_different_product_does_not_match(self) -> None:
         csv_data = "asset_id,ip_address,asset_type,vendor,product,version,zone,criticality,identity_confidence\na,192.0.2.5,PLC,Example Controls,Unrelated Controller,1.2.3,OT,high,high\n"
@@ -73,6 +102,7 @@ class VerticalSliceTests(unittest.TestCase):
         report = self.store.report("csv")
         self.assertIn("status", next(csv.reader(io.StringIO(report))))
         self.assertIn("SYNTHETIC", report)
+        self.assertIn("asset_identity_review", report)
 
     def test_fixture_rejects_bad_identifier_and_duplicate_is_upsert(self) -> None:
         with self.assertRaises(ValueError):
