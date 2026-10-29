@@ -26,7 +26,8 @@ def main() -> None:
     exp = commands.add_parser("export-report", help="Export JSON or CSV findings")
     exp.add_argument("--format", choices=("json", "csv"), default="json")
     exp.add_argument("--output", required=True)
-    commands.add_parser("sync-feeds", help="Synchronize NVD, CISA KEV, and ICS advisory sources")
+    sync = commands.add_parser("sync-feeds", help="Incrementally synchronize NVD, CISA KEV, and ICS advisory sources")
+    sync.add_argument("--backfill-days", type=int, metavar="DAYS", help="Explicitly query a wider NVD last-modified window (1-120 days); normal syncs remain incremental")
     network = commands.add_parser("analyze-zeek", help="Import a Zeek conn.log or Modbus log passively")
     network.add_argument("file")
     network.add_argument("--kind", choices=("conn", "modbus"))
@@ -54,8 +55,10 @@ def main() -> None:
                 timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
                 print(f"[{timestamp}] [{source}] {stage.upper()}: {message}", file=sys.stderr, flush=True)
 
-            report_progress("Phylax", "start", "Syncing NVD recent CVE changes, the full CISA KEV catalog, and CISA ICS advisory RSS. Feed failures are independent; cached records are retained.")
-            results = sync_store(store, progress=report_progress)
+            if args.backfill_days is not None and not 1 <= args.backfill_days <= 120:
+                parser.error("--backfill-days must be between 1 and 120")
+            report_progress("Phylax", "start", "Syncing NVD incremental changes (or a requested backfill window), the full CISA KEV catalog, and CISA ICS advisory RSS. An interrupted NVD window resumes from its saved page; feed failures are independent and cached records are retained.")
+            results = sync_store(store, progress=report_progress, backfill_days=args.backfill_days)
             report_progress("Phylax", "progress", "Re-evaluating local assets against stored vulnerability intelligence.")
             findings = store.correlate()
             succeeded = sum(1 for result in results.values() if result["ok"])

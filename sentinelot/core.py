@@ -72,6 +72,11 @@ class Store:
                 last_attempt_at TEXT DEFAULT '', last_success_at TEXT DEFAULT '',
                 record_count INTEGER NOT NULL DEFAULT 0, message TEXT DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS sync_checkpoints (
+                source TEXT PRIMARY KEY, window_start TEXT NOT NULL, window_end TEXT NOT NULL,
+                next_start_index INTEGER NOT NULL, page_size INTEGER NOT NULL,
+                total_results INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS intelligence_changes (
                 change_id TEXT PRIMARY KEY, cve_id TEXT NOT NULL, source TEXT NOT NULL,
                 change_type TEXT NOT NULL, changed_at TEXT NOT NULL, summary TEXT NOT NULL
@@ -292,6 +297,21 @@ class Store:
     def set_source_health(self, source: str, health: str, *, records: int = 0, message: str = "", attempted_at: str | None = None) -> None:
         attempted_at = attempted_at or utc_now()
         self.connection.execute("""INSERT INTO intelligence_sources(source,health,last_attempt_at,last_success_at,record_count,message) VALUES(?,?,?,?,?,?) ON CONFLICT(source) DO UPDATE SET health=excluded.health,last_attempt_at=excluded.last_attempt_at,last_success_at=CASE WHEN excluded.health='healthy' THEN excluded.last_success_at ELSE intelligence_sources.last_success_at END,record_count=CASE WHEN excluded.health='healthy' THEN excluded.record_count ELSE intelligence_sources.record_count END,message=excluded.message""", (source, health, attempted_at, attempted_at if health == "healthy" else "", records, message[:500]))
+        self.connection.commit()
+
+    def sync_checkpoint(self, source: str) -> dict[str, Any] | None:
+        row = self.connection.execute("SELECT * FROM sync_checkpoints WHERE source=?", (source,)).fetchone()
+        return dict(row) if row else None
+
+    def save_sync_checkpoint(self, source: str, window_start: str, window_end: str, next_start_index: int, page_size: int, total_results: int) -> None:
+        self.connection.execute("""INSERT INTO sync_checkpoints VALUES(?,?,?,?,?,?,?)
+            ON CONFLICT(source) DO UPDATE SET window_start=excluded.window_start,window_end=excluded.window_end,
+            next_start_index=excluded.next_start_index,page_size=excluded.page_size,total_results=excluded.total_results,updated_at=excluded.updated_at""",
+            (source, window_start, window_end, next_start_index, page_size, total_results, utc_now()))
+        self.connection.commit()
+
+    def clear_sync_checkpoint(self, source: str) -> None:
+        self.connection.execute("DELETE FROM sync_checkpoints WHERE source=?", (source,))
         self.connection.commit()
 
     def source_health(self) -> list[dict[str, Any]]:

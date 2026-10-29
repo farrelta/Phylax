@@ -90,6 +90,45 @@ class FeedTests(unittest.TestCase):
             self.assertGreaterEqual(len(store.dashboard()["recent_intelligence"]), 1)
             store.close()
 
+    def test_nvd_sync_saves_pages_and_resumes_from_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            store = Store(Path(temp) / "resume.sqlite")
+            offsets = []
+            def fetcher(url: str) -> bytes:
+                if url.startswith("https://services.nvd.nist.gov"):
+                    offset = int(url.split("startIndex=")[1].split("&")[0])
+                    offsets.append(offset)
+                    row = {"cve": {**NVD_ROW["cve"], "id": f"CVE-2024-{12345 + offset}"}}
+                    return json.dumps({"vulnerabilities": [row] if offset < 2 else [], "totalResults": 2}).encode()
+                if url == KEV_URL:
+                    return b'{"vulnerabilities": []}'
+                if url == ICS_RSS_URL:
+                    return b"<rss><channel></channel></rss>"
+                self.fail(f"Unexpected URL: {url}")
+
+            def interrupt_after_page(source: str, stage: str, message: str) -> None:
+                if source == "NVD API 2.0" and stage == "progress":
+                    raise RuntimeError("simulated interruption after committed page")
+
+            failed = sync_store(store, fetcher=fetcher, progress=interrupt_after_page, nvd_page_size=1)
+            self.assertFalse(failed["NVD API 2.0"]["ok"])
+            checkpoint = store.sync_checkpoint("NVD API 2.0")
+            self.assertIsNotNone(checkpoint)
+            self.assertEqual(checkpoint["next_start_index"], 1)
+            first_start = checkpoint["window_start"]
+            first_end = checkpoint["window_end"]
+            self.assertEqual(store.connection.execute("SELECT COUNT(*) FROM vulnerabilities").fetchone()[0], 1)
+
+            resumed = sync_store(store, fetcher=fetcher, nvd_page_size=1)
+            self.assertTrue(resumed["NVD API 2.0"]["ok"])
+            self.assertEqual(offsets, [0, 1])
+            self.assertIsNone(store.sync_checkpoint("NVD API 2.0"))
+            self.assertEqual(store.connection.execute("SELECT COUNT(*) FROM vulnerabilities").fetchone()[0], 2)
+            success = store.connection.execute("SELECT last_success_at FROM intelligence_sources WHERE source='NVD API 2.0'").fetchone()[0]
+            self.assertEqual(success, first_end)
+            self.assertEqual(first_start, checkpoint["window_start"])
+            store.close()
+
     def test_source_health_marks_old_success_stale_without_erasing_timestamp(self) -> None:
         from datetime import datetime, timedelta, timezone
         with tempfile.TemporaryDirectory() as temp:

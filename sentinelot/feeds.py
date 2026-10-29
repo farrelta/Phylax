@@ -155,14 +155,16 @@ def normalize_ics_rss(xml_body: bytes, retrieved_at: str) -> list[dict[str, str]
     return records
 
 
-def nvd_pages(*, since: datetime | None = None, page_size: int = 2000, api_key: str | None = None, fetcher: Callable[[str], bytes] = fetch, now: datetime | None = None, on_page: Callable[[int, int, int], None] | None = None):
-    """Yield normalized CVEs, paging the official API and respecting its 120-day window."""
+def nvd_pages(*, since: datetime | None = None, until: datetime | None = None, page_size: int = 2000, start_index: int = 0, api_key: str | None = None, fetcher: Callable[[str], bytes] = fetch, now: datetime | None = None, on_page: Callable[[int, int, int], None] | None = None, on_batch: Callable[[int, int, int, list[dict[str, Any]]], None] | None = None):
+    """Yield normalized CVEs; callbacks expose page batches for durable resumable ingestion."""
     now = now or datetime.now(timezone.utc)
-    end = now.astimezone(timezone.utc)
+    end = (until or now).astimezone(timezone.utc)
     start = since.astimezone(timezone.utc) if since else end - timedelta(days=30)
     if (end - start).days > 120:
         raise ValueError("NVD last-modified window cannot exceed 120 days")
-    start_index = 0
+    if start_index < 0 or page_size < 1:
+        raise ValueError("NVD page offset and page size must be positive")
+    start_index = int(start_index)
     retrieved_at = end.isoformat().replace("+00:00", "Z")
     while True:
         params = {"lastModStartDate": start.isoformat(timespec="milliseconds").replace("+00:00", "Z"), "lastModEndDate": end.isoformat(timespec="milliseconds").replace("+00:00", "Z"), "resultsPerPage": str(min(2000, max(1, page_size))), "startIndex": str(start_index)}
@@ -176,10 +178,15 @@ def nvd_pages(*, since: datetime | None = None, page_size: int = 2000, api_key: 
         payload = json.loads(body)
         rows = payload.get("vulnerabilities", [])
         total = int(payload.get("totalResults", len(rows)))
+        page_number = start_index // min(2000, max(1, page_size)) + 1
+        records = [normalize_nvd(row, retrieved_at) for row in rows]
+        if on_batch:
+            on_batch(page_number, total, start_index + len(rows), records)
         if on_page:
-            on_page(start_index // min(2000, max(1, page_size)) + 1, total, len(rows))
-        for row in rows:
-            yield normalize_nvd(row, retrieved_at)
+            on_page(page_number, total, len(rows))
+        yield from records
+        if not rows and start_index < total:
+            raise RuntimeError(f"NVD returned an empty page at offset {start_index} of {total}; keeping the sync checkpoint")
         start_index += len(rows)
         if not rows or start_index >= total:
             break
@@ -220,7 +227,7 @@ def collect_live(fetcher: Callable[[str], bytes] = fetch, *, nvd_since: datetime
     return {"retrieved_at": timestamp, "nvd": nvd, "kev": kev, "ics_advisories": rss}
 
 
-def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: str | None = None, progress: Callable[[str, str, str], None] | None = None) -> dict[str, Any]:
+def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: str | None = None, progress: Callable[[str, str, str], None] | None = None, backfill_days: int | None = None, nvd_page_size: int = 2000) -> dict[str, Any]:
     """Synchronize each source independently and preserve source health on failure."""
     def log(source: str, stage: str, message: str) -> None:
         if progress:
@@ -228,24 +235,45 @@ def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: 
 
     now = datetime.now(timezone.utc)
     results: dict[str, Any] = {}
+    checkpoint = store.sync_checkpoint("NVD API 2.0")
     row = store.connection.execute("SELECT last_success_at FROM intelligence_sources WHERE source='NVD API 2.0'").fetchone()
-    if row and row["last_success_at"]:
-        try:
-            since = datetime.fromisoformat(row["last_success_at"].replace("Z", "+00:00")) - timedelta(days=1)
-            since = max(since, now - timedelta(days=120))
-        except ValueError:
-            since = now - timedelta(days=30)
+    if checkpoint:
+        since = datetime.fromisoformat(checkpoint["window_start"].replace("Z", "+00:00"))
+        until = datetime.fromisoformat(checkpoint["window_end"].replace("Z", "+00:00"))
+        next_index = int(checkpoint["next_start_index"])
+        page_size = int(checkpoint["page_size"])
+        resume_message = f"Resuming saved NVD window from page {next_index // page_size + 1} (offset {next_index})."
     else:
-        since = now - timedelta(days=30)
+        if backfill_days is not None:
+            if not 1 <= backfill_days <= 120:
+                raise ValueError("NVD backfill days must be between 1 and 120")
+            since = now - timedelta(days=backfill_days)
+        elif row and row["last_success_at"]:
+            try:
+                since = datetime.fromisoformat(row["last_success_at"].replace("Z", "+00:00")) - timedelta(days=1)
+            except ValueError:
+                since = now - timedelta(days=1)
+        else:
+            since = now - timedelta(days=1)
+        since = max(since, now - timedelta(days=120))
+        until = now
+        next_index = 0
+        page_size = min(2000, max(1, nvd_page_size))
+        resume_message = f"Fetching CVEs modified since {since.date()} (incremental window)."
     try:
-        log("NVD API 2.0", "start", f"Fetching CVEs modified since {since.date()} (incremental window).")
-        def nvd_progress(page: int, total: int, count: int) -> None:
-            log("NVD API 2.0", "progress", f"Fetched page {page}; {count} records on this page, {total} total in the query window.")
-        nvd_records = list(nvd_pages(since=since, api_key=api_key or os.environ.get("NVD_API_KEY"), fetcher=fetcher, on_page=nvd_progress))
-        saved = store.ingest_normalized(nvd_records)
-        store.set_source_health("NVD API 2.0", "healthy", records=saved, message=f"Retrieved {len(nvd_records)} CVE records since {since.date()}.")
+        log("NVD API 2.0", "start", resume_message)
+        saved = 0
+        def persist_batch(page: int, total: int, next_offset: int, records: list[dict[str, Any]]) -> None:
+            nonlocal saved
+            saved += store.ingest_normalized(records)
+            store.save_sync_checkpoint("NVD API 2.0", since.isoformat().replace("+00:00", "Z"), until.isoformat().replace("+00:00", "Z"), next_offset, page_size, total)
+            log("NVD API 2.0", "progress", f"Saved page {page}; {len(records)} records on this page, {next_offset}/{total} fetched in this window.")
+        for _record in nvd_pages(since=since, until=until, page_size=page_size, start_index=next_index, api_key=api_key or os.environ.get("NVD_API_KEY"), fetcher=fetcher, on_batch=persist_batch):
+            pass
+        store.set_source_health("NVD API 2.0", "healthy", records=saved, message=f"Retrieved {saved} CVE records since {since.date()}.", attempted_at=until.isoformat().replace("+00:00", "Z"))
+        store.clear_sync_checkpoint("NVD API 2.0")
         results["NVD API 2.0"] = {"ok": True, "records": saved}
-        log("NVD API 2.0", "done", f"Stored {saved} records ({len(nvd_records)} returned).")
+        log("NVD API 2.0", "done", f"Stored {saved} CVE records for the {since.date()} to {until.date()} window.")
     except Exception as exc:
         store.set_source_health("NVD API 2.0", "unavailable", message=f"{type(exc).__name__}: {exc}")
         results["NVD API 2.0"] = {"ok": False, "error": str(exc)}
