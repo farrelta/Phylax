@@ -11,6 +11,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
+from .adapters import IntelligenceAdapter, KEVAdapter, ICSAdapter
+from .identifiers import cpe_parts as _cpe_parts, cpe_components as _cpe_components
 
 
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -60,26 +62,6 @@ def _cvss(cve: dict[str, Any]) -> tuple[str, float | None]:
     return "", None
 
 
-def _cpe_components(criteria: str) -> tuple[str, str, str]:
-    """Decode only the vendor, product and version slots of a CPE 2.3 name."""
-    parts: list[str] = []
-    current = ""
-    escaped = False
-    for character in criteria:
-        if escaped:
-            current += character
-            escaped = False
-        elif character == "\\":
-            escaped = True
-        elif character == ":":
-            parts.append(current)
-            current = ""
-        else:
-            current += character
-    parts.append(current)
-    if len(parts) < 6 or parts[0] != "cpe" or parts[1] != "2.3":
-        return "", "", ""
-    return parts[3], parts[4], parts[5]
 
 
 def normalize_nvd(vulnerability: dict[str, Any], retrieved_at: str) -> dict[str, Any]:
@@ -96,11 +78,19 @@ def normalize_nvd(vulnerability: dict[str, Any], retrieved_at: str) -> dict[str,
             if match.get("vulnerable") is not True:
                 unresolved_conditions = True
                 continue
-            vendor, product, version = _cpe_components(str(match.get("criteria", "")))
+            criteria = str(match.get("criteria", ""))
+            parts = _cpe_parts(criteria)
+            vendor, product, version = _cpe_components(criteria)
             if not vendor or not product or vendor in {"*", "-"} or product in {"*", "-"}:
                 continue
             key = (vendor, product)
-            entry = products.setdefault(key, {"versions": set(), "version_ranges": [], "version_semantics_unknown": False})
+            entry = products.setdefault(key, {"versions": set(), "version_ranges": [], "version_semantics_unknown": False, "cpe_names": [], "unsupported_constraints": []})
+            entry["cpe_names"].append(criteria)
+            for name, value in zip(("update", "edition", "language", "sw_edition", "target_sw", "target_hw", "other"), parts[6:]):
+                if value != "*":
+                    entry["unsupported_constraints"].append(f"{name}={value}")
+            if any(ch in version for ch in ("*", "?")) and version != "*":
+                entry["version_semantics_unknown"] = True
             version_range = {
                 "start_including": str(match.get("versionStartIncluding") or ""),
                 "start_excluding": str(match.get("versionStartExcluding") or ""),
@@ -119,7 +109,7 @@ def normalize_nvd(vulnerability: dict[str, Any], retrieved_at: str) -> dict[str,
 
     for config in cve.get("configurations", []):
         visit(config)
-    affected = [{"vendor": vendor, "product": product, "versions": sorted(entry["versions"]), "version_ranges": entry["version_ranges"], "version_semantics_unknown": entry["version_semantics_unknown"], "conditions_unresolved": unresolved_conditions} for (vendor, product), entry in products.items()]
+    affected = [{"vendor": vendor, "product": product, "versions": sorted(entry["versions"]), "version_ranges": entry["version_ranges"], "version_semantics_unknown": entry["version_semantics_unknown"], "conditions_unresolved": unresolved_conditions or bool(entry["unsupported_constraints"]), "cpe_names": list(dict.fromkeys(entry["cpe_names"])), "unsupported_constraints": sorted(set(entry["unsupported_constraints"]))} for (vendor, product), entry in products.items()]
     references = [item.get("url", "") for item in cve.get("references", []) if item.get("url")]
     return {
         "cve_id": cve.get("id", ""), "summary": _first_description(cve.get("descriptions", [])),
@@ -132,7 +122,11 @@ def normalize_nvd(vulnerability: dict[str, Any], retrieved_at: str) -> dict[str,
 
 def normalize_kev(catalog: dict[str, Any]) -> list[dict[str, Any]]:
     result = []
-    for item in catalog.get("vulnerabilities", []):
+    if not isinstance(catalog, dict) or not isinstance(catalog.get("vulnerabilities"), list):
+        raise ValueError("KEV response must contain a vulnerabilities array")
+    for item in catalog["vulnerabilities"]:
+        if not isinstance(item, dict):
+            raise ValueError("KEV catalog entries must be objects")
         cve = str(item.get("cveID", "")).upper()
         if not cve:
             continue
@@ -156,6 +150,8 @@ def normalize_kev(catalog: dict[str, Any]) -> list[dict[str, Any]]:
 def normalize_ics_rss(xml_body: bytes, retrieved_at: str) -> list[dict[str, str]]:
     """Preserve structured feed entries, without inventing affected version data."""
     root = ET.fromstring(xml_body)
+    if root.tag not in {"rss", "RDF", "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF"}:
+        raise ValueError("Expected an ICS RSS feed")
     records = []
     for item in root.findall(".//item"):
         get = lambda tag: (item.findtext(tag) or "").strip()
@@ -184,8 +180,11 @@ def nvd_pages(*, since: datetime | None = None, until: datetime | None = None, p
         else:
             body = fetcher(url)
         payload = json.loads(body)
-        rows = payload.get("vulnerabilities", [])
-        total = int(payload.get("totalResults", len(rows)))
+        if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list) or "totalResults" not in payload:
+            raise ValueError("NVD response is missing vulnerabilities/totalResults")
+        rows = payload["vulnerabilities"]
+        total = int(payload["totalResults"])
+        if total < 0:raise ValueError("NVD totalResults must not be negative")
         page_number = start_index // min(2000, max(1, page_size)) + 1
         records = [normalize_nvd(row, retrieved_at) for row in rows]
         if on_batch:
@@ -235,7 +234,7 @@ def collect_live(fetcher: Callable[[str], bytes] = fetch, *, nvd_since: datetime
     return {"retrieved_at": timestamp, "nvd": nvd, "kev": kev, "ics_advisories": rss}
 
 
-def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: str | None = None, progress: Callable[[str, str, str], None] | None = None, backfill_days: int | None = None, nvd_page_size: int = 2000) -> dict[str, Any]:
+def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: str | None = None, progress: Callable[[str, str, str], None] | None = None, backfill_days: int | None = None, nvd_page_size: int = 2000, additional_adapters: tuple[IntelligenceAdapter, ...] = ()) -> dict[str, Any]:
     """Synchronize each source independently and preserve source health on failure."""
     def log(source: str, stage: str, message: str) -> None:
         if progress:
@@ -273,7 +272,7 @@ def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: 
         saved = 0
         def persist_batch(page: int, total: int, next_offset: int, records: list[dict[str, Any]]) -> None:
             nonlocal saved
-            saved += store.ingest_normalized(records)
+            saved += store.ingest_normalized(records, trusted_public=True)
             store.save_sync_checkpoint("NVD API 2.0", since.isoformat().replace("+00:00", "Z"), until.isoformat().replace("+00:00", "Z"), next_offset, page_size, total)
             log("NVD API 2.0", "progress", f"Saved page {page}; {len(records)} records on this page, {next_offset}/{total} fetched in this window.")
         for _record in nvd_pages(since=since, until=until, page_size=page_size, start_index=next_index, api_key=api_key or os.environ.get("NVD_API_KEY"), fetcher=fetcher, on_batch=persist_batch):
@@ -286,31 +285,36 @@ def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: 
         store.set_source_health("NVD API 2.0", "unavailable", message=f"{type(exc).__name__}: {exc}")
         results["NVD API 2.0"] = {"ok": False, "error": str(exc)}
         log("NVD API 2.0", "error", f"Failed: {type(exc).__name__}: {exc}")
-    try:
-        log("CISA KEV", "start", "Downloading and parsing the Known Exploited Vulnerabilities catalog.")
-        kev_data = json.loads(fetcher(KEV_URL))
-        kev_records = normalize_kev(kev_data)
-        retrieved = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-        for record in kev_records:
-            record["retrieved_at"] = retrieved
-        saved = store.ingest_normalized(kev_records)
-        store.set_source_health("CISA KEV", "healthy", records=saved, message=f"Retrieved {len(kev_records)} catalog records.")
-        results["CISA KEV"] = {"ok": True, "records": saved}
-        log("CISA KEV", "done", f"Stored/updated {saved} catalog records ({len(kev_records)} returned).")
-    except Exception as exc:
-        store.set_source_health("CISA KEV", "unavailable", message=f"{type(exc).__name__}: {exc}")
-        results["CISA KEV"] = {"ok": False, "error": str(exc)}
-        log("CISA KEV", "error", f"Failed: {type(exc).__name__}: {exc}")
-    try:
-        log("CISA ICS advisories RSS", "start", "Downloading and parsing the CISA ICS advisory feed.")
-        timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-        advisories = normalize_ics_rss(fetcher(ICS_RSS_URL), timestamp)
-        saved = store.save_ics_advisories(advisories)
-        store.set_source_health("CISA ICS advisories RSS", "healthy", records=saved, message=f"Retrieved {len(advisories)} advisory entries. Product/version applicability is not inferred from RSS text.")
-        results["CISA ICS advisories RSS"] = {"ok": True, "records": saved}
-        log("CISA ICS advisories RSS", "done", f"Stored/updated {saved} advisory entries; RSS does not provide evaluated product/version ranges.")
-    except Exception as exc:
-        store.set_source_health("CISA ICS advisories RSS", "unavailable", message=f"{type(exc).__name__}: {exc}")
-        results["CISA ICS advisories RSS"] = {"ok": False, "error": str(exc)}
-        log("CISA ICS advisories RSS", "error", f"Failed: {type(exc).__name__}: {exc}")
+    for adapter in (KEVAdapter(),ICSAdapter(),*additional_adapters):
+        try:
+            log(adapter.name,'start','Retrieving structured public intelligence.')
+            timestamp=datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
+            batch=adapter.collect(fetcher,timestamp)
+            saved=store.ingest_normalized(batch.vulnerabilities,trusted_public=adapter.trusted_public) if batch.vulnerabilities else 0
+            if batch.advisories:saved+=store.save_ics_advisories(batch.advisories)
+            message=f'Retrieved {saved} records. Advisory-only entries do not imply version applicability.'
+            store.set_source_health(adapter.name,'healthy',records=saved,message=message)
+            results[adapter.name]={'ok':True,'records':saved}
+            log(adapter.name,'done',message)
+        except Exception as exc:
+            store.set_source_health(adapter.name,'unavailable',message=f'{type(exc).__name__}: {exc}')
+            results[adapter.name]={'ok':False,'error':str(exc)}
+            log(adapter.name,'error',f'Failed: {type(exc).__name__}: {exc}')
     return results
+
+
+def refresh_cve(store: Any, cve_id: str, *, fetcher: Callable[[str],bytes] = fetch) -> int:
+    """Refresh one public record without uploading any asset or local context."""
+    import re
+    if not re.fullmatch(r'CVE-\d{4}-\d{4,}',cve_id.upper()):raise ValueError('Invalid CVE identifier')
+    url=NVD_URL+'?'+urllib.parse.urlencode({'cveId':cve_id.upper()})
+    if fetcher is fetch and os.environ.get('NVD_API_KEY'):
+        body=fetch_request(urllib.request.Request(url,headers={'apiKey':os.environ['NVD_API_KEY'],'User-Agent':'Phylax/0.1'}))
+    else:body=fetcher(url)
+    payload=json.loads(body)
+    if not isinstance(payload,dict) or not isinstance(payload.get('vulnerabilities'),list) or len(payload['vulnerabilities'])!=1:
+        raise ValueError('NVD did not return exactly one public CVE record')
+    timestamp=datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
+    record=normalize_nvd(payload['vulnerabilities'][0],timestamp)
+    if record['cve_id']!=cve_id.upper():raise ValueError('NVD returned a different CVE identifier')
+    return store.ingest_normalized([record],trusted_public=True)

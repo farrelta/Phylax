@@ -34,6 +34,13 @@ def prepare(source_path: Path, output_path: Path, cve_id: str = DEFAULT_CVE) -> 
         if row is None:
             raise ValueError(f"{cve_id} is not in {source_path}; sync or import public intelligence first")
         record = dict(row)
+        provenance=source.vulnerability_provenance(cve_id.upper())
+        trusted=next((p for p in provenance if p['source']=='NVD API 2.0' and p['public_trusted']),None)
+        if trusted is None:
+            raise ValueError(f'Refresh public evidence first: python3 -m phylax --db {source_path} refresh-cve {cve_id}')
+        record=dict(trusted['record'])
+        record['affected_products']=json.dumps(record['affected_products'])
+        record['references_json']=json.dumps(record.get('references',[]))
     finally:
         source.close()
 
@@ -75,14 +82,14 @@ def prepare(source_path: Path, output_path: Path, cve_id: str = DEFAULT_CVE) -> 
                     "references": json.loads(record["references_json"]),
                     "synthetic": False,
                 }
-            ]
+            ], trusted_public=True
         )
         counts = test.correlate()
         finding = test.connection.execute(
             "SELECT finding_id,status FROM findings WHERE cve_id=?", (cve_id.upper(),)
         ).fetchone()
-        if not finding or finding["status"] != "CONFIRMED_MATCH":
-            raise RuntimeError(f"Test finding did not reach CONFIRMED_MATCH: {dict(finding) if finding else counts}")
+        if not finding or finding["status"] not in {"CONFIRMED_MATCH", "POTENTIAL_MATCH", "NEEDS_REVIEW"}:
+            raise RuntimeError(f"Test finding has no supported candidate applicability: {dict(finding) if finding else counts}")
         test.connection.commit()
         return {"cve_id": cve_id.upper(), "status": finding["status"], "finding_id": finding["finding_id"], "counts": counts}
     finally:

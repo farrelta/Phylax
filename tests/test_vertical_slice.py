@@ -57,7 +57,7 @@ class VerticalSliceTests(unittest.TestCase):
         self.assertIn("POTENTIAL_MATCH", statuses)
         self.assertEqual(len(report["asset_identity_reviews"]), 2)
         confirmed = next(item for item in report["findings"] if item["status"] == "CONFIRMED_MATCH")
-        self.assertIn("matches source-defined", " ".join(json.loads(confirmed["evidence"])))
+        self.assertIn("matches source-defined", " ".join(confirmed["evidence"]))
         self.assertIn("does not establish compromise", report["known_limitations"][-1])
 
     def test_low_or_unverified_identity_cannot_be_confirmed(self) -> None:

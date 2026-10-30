@@ -31,7 +31,7 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(result["cve_id"], "CVE-2024-12345")
         self.assertEqual(result["severity"], "HIGH")
         self.assertEqual(result["cvss"], 8.1)
-        self.assertEqual(result["affected_products"], [{"vendor": "example_controls", "product": "demo_plc", "versions": ["1.2.3"], "version_ranges": [{"start_including": "", "start_excluding": "", "end_including": "", "end_excluding": "2.0"}], "version_semantics_unknown": False, "conditions_unresolved": False}])
+        self.assertEqual([{k:v for k,v in p.items() if k not in {"cpe_names","unsupported_constraints"}} for p in result["affected_products"]], [{"vendor": "example_controls", "product": "demo_plc", "versions": ["1.2.3"], "version_ranges": [{"start_including": "", "start_excluding": "", "end_including": "", "end_excluding": "2.0"}], "version_semantics_unknown": False, "conditions_unresolved": False}])
         self.assertEqual(result["source_url"], "https://vendor.example/advisory")
         self.assertEqual(result["references"], ["https://vendor.example/advisory"])
 

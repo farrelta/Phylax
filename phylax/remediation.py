@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from .ai import AIConfig, generate_guidance
+from .prioritization import prioritize
 
 
 class RemediationProvider(Protocol):
@@ -23,7 +24,9 @@ class HostedModelProvider:
         self.name = f"{config.provider}-public-data-only"
 
     def generate(self, public_record: dict[str, Any]) -> dict[str, Any]:
-        return generate_guidance(public_record, self.config)
+        result = generate_guidance(public_record, self.config)
+        self.model = result["model"]
+        return result
 
 
 class TemplateFallbackProvider:
@@ -41,7 +44,7 @@ def template_guidance(finding: dict[str, Any]) -> dict[str, Any]:
     mitigation = str(finding.get("mitigation") or "").strip()
     if mitigation:
         preferred = mitigation
-        source_status = "source-provided; verify applicability with the vendor"
+        source_status = "source-provided mitigation; vendor authorship and fix are unverified"
     else:
         preferred = "No verified vendor fix or mitigation is stored. Review the official vendor advisory and request vendor guidance."
         source_status = "none available"
@@ -59,14 +62,9 @@ def template_guidance(finding: dict[str, Any]) -> dict[str, Any]:
     ]
     if finding.get("status") not in {"CONFIRMED_MATCH", "POTENTIAL_MATCH"}:
         steps.insert(0, "Resolve applicability evidence with the asset owner; this finding is not a confirmed exposure.")
-    severity_points = {"critical": 3, "high": 2, "medium": 1}.get(str(finding.get("severity") or "").casefold(), 0)
-    criticality_points = {"critical": 3, "high": 2, "medium": 1}.get(str(finding.get("criticality") or "").casefold(), 0)
-    kev_points = 3 if finding.get("kev") else 0
-    match_points = 2 if finding.get("status") == "CONFIRMED_MATCH" else 0
-    priority_factors = [f"KEV membership: +{kev_points}", f"Source severity {finding.get('severity') or 'unknown'}: +{severity_points}", f"Asset criticality {finding.get('criticality') or 'unknown'}: +{criticality_points}", f"Confirmed applicability: +{match_points}"]
-    if finding.get("status") not in {"CONFIRMED_MATCH", "POTENTIAL_MATCH"}:
-        priority_factors.append("Applicability is not confirmed or potential; urgency is not applicable")
-    priority_factors.append("Observed exposure and network zone are displayed separately and are not inputs to the current priority rule")
+    assessment = prioritize(finding,finding,finding.get('status','NEEDS_REVIEW'))
+    priority_factors = [f"{f['input']}: {f['value']} (+{f['points']})" for f in assessment['factors']]
+    priority_factors.extend(assessment['uncertainty'])
     return {
         "finding_summary": f"{finding.get('cve_id', 'Finding')} · {finding.get('status', 'Unknown applicability')}: {finding.get('summary', '')}",
         "evidence": list(finding.get("evidence", [])),
@@ -98,7 +96,12 @@ def compose_plan(finding: dict[str, Any], public_record: dict[str, Any], hosted_
         plan["ai_summary"] = guidance["summary"]
         plan["ai_steps"] = guidance["steps"]
         plan["ai_validation"] = guidance["validation"]
+        plan["ai_source_references"] = list(guidance["source_urls"])
+        plan["requested_model"] = hosted_guidance.get("requested_model",hosted_guidance["model"])
+        plan["returned_model"] = hosted_guidance["model"]
         plan["source_references"] = list(dict.fromkeys(plan["source_references"] + hosted_guidance["source_urls"]))
+    if public_record.get("cisa_required_action"):
+        plan["cisa_required_action"] = public_record["cisa_required_action"]
     if not public_record.get("mitigation"):
         plan["preferred_remediation"] = "No verified vendor remediation is present in stored source data; request vendor guidance and manually review before planning a change."
         plan["vendor_guidance_status"] = "none available"

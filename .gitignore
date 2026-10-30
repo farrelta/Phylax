@@ -4,3 +4,6 @@ data/
 .env
 .venv/
 report.json
+.agents/
+docs/
+skills-lock.json

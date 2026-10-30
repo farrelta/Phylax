@@ -102,7 +102,7 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         def fail(*_args, **_kwargs):
             raise urllib.error.HTTPError("https://ai.example", 400, "Bad Request", {}, io.BytesIO(b'{"error":{"message":"Model is unavailable for this API key"}}'))
         with self.assertRaisesRegex(RuntimeError, "Model is unavailable for this API key"):
-            generate_guidance(record, AIConfig("https://ai.example/v1", "m", "k"), opener=fail)
+            generate_guidance(record, AIConfig("https://ai.example/v1", "m", "test-api-token"), opener=fail)
 
     def test_ai_disabled_without_all_environment_settings(self) -> None:
         with patch.dict(os.environ, {}, clear=True), patch("builtins.open", side_effect=FileNotFoundError):
