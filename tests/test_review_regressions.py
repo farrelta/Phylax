@@ -135,6 +135,48 @@ class PolicyRegressionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 list(parse_zeek(io.StringIO(json.dumps({'ts':'2026-10-31T00:00:00Z','operation':value})+'\n'),kind='modbus'))
 
+    def test_zeek_pdu_responses_do_not_repeat_write_alerts(self):
+        from phylax.monitoring import evaluate, normalize_row
+        policy={'authorized_writers':{'192.0.2.10':[]},'maintenance_windows_utc':[]}
+        # Shape observed from the installed Zeek 9.0.1 analyzer. Endpoint fields
+        # retain connection originator/responder order even on a response PDU.
+        row={'ts':1793246400.003,'uid':'synthetic-zeek-transaction',
+             'id.orig_h':'192.0.2.99','id.orig_p':40000,
+             'id.resp_h':'192.0.2.10','id.resp_p':502,
+             'func':'WRITE_SINGLE_REGISTER','tid':1,'unit':1,'pdu_type':'REQ'}
+        request=normalize_row(row,kind='modbus')
+        detections,notes=evaluate(request,policy)
+        self.assertEqual({d.rule_id for d in detections},
+                         {'unauthorized_modbus_writer','write_outside_maintenance_window'})
+        self.assertFalse(notes)
+        for field,value in (('pdu_type','RESP'),('request_response','response'),
+                            ('network_direction','responder')):
+            with self.subTest(field=field):
+                response=normalize_row({**row,field:value},kind='modbus')
+                self.assertEqual(evaluate(response,policy),([],[]))
+
+    def test_actual_zeek_log_shape_read_write_replay_and_reports(self):
+        from phylax.monitoring import ingest_file
+        from scripts.generate_passive_demo import generate
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);generate(root/'captures');s=Store(root/'db')
+            policy=json.loads((root/'captures/policy.json').read_text())
+            fixtures=Path(__file__).parent/'fixtures'
+            for capture,expected in (('benign-read',0),('unauthorized-write',3)):
+                for kind in ('conn','modbus'):
+                    ingest_file(s,fixtures/f'synthetic_zeek9_{capture}_{kind}.log',kind=kind,policy=policy)
+                self.assertEqual(len(s.dashboard()['network_alerts']),expected)
+            self.assertEqual(s.connection.execute('SELECT COUNT(*) FROM network_events').fetchone()[0],6)
+            for kind in ('conn','modbus'):
+                result=ingest_file(s,fixtures/f'synthetic_zeek9_unauthorized-write_{kind}.log',kind=kind,policy=policy)
+                self.assertEqual(result['events_inserted'],0)
+                self.assertEqual(result['alerts_created'],0)
+            report=json.loads(s.report('json'))
+            self.assertEqual(len(report['network_alerts']),3)
+            self.assertEqual({a['rule_id'] for a in report['network_alerts']},
+                             {'unexpected_communication','unauthorized_modbus_writer','write_outside_maintenance_window'})
+            s.close()
+
 
 class AIConfigurationRegressionTests(unittest.TestCase):
     def test_timeout_is_read_from_dotenv(self):

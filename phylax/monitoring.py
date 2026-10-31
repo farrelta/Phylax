@@ -241,8 +241,8 @@ def evaluate(event: NetworkEvent, policy: dict[str, Any]) -> tuple[list[Detectio
                 evidence = {"expected_communications": matching_rules, "observed": {"source_ip": event.source_ip, "destination_ip": event.destination_ip, "protocol": event.protocol, "destination_port": event.destination_port}}
                 detections.append(Detection("unexpected_communication", "medium", f"Observed communication to protected asset {event.destination_ip} is not permitted by the configured communication policy.", evidence))
     if event.event_type == "modbus":
-        direction = _clean((event.raw or {}).get("request_response") or (event.raw or {}).get("network_direction")).casefold()
-        if direction in {"response", "reply", "responder"}:
+        direction = _clean((event.raw or {}).get("request_response") or (event.raw or {}).get("network_direction") or (event.raw or {}).get("pdu_type")).casefold()
+        if direction in {"response", "reply", "responder", "resp"}:
             return detections, diagnostics
         write = is_modbus_write(event)
         if write is None:

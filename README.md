@@ -75,7 +75,7 @@ python3 -m phylax --db data/phylax.db analyze-zeek /path/to/modbus.log --kind mo
 python3 -m phylax --db data/phylax.db apply-policy /path/to/policy.json
 ```
 
-JSON Lines and standard Zeek TSV are streamed with a 500 MB CLI log limit; web uploads have a 5 MB cap. Zeek connection service labels alone are not decoded Modbus operations. Supported ICSNPP fields include `source_h`, `source_p`, `destination_h`, `destination_p`, `func`, and `request_response`. Explicit response records are retained but excluded from writer/maintenance detections. Numeric write functions 5, 6, 15, 16, 21, 22, and 23 and their supported names are recognized; other OT protocols and unsupported operations are not claimed as covered.
+JSON Lines and standard Zeek TSV are streamed with a 500 MB CLI log limit; web uploads have a 5 MB cap. Zeek connection service labels alone are not decoded Modbus operations. Supported ICSNPP fields include `source_h`, `source_p`, `destination_h`, `destination_p`, `func`, and `request_response`. Zeek's built-in Modbus `pdu_type=RESP` and explicit ICSNPP response records are retained but excluded from writer/maintenance detections. Numeric write functions 5, 6, 15, 16, 21, 22, and 23 and their supported names are recognized; other OT protocols and unsupported operations are not claimed as covered.
 
 Rules evaluate unauthorized writers, communications that violate a protected-destination allowlist, and writes outside configured maintenance restrictions. Policies use `protected_assets`, `allowed_communications`, `authorized_writers`, and `maintenance_windows_utc`. Times are UTC `HH:MM`; days are Monday 0 through Sunday 6. Overnight windows belong to their start day, and end times are exclusive. Equal start/end is empty. Omitting a policy section leaves that rule unconfigured; an explicit empty maintenance-window array means no approved write period.
 
@@ -102,7 +102,28 @@ python3 -m phylax --db data/passive-demo.db analyze-pcap data/passive-demo/synth
 python3 -m phylax --db data/passive-demo.db analyze-pcap data/passive-demo/synthetic-unauthorized-write.pcap --docker-image zeek/zeek:YOUR_INSTALLED_VERSION --policy data/passive-demo/policy.json
 ```
 
-These files are explicitly **synthetic offline test traffic**, use documentation IPs, and were never transmitted. They are not operational incidents. Do not put them into production inventory. The generator has no socket code. Automated tests verify capture generation and runner behavior with a mocked Zeek process. Actual Zeek replay in the implementation environment remains unverified because Zeek was unavailable and Docker daemon permissions were denied.
+These files are explicitly **synthetic offline test traffic**, use documentation IPs, and were never transmitted. They are not operational incidents. Do not put them into production inventory. The generator has no socket code.
+
+### Verified Docker rehearsal
+
+On **2026-10-31 (Asia/Jakarta)**, both captures were successfully analyzed with the installed **Zeek 9.0.1** image and Docker 28.5.2. The container used the restrictions above, including disabled networking. The initial run revealed that `pdu_type=RESP` needed to be excluded from write detections; this was corrected and covered by regression tests using the actual generated logs.
+
+| Capture | Packets / bytes | Stored events | Active alerts | Measured analysis time |
+|---|---|---|---|---|
+| Synthetic benign read | 7 / 537 | 1 connection + 2 Modbus PDUs | 0 | 0.576 seconds |
+| Synthetic unauthorized write | 7 / 538 | 1 connection + 2 Modbus PDUs | 3 | 0.575 seconds |
+
+The three write-capture alerts are unexpected communication, unauthorized Modbus writer, and write outside maintenance window. Each references its event, capture SHA-256 and policy evidence. Duplicate replay retained six total events and three alerts. JSON, CSV and Markdown reports were generated. The production databases were not used.
+
+Host: Intel Core i7-13650HX, 20 logical CPUs, 7.57 GiB RAM visible to WSL2, Linux 6.6.114.1, Python 3.14.7. Container limits were one CPU and 512 MiB. These are single tiny-capture measurements, not throughput guarantees. The built-in Zeek Modbus analyzer was verified; the separate ICSNPP extension was not installed or certified in this rehearsal.
+
+Repeat all checks and export reports into a **new** isolated directory (the image must already be installed):
+
+```bash
+python3 scripts/verify_zeek_demo.py --output-dir data/zeek-rehearsal --docker-image zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0
+```
+
+The command refuses an existing output directory and writes `verification.db`, generated captures, `verification.json`, and all three report formats. Recorded results and actual log fixtures are in [the synthetic Zeek fixture directory](tests/fixtures/synthetic_zeek9_README.md).
 
 ## Optional hosted remediation guidance
 
@@ -147,6 +168,6 @@ The dashboard validates Host/Origin and form tokens; responses include CSP, fram
 python3 -m unittest discover -s tests -v
 ```
 
-The suite is offline: provider/feed responses and Zeek execution are mocked. It covers the original vertical slice plus the reproduced MVP-review failures, policy history, current HTTP plan persistence, privacy, CSRF, source snapshots, migration backup, reports, jobs and parsing boundaries. Synthetic test fixtures live only under `tests/fixtures/` and are never auto-loaded into operational data.
+The suite is offline: provider/feed responses and Zeek execution are mocked, with additional parser fixtures generated by real Zeek 9.0.1. **67 tests pass** after the Docker rehearsal fix. It covers the original vertical slice plus the reproduced MVP-review failures, policy history, current HTTP plan persistence, privacy, CSRF, source snapshots, migration backup, reports, jobs and parsing boundaries. Synthetic test fixtures live under `tests/fixtures/`; the demo generator creates explicitly labeled captures only on operator request. They are never auto-loaded into operational data.
 
-The full [MVP evaluation](docs/MVP_EVALUATION.md) is a historical before-fix assessment. See [hardening results](docs/HARDENING_RESULTS.md) for implemented fixes, verification, performance measurements and remaining limits. Outstanding work includes actual Zeek/ICSNPP capture rehearsal in an environment with access, broader version semantics, evaluated configuration prerequisites, stronger semantic AI validation, fresh hardware/deployment validation, and multi-user controls. Live capture, EPSS, RAG and automatic attack paths remain optional future work.
+The full [MVP evaluation](docs/MVP_EVALUATION.md) is a historical before-fix assessment. See [hardening results](docs/HARDENING_RESULTS.md) for implemented fixes, verification, performance measurements and remaining limits. Actual offline Zeek connection/Modbus capture rehearsal now passes. Outstanding work includes separate ICSNPP validation, broader version semantics, evaluated configuration prerequisites, stronger semantic AI validation, fresh hardware/deployment validation, and multi-user controls. Live capture, EPSS, RAG and automatic attack paths remain optional future work.
