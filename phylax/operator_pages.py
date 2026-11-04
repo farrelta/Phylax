@@ -4,13 +4,14 @@ import html
 import json
 from .ai import AIConfig
 from .core import Store,ASSET_FIELDS,ASSET_TYPES,ZONES,CRITICALITIES,CONFIDENCES
+from .theme import layout
 from .monitoring import active_policy
 
 
 def shell(title: str, body: str) -> str:
-    return f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Phylax · {html.escape(title)}</title>
-    <style>body{{background:#0a1118;color:#edf5f7;font:16px/1.5 system-ui;max-width:1050px;margin:32px auto;padding:0 24px}}a{{color:#63e0b4}}input,select,textarea,button{{display:block;margin:8px 0 18px;padding:10px;background:#111d27;color:#edf5f7;border:1px solid #476573;border-radius:6px;max-width:100%;box-sizing:border-box}}textarea{{width:100%}}label{{display:block}}pre{{white-space:pre-wrap}}</style>
-    <body><nav><a href="/">Overview</a> · <a href="/assets">Inventory</a> · <a href="/policy">Network policy</a> · <a href="/settings">Settings/sources</a> · <a href="/reports">Reports</a></nav><h1>{html.escape(title)}</h1>{body}</body></html>'''
+    active={'Edit asset':'/assets','Add asset':'/assets','Passive network policy':'/policy','Settings and data sources':'/settings','Reports':'/reports'}.get(title,'')
+    return layout(title,body,active)
+
 
 
 def inventory_form(store: Store, asset_id: str = '') -> str:
@@ -24,7 +25,7 @@ def inventory_form(store: Store, asset_id: str = '') -> str:
         if name=='verified':value='true' if asset.get(name) else 'false'
         if name=='identification_source' and not value:value='manual'
         if name=='last_seen' and not value:value=''
-        body+=f'<label>{html.escape(name.replace("_"," ").title())}'
+        body+=f'<label>{html.escape(name.replace("_"," ").capitalize().replace("Ip ","IP ").replace("Mac ","MAC ").replace(" os"," OS"))}'
         if name in options:
             defaults={'asset_type':'unknown','zone':'unknown','criticality':'medium','identity_confidence':'low','verified':'false'}
             value=value or defaults[name]
@@ -34,7 +35,7 @@ def inventory_form(store: Store, asset_id: str = '') -> str:
             readonly=' readonly' if name=='asset_id' and asset_id else ''
             body+=f'<input name="{name}" value="{html.escape(value,quote=True)}" maxlength="4000"{required}{readonly}>'
         body+='</label>'
-    body+='<button>Save inventory and reassess findings</button></form>'
+    body+='<button class="primary">Save inventory and reassess findings</button></form>'
     return shell('Edit asset' if row else 'Add asset',body)
 
 
@@ -43,7 +44,7 @@ def policy_page(store: Store) -> str:
     text=json.dumps(policy if policy is not None else {},indent=2)
     body='<p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
     body+='<p>Keys: protected_assets, allowed_communications, authorized_writers, maintenance_windows_utc. Day numbers: Monday 0 through Sunday 6. Times are UTC.</p>'
-    body+=f'<form method="post" action="/policy/apply"><label>Policy JSON<textarea name="policy_json" rows="24" maxlength="100000">{html.escape(text)}</textarea></label><button>Save policy and reevaluate stored events</button></form>'
+    body+=f'<form method="post" action="/policy/apply"><label>Policy JSON<textarea name="policy_json" rows="24" maxlength="100000">{html.escape(text)}</textarea></label><button class="primary">Save policy and reevaluate stored events</button></form>'
     rows=store.connection.execute('SELECT policy_id,created_at FROM network_policies ORDER BY created_at DESC LIMIT 20').fetchall()
     body+='<h2>Stored policy versions</h2><ul>'+''.join(f'<li>{r["policy_id"]} · {r["created_at"]}</li>' for r in rows)+'</ul>'
     return shell('Passive network policy',body)
@@ -59,4 +60,4 @@ def settings_page(store: Store) -> str:
 
 
 def reports_page(store: Store) -> str:
-    return shell('Reports','<p>Exports contain local evidence, uncertainty, source provenance and prioritization factors. Findings do not establish compromise.</p><p><a href="/report.json">JSON report</a> · <a href="/report.csv">CSV report</a> · <a href="/report.md">Markdown report</a> · <a href="/assets.csv">Inventory CSV</a></p>')
+    return shell('Reports','<p>Exports contain local evidence, uncertainty, source provenance and prioritization factors. Findings do not establish compromise.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a> <a class="btn" href="/assets.csv">Inventory CSV</a></p>')
