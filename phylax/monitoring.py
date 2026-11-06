@@ -328,7 +328,10 @@ def ingest_file(store: Store, path: str | Path, *, kind: str | None = None, poli
     path = Path(path)
     if path.stat().st_size > 500_000_000:
         raise ValueError('Zeek log exceeds 500 MB limit')
-    kind = kind or ('modbus' if 'modbus' in path.name.casefold() else 'conn')
+    kind = kind or next((k for k in ('modbus','dhcp','software') if k in path.name.casefold()),'conn')
+    if kind in {'dhcp','software'}:
+        from .observations import ingest_observations
+        return ingest_observations(store,path,kind=kind,source_file=source_file,commit=commit)
     source_file = source_file or path.name
     policy = validate_policy(policy) if policy is not None else active_policy(store)
     inserted = duplicate = alert_count = diagnostic_count = 0
@@ -342,8 +345,8 @@ def ingest_file(store: Store, path: str | Path, *, kind: str | None = None, poli
                     (event_id,event.event_ref,event.timestamp,event.source_ip,event.source_port,event.destination_ip,event.destination_port,event.protocol,event.operation,event.event_type,event.source_file,json.dumps(event.raw,sort_keys=True)))
                 if cursor.rowcount:
                     inserted += 1
-                    store.observe_ip(event.source_ip,event.timestamp)
-                    store.observe_ip(event.destination_ip,event.timestamp)
+                    from .observations import observe_connection
+                    observe_connection(store,event)
                 else:
                     duplicate += 1
                 # Deduplicating storage never skips policy evaluation.

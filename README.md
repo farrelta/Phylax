@@ -2,11 +2,11 @@
 
 Phylax is a lightweight, local IT/OT cybersecurity decision-support platform for the Kartika Cyber Hackathon 2026. It combines inventory, public vulnerability intelligence, passive Zeek observations, explainable findings, and optional hosted remediation guidance.
 
-It performs no active discovery, device writes, automatic patching, isolation, firewall changes, or autonomous response. A vulnerability match does not establish compromise; absence of a match does not establish safety.
+Active discovery is disabled unless an operator grants permission to an individual supporting IT host or network management IP. OT control endpoints stay passive-only. Phylax performs no device writes, automatic patching, isolation, firewall changes, or autonomous response. A vulnerability match does not establish compromise; absence of a match does not establish safety.
 
 ## Install and run
 
-Python 3.10 or newer. The application and offline tests use Python's standard library; no pip dependencies are required.
+Python 3.12 or newer is recommended (verified here with host Python 3.14.7 and lab Python 3.13.5). The application and offline tests use Python's standard library; no pip dependencies are required.
 
 ```bash
 python3 -m phylax --db data/phylax.db serve
@@ -14,13 +14,43 @@ python3 -m phylax --db data/phylax.db serve
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The server accepts loopback binds only. Inventory, cached intelligence, correlation, log analysis, and reports remain available offline. Hosted AI and public feed requests require connectivity.
 
-An existing database receives additive schema upgrades. Before the first hardening migration, Phylax writes `<database>.pre-hardening.sqlite` using SQLite backup. Migration creates an indexed product lookup, source snapshots, policy versions, diagnostics, audit history, and archived plans. Old NVD records that did not retain full CPE conditions become `NEEDS_REVIEW` until refreshed. Missing evidence is never reconstructed from device IPs or product names. Keep backups and the database on a trusted local filesystem.
+An existing database receives additive schema upgrades. The asset-intelligence release writes `<database>.pre-asset-intelligence.sqlite` before its versioned migration; it preserves existing IDs and adds separate context, observation, approval, software, queue, and checkpoint records. Stop dashboard and workers before the first upgrade. Device management approval, inventory verification and active-scan permission remain independent. Before the first hardening migration, Phylax writes `<database>.pre-hardening.sqlite` using SQLite backup. Migration creates an indexed product lookup, source snapshots, policy versions, diagnostics, audit history, and archived plans. Old NVD records that did not retain full CPE conditions become `NEEDS_REVIEW` until refreshed. Missing evidence is never reconstructed from device IPs or product names. Keep backups and the database on a trusted local filesystem.
 
 After upgrading, restart the server and reload existing browser forms; stale form tokens are rejected.
 
+If a form reports **Cross-origin request denied**, open the dashboard directly in
+a regular browser tab using the address printed by `serve`, then reload it.
+Origin checks compare the normalized hostname and port. `localhost`,
+`127.0.0.1` and `[::1]` remain distinct origins; opaque (`Origin: null`),
+embedded and mismatched origins are rejected. A denied `/sync` request has not
+started feed synchronization. Do not disable the origin or CSRF checks to work
+around the error.
+Responses use `Referrer-Policy: same-origin`: same-origin form submissions retain
+their origin, while external destinations receive no referrer. A previously open
+page can still carry the old policy; reload it after restarting the server.
+
 ## Operator workflows
 
-The overview links to inventory, manual asset add/edit, attack surface, intelligence, network events, remediation plans, network policy, settings/source health, and reports. Findings, alert streams, inventory, intelligence, network events, and remediation plans use bounded pages. Counts come from all stored records, regardless of the displayed page.
+See the [offline workflow atlas](docs/workflows/index.html) for 14 diagrams covering the current application paths, decisions and recovery behavior, or read the [Mermaid version](docs/workflows/WORKFLOWS.md).
+
+The primary navigation has seven pages: **Overview, Assets, Monitoring, Intelligence, Triage, Reports and Settings**. Assets contains inventory, approvals, approved IT discovery, software, changes and operational context. Monitoring contains events and the passive attack surface. Triage contains alerts and remediation plans; Settings contains sources/collectors, network policy and the glossary. Existing page URLs remain available. Findings, alert streams, inventory, intelligence, network events, and remediation plans use bounded pages. Counts come from all stored records, regardless of the displayed page.
+
+Monitoring → Attack surface uses the minimalist topology: observed endpoints are grouped by inventory zone, with directed communication and dashed confirmed process support. Select a node for identity, timestamps, applicability and source evidence. Search highlights matching observed endpoints; zoom and process visibility use local GET navigation. On narrow screens, scroll inside the diagram to explore and read the detail panel below. Inventory without observed traffic remains in a separate expandable list. The diagram shows at most 24 observed endpoints, 60 directed connections and 12 process nodes, with visible omission counts; colliding port/protocol labels are suppressed with an explicit count and remain inspectable through evidence links. Full stored relationship tables remain available. Zone groups do not establish trust boundaries or reachability. See [topology verification](verification/2026-11-06-topology/README.md).
+
+Overview summarizes alerts and links to Triage for acknowledgement. A finding with a saved plan shows its status and **Review plan**; lifecycle review and regeneration happen on the focused remediation page. Regeneration archives the prior plan and clears its review state. Imports reassess findings automatically. Manual correlation remains available under **Settings → Advanced assessment tools** and through the CLI.
+
+Triage starts with compact summaries; expand **Inspect alert** to review evidence,
+policy, context and acknowledgement. A selected vulnerability opens a stacked
+case view with applicability, missing evidence and its plan action together on
+narrow screens. Original-event pages distinguish normalized records and imported
+payloads, with a return to the selected case or topology filters. Remediation
+separates the current finding from the plan's generation-time evidence and offers
+**Review plan** before the supporting sections. Inventory groups identity,
+verification and operational classification, and the overview's identity-review
+link opens a matching inventory filter. See the
+[critique fixes and verification](verification/2026-11-06-critique-fixes/README.md).
+
+Unused legacy AI persistence methods were removed; the `ai_remediations` table and its existing records are retained. Current guidance uses `remediation_plans`. The old POST `/ack` endpoint is retired; use the protected `/triage/ack` workflow. Reload previously opened forms after restarting the dashboard.
 
 Public sync and hosted guidance run in a bounded background queue with progress pages that refresh automatically. Each worker owns a separate SQLite connection. Job progress is process-local; queued UI jobs do not survive restart. NVD page checkpoints do survive restart.
 
@@ -40,6 +70,10 @@ Asset CSV fields: `asset_id`, `ip_address`, `mac_address`, `hostname`, `asset_ty
 Public-record JSON has a `vulnerabilities` array. Records need `cve_id` and `summary`; affected products need `vendor` and `product`. Exact `versions`, inclusive/exclusive `version_ranges`, complete `cpe_names`, and uncertainty flags are preserved through the same validator as live ingestion. A range uses `start_including`, `start_excluding`, `end_including`, and `end_excluding`. Unknown constraints must remain explicit. Imports are validated before mutation and are atomic. Imported records default to synthetic unless explicitly labeled otherwise, and never acquire trusted-public hosted eligibility merely from an uploaded flag.
 
 ## Intelligence sync and provenance
+
+**Intelligence → CVEs** (`/intelligence`) and **Intelligence → CISA ICS advisories** (`/intelligence/ics`) are separate pages. Each has its own search, count and pagination; ICS advisories no longer appear below the CVE table. The existing Sync public sources action still synchronizes all configured sources.
+
+CISA ICS advisory summaries show a compact plain-text excerpt (up to 320 characters plus an ellipsis), preferring the source Summary section. **Read full advisory text** expands the complete readable text in a bounded scroll region. Stored source HTML is retained unchanged; existing cached records need no new synchronization.
 
 ```bash
 export NVD_API_KEY='optional-nvd-key'
@@ -125,6 +159,127 @@ python3 scripts/verify_zeek_demo.py --output-dir data/zeek-rehearsal --docker-im
 
 The command refuses an existing output directory and writes `verification.db`, generated captures, `verification.json`, and all three report formats. Recorded results and actual log fixtures are in [the synthetic Zeek fixture directory](tests/fixtures/synthetic_zeek9_README.md).
 
+## Asset intelligence and approved IT discovery
+
+All new state is local SQLite data. The new pages reuse the existing theme and
+CSRF/Host/Origin protections. Typed operator names record decisions but are not
+multi-user authentication.
+
+### Three independent decisions
+
+1. **Inventory verification:** confirm product/version evidence for applicability.
+2. **Device management approval:** explicitly approve or block an IP, MAC, or pair
+   within a monitored subnet. Existing inventory is not automatically approved.
+3. **Scan permission:** separately permit specific TCP ports on a supporting IT
+   server in IT/DMZ or a network management interface.
+
+PLCs, RTUs, HMIs, engineering workstations, unknown devices and automatically
+observed-only records cannot be granted active scan permission. No result creates
+additional scan targets or permissions. Literal IPv4 targets only; no CIDRs,
+hostname resolution, raw Nmap arguments, scripts, UDP or OS fingerprinting.
+Nmap is an optional external executable (`/usr/bin/nmap` or `/usr/local/bin/nmap`).
+
+```bash
+python3 -m phylax --db data/phylax.db monitor-subnet "Approved lab" 192.0.2.0/24
+python3 -m phylax --db data/phylax.db device-decision --subnet-id SUBNET_ID --ip 192.0.2.10 --actor "Operator" --note "Approved inventory review"
+python3 -m phylax --db data/phylax.db scan-target save --asset-id ASSET_ID --ports 80 443 --identify --permit --actor "Operator" --note "Individually authorized supporting IT target"
+python3 -m phylax --db data/phylax.db scan --target TARGET_ID
+python3 -m phylax --db data/phylax.db worker --once
+python3 -m phylax --db data/phylax.db scan-target schedule TARGET_ID --interval-minutes 60
+python3 -m phylax --db data/phylax.db worker
+```
+
+Replace placeholders with IDs from the preceding command or the dashboard.
+The command examples do not authorize any real target. Select and review your
+own permitted inventory entry first. The isolated demo starts with scanning disabled.
+
+At most 32 selected TCP ports are checked using unprivileged connect scanning,
+one run per database at a time. Nmap has a 30-second host timeout, one retry and
+constrained pacing; whole execution is bounded to 180 seconds. Optional HTTP(S)
+header requests and SSH banners are limited to standard ports 22, 80, 443, 8080,
+and 8443, with three-second deadlines and 4 KB responses. HTTP redirects and
+authentication are disabled; TLS validation failures stay explicit. A header is
+unverified evidence, never a confirmed installed version.
+
+Schedules are opt-in, default to 60 minutes, and require at least 15 minutes.
+Permission revisions cancel queued requests and stop running work at its next
+cancellation check. A worker lease prevents overlapping workers on one database;
+expired executions become interrupted and are not replayed. Missed schedule
+intervals are skipped. Use the discovery page or `scan --cancel RUN_ID` to cancel,
+`scan --status RUN_ID` to inspect, and `scan-target revoke TARGET_ID --actor NAME
+--note REASON` to revoke permission. The worker is separate from passive ingestion.
+
+### Passive observations, changes and software
+
+```bash
+python3 -m phylax --db data/phylax.db analyze-zeek /path/to/dhcp.log --kind dhcp
+python3 -m phylax --db data/phylax.db analyze-zeek /path/to/software.log --kind software
+python3 -m phylax --db data/phylax.db watch-zeek --directory /path/to/finalized-logs --interval-seconds 30
+```
+
+The watcher never starts capture. Use a separately managed Zeek sensor/TAP/SPAN
+setup and a finalized, uncompressed log directory. Two stable polls precede
+snapshot ingestion; files changing during import roll back. Hash checkpoints
+survive restart; malformed unchanged content is retained as a visible failure
+rather than repeatedly imported. Symlinks are skipped, file size is capped at
+500 MB, and polling considers at most 1,000 directory entries. Archive older
+files elsewhere. Poll intervals are 1–60 seconds; collector heartbeats become
+stale after 180 seconds. Stopped/failed collection is distinct from device inactivity.
+
+DHCP supplies MAC evidence opportunistically. Requested addresses alone do not
+establish an assigned endpoint. Observations preserve raw evidence and observation
+versus ingestion time. New services, IP/MAC associations and software-version
+changes appear in the timeline. Historical imports retain their original time.
+Neither MAC nor hostname silently merges inventory identities. Unapproved endpoints
+produce a deduplicated **unmanaged—needs review** alert within configured subnets;
+only explicit block decisions establish **unauthorized** status.
+
+Software components remain separate from hardware/firmware. Exact mappings are
+operator editable (Apache maps to `apache:http_server`); fuzzy matching is not used.
+Verify/retire components on the Software Evidence page. New versions invalidate
+prior verification, and competing active versions require review. Multiple components
+contribute evidence to one stable asset/CVE finding. Unknown or unverified versions
+cannot create a confirmed match. Source conflicts remain explicit.
+
+### Operational context, topology and urgency
+
+Use Operational Context for ownership, location, lifecycle, tags, criticality
+rationale, and confirmed process support. Solid topology edges are observed
+communications; dashed amber edges are operator-confirmed process links. These
+relationships do not prove actual disruption or automatically raise criticality.
+Filters cover subnet, zone, approval state, time, criticality and focused endpoint;
+ephemeral source ports are aggregated. The graph shows at most 24 assets and 12
+processes, the asset table is paged, and relationships are limited to 1,000 groups.
+Original event evidence remains linked. Unseen traffic is not evidence of absence.
+
+Unified Triage preserves source severity, applicability and acknowledgement.
+Network urgency uses rule `network-1`: severity low/medium/high/critical contributes
+0/1/2/3, relevant asset criticality contributes 0/1/2/3, and an explicitly protected
+destination contributes 1. Critical is 6+, high 4–5, medium 2–3, low 0–1. Missing
+criticality contributes zero and stays unknown; an automatically assigned inventory
+default is not verified operational criticality. Vulnerability priority version 2
+is unchanged. Reports include component assessments, management status, changes,
+process context and priority factors. Neither scoring nor acknowledgement executes
+remediation or grants permission.
+
+### Selected structured CISA advisories
+
+Configure at most 25 official CSAF 2.0 document URLs through Sources/Settings or:
+
+```bash
+python3 -m phylax --db data/phylax.db csaf-source https://raw.githubusercontent.com/cisagov/CSAF/develop/csaf_files/OT/white/2024/icsa-24-004-01.json
+python3 -m phylax --db data/phylax.db sync-csaf
+```
+
+Ordinary `sync-feeds` also checks configured documents. Requests use HTTPS,
+conditional ETags, a ten-second timeout, no redirects and a 2 MB body limit.
+Documents and provenance are cached locally. Supported identities use exact CPE
+2.3 or structured vendor/product labels; explicit affected/fixed statuses are
+preserved. Prose ranges, configuration prerequisites, unsupported identifiers and
+relationships remain for review. Unlisted versions are not declared unaffected.
+Advisories without CVEs are retained. This is not a full-archive download or a
+complete CSAF implementation, and detached signatures are not verified.
+
 ## Optional hosted remediation guidance
 
 Copy `.env.example` to `.env` in the project directory and configure one provider. Existing shell variables take precedence. The file is parsed as data, never executed. Restart the server after edits.
@@ -164,10 +319,33 @@ The dashboard validates Host/Origin and form tokens; responses include CSP, fram
 
 ## Tests and implementation status
 
+For hands-on acceptance checks with expected results and isolated fixtures, follow
+the [full manual testing checklist](MANUAL_TESTING.md).
+
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-The suite is offline: provider/feed responses and Zeek execution are mocked, with additional parser fixtures generated by real Zeek 9.0.1. **67 tests pass** after the Docker rehearsal fix. It covers the original vertical slice plus the reproduced MVP-review failures, policy history, current HTTP plan persistence, privacy, CSRF, source snapshots, migration backup, reports, jobs and parsing boundaries. Synthetic test fixtures live under `tests/fixtures/`; the demo generator creates explicitly labeled captures only on operator request. They are never auto-loaded into operational data.
+The suite is offline: provider/feed responses and Zeek execution are mocked, with additional parser fixtures generated by real Zeek 9.0.1. **160 tests pass** after the operator-workflow, technical UI, simplification, topology and critique fixes. Coverage includes the original vertical slice, MVP-review regressions, policy history, HTTP plan persistence, privacy, CSRF, source snapshots, migrations, reports, jobs, parsing boundaries, context edit conflicts, discovery affordances, triage filters and contextual actions. The UI regressions also cover retained invalid input, labeled remediation transitions, uncertain KEV status, batched triage reads and paginated eligible asset selection. Synthetic test fixtures live under `tests/fixtures/`; the demo generator creates explicitly labeled captures only on operator request. They are never auto-loaded into operational data.
 
-The full [MVP evaluation](docs/MVP_EVALUATION.md) is a historical before-fix assessment. See [hardening results](docs/HARDENING_RESULTS.md) for implemented fixes, verification, performance measurements and remaining limits. Actual offline Zeek connection/Modbus capture rehearsal now passes. Outstanding work includes separate ICSNPP validation, broader version semantics, evaluated configuration prerequisites, stronger semantic AI validation, fresh hardware/deployment validation, and multi-user controls. Live capture, EPSS, RAG and automatic attack paths remain optional future work.
+See the [simplification verification](verification/2026-11-06-simplification/README.md) for the consolidated workflows and responsive checks.
+
+See the [November 6 UI refinement verification](verification/2026-11-06-refinement/README.md) for browser evidence, contrast checks and measured query improvements. Restart the dashboard to load these changes. No database migration is required. Triage still ranks matching alert metadata globally using the existing deterministic rules; complete context and evidence are loaded only for the requested page. This is not a capacity guarantee for arbitrarily large histories.
+
+Operational Context loads the selected record before editing and rejects stale
+updates. Discovery offers eligible supporting IT assets and separates permission
+from queueing. Unified Triage presents observations, configured policy, ownership,
+process support and score factors before the original raw record; category,
+urgency, acknowledgement and text filters preserve their scope after review.
+Software review and decision revocation are bound to their records. Narrow
+screens use collapsed native navigation; advanced setup and topology filters
+remain available through disclosures. Restart the dashboard and reload old forms
+after upgrading these views.
+
+See [release implementation and verification](RELEASE_NOTES.md) for measured checks, migration/rollback, limits and remaining submission activities, and [the fictional support-site lab](demo/README.md) for the full demonstration. Offline replay and live externally managed Zeek collection have been verified. Separate ICSNPP validation, broader version semantics, evaluated configuration prerequisites, stronger semantic AI validation and multi-user deployment remain outside this release. EPSS, RAG and automatic attack paths are optional future work.
+
+### Passive attack-surface navigation
+
+Find locates all known inventory assets and peers from stored communication events within the current asset filters, including inventory-only assets and older peers outside the relationship listing. It selects details without inventing observed communication. A zero-result search leaves no unrelated endpoint selected. On narrow screens, selected details precede the scrollable graph; Reset zoom restores readable natural-size labels.
+
+Observation existence and first/last communication timestamps use the complete selected observation period. “Inventory only” means no imported communication across all stored times; previously observed endpoints outside the period remain distinct. Event totals describe the time window before asset/focus filters. Relationships are filtered before retaining the 1,000 most recent groups; counts and truncation are explicit. The diagram separately caps endpoints (24), connections (60), and process nodes (12). Find and endpoint focus expose evidence beyond those diagram limits. Each listed relationship opens its original event evidence and returns to the current view. Unseen traffic still does not establish absence or safety.

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from .core import Store
 
 LIMITATIONS = [
-    'No active scanning or device control is performed.',
+    'Active IT discovery requires explicit per-target permission. Control endpoints remain passive-only; Phylax performs no device control.',
     'Version matching uses exact source versions and numeric dotted ranges only; unsupported CPE/version conditions require review.',
     'Incomplete or unverified identities are not treated as safe.',
     'Imported observations define the visible surface; unseen traffic is not evidence of absence.',
@@ -53,7 +53,10 @@ def report_data(store: Store) -> dict[str, Any]:
         network.append(item)
     diagnostics=[dict(r) for r in store.connection.execute('SELECT * FROM event_evaluations WHERE diagnostics_json!=? ORDER BY evaluated_at DESC',('[]',))]
     for item in diagnostics:item['diagnostics']=json.loads(item.pop('diagnostics_json'))
-    return {'generated_at':utc_now(),'scope':'local inventory and locally stored intelligence','known_limitations':LIMITATIONS,
+    from .triage import release_data
+    extension=release_data(store)
+    label=store.connection.execute("SELECT value FROM schema_meta WHERE key='dataset_label'").fetchone()
+    return {'dataset_label':label[0] if label else '', 'asset_intelligence':extension,'generated_at':utc_now(),'scope':'local inventory and locally stored intelligence','known_limitations':LIMITATIONS,
             'findings':findings,'asset_identity_reviews':data['identity_review_assets'],'network_alerts':network,
             'evaluation_diagnostics':diagnostics,'remediation_plans':data['remediation_plans'],
             'source_health':data['source_health'],'priority_rule_version':'2',
@@ -64,7 +67,7 @@ def export_report(store: Store, format: str) -> str:
     payload=report_data(store)
     if format=='json':return json.dumps(payload,indent=2)
     if format=='markdown':
-        lines=['# Phylax investigation report',f"Generated: {payload['generated_at']}",'', '## Vulnerability assessments']
+        lines=['# Phylax investigation report',f"Generated: {payload['generated_at']}",payload['dataset_label'],'', '## Vulnerability assessments']
         for row in payload['findings']:
             lines.extend([f"### {html.escape(row['cve_id'])} · {html.escape(row['asset_id'])}",
                 f"Applicability: {row['status']} · severity: {row['severity'] or 'unknown'} · priority: {row['priority']} · identity confidence: {row['identity_confidence']}",
@@ -76,19 +79,28 @@ def export_report(store: Store, format: str) -> str:
         for row in payload['network_alerts']:
             lines.extend([f"- {row['rule_id']} · {row['lifecycle_state']} · {row['event_timestamp']} · event {html.escape(row['event_ref'])}",
                           '  '+html.escape(row['explanation']), '  Next steps: '+row['recommended_next_steps']])
+        lines.extend(['','## Asset intelligence and operational context'])
+        extension=payload['asset_intelligence']
+        for category in ('management','asset_context','processes','process_links','asset_changes','software_components','scan_runs','triage','collectors'):
+            lines.append('### '+category.replace('_',' ').title())
+            for row in extension[category]:lines.append('- '+html.escape(json.dumps(row,ensure_ascii=False)))
         lines.extend(['','## Known limitations']+['- '+text for text in LIMITATIONS])
         return '\n'.join(lines)+'\n'
     if format!='csv':raise ValueError('format must be json, csv, or markdown')
     out=StringIO()
-    columns=['record_type','generated_at','known_limitations','asset_id','ip_address','hostname','vendor','product','version','identity_confidence','cve_id','status','priority','priority_score','priority_factors','priority_uncertainty','severity','kev','summary','evidence','missing_evidence','source','source_url','references','source_provenance','mitigation','recommended_next_steps','rule_id','alert_id','event_ref','timestamp','source_ip','destination_ip','policy_evidence','lifecycle_state','policy_id','remediation_status','provider','model','reviewer','change_notes','verification_evidence']
+    columns=['record_type','generated_at','known_limitations','asset_id','ip_address','hostname','vendor','product','version','identity_confidence','cve_id','status','priority','priority_score','priority_factors','priority_uncertainty','severity','kev','summary','evidence','missing_evidence','source','source_url','references','source_provenance','mitigation','recommended_next_steps','rule_id','alert_id','event_ref','timestamp','source_ip','destination_ip','policy_evidence','lifecycle_state','policy_id','remediation_status','provider','model','reviewer','change_notes','verification_evidence','management_status','operational_context','software_components','network_priority','observed_at','ingested_at','record_data']
     writer=csv.DictWriter(out,fieldnames=columns,extrasaction='ignore');writer.writeheader()
     def write(row):
         fields={'generated_at':payload['generated_at'],'known_limitations':'; '.join(LIMITATIONS),**row}
         writer.writerow({key:csv_value(json.dumps(value,ensure_ascii=False) if isinstance(value,(list,dict)) else value) for key,value in fields.items()})
-    write({'record_type':'report_metadata','summary':'Local evidence export; absence of findings does not establish safety.'})
+    write({'record_type':'report_metadata','summary':payload['dataset_label']+' Local evidence export; absence of findings does not establish safety.'})
     for row in payload['findings']:write({**row,'record_type':'vulnerability_finding'})
     for row in payload['asset_identity_reviews']:
         write({**row,'record_type':'asset_identity_review','status':'NEEDS_REVIEW','summary':'Asset identity needs review. No CVE conclusion was made.', 'missing_evidence':[k for k in ('vendor','product') if not row[k]],'recommended_next_steps':'Verify inventory identity with its owner.'})
     for row in payload['network_alerts']:write({**row,'record_type':'network_alert','timestamp':row['event_timestamp'],'summary':row['explanation']})
     for row in payload['remediation_plans']:write({**row,'record_type':'remediation_plan','status':row['finding_status'],'remediation_status':row['status'],'summary':row['plan']['finding_summary'],'references':row['source_urls']})
+    for category,rows in payload['asset_intelligence'].items():
+        for row in rows:
+            write({'record_type':category,'asset_id':row.get('asset_id',''),'ip_address':row.get('ip',''),'status':row.get('status',''),
+                   'observed_at':row.get('observed_at',''),'ingested_at':row.get('ingested_at',''),'record_data':row})
     return out.getvalue()

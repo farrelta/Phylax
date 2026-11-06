@@ -13,7 +13,7 @@ from .web import serve
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="phylax", description="Local-first passive IT/OT vulnerability visibility")
+    parser = argparse.ArgumentParser(prog="phylax", description="Local IT/OT intelligence with passive OT and approved IT discovery")
     parser.add_argument("--db", default="data/phylax.db", help="SQLite database path")
     commands = parser.add_subparsers(dest="command", required=True)
     web = commands.add_parser("serve", help="Start the loopback-only dashboard")
@@ -31,7 +31,7 @@ def main() -> None:
     sync.add_argument("--backfill-days", type=int, metavar="DAYS", help="Explicitly query a wider NVD last-modified window (1-120 days); normal syncs remain incremental")
     network = commands.add_parser("analyze-zeek", help="Import a Zeek conn.log or Modbus log passively")
     network.add_argument("file")
-    network.add_argument("--kind", choices=("conn", "modbus"))
+    network.add_argument("--kind", choices=("conn", "modbus", "dhcp", "software"))
     network.add_argument("--policy", help="JSON passive communication policy")
     replay = commands.add_parser('analyze-pcap',help='Analyze an offline capture with local Zeek or a network-disabled Docker container')
     replay.add_argument('file')
@@ -41,7 +41,14 @@ def main() -> None:
     review.add_argument('file')
     refresh=commands.add_parser('refresh-cve',help='Refresh one official public CVE and its full applicability evidence')
     refresh.add_argument('cve_id')
+    from .release_cli import parsers,handle,COMMANDS
+    parsers(commands)
     args = parser.parse_args()
+    if args.command in COMMANDS:
+        import json
+        try:print(json.dumps(handle(args),indent=2))
+        except (ValueError,RuntimeError,OSError) as exc:parser.exit(2,f'Phylax: {exc}\n')
+        return
     if args.command == "serve":
         serve(args.db, args.host, args.port)
         return

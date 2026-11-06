@@ -50,6 +50,8 @@ def _numeric_version(value: str) -> tuple[int, ...] | None:
 
 def _version_applicability(asset_version: str, product: dict[str, Any]) -> bool | None:
     """Compare exact versions and documented NVD numeric bounds; None means uncertain."""
+    if asset_version in product.get('excluded_versions',[]):
+        return None if asset_version in product.get('versions',[]) else False
     if asset_version in product.get("versions", []):
         return True
 
@@ -83,6 +85,7 @@ class Store:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(self.path)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute('PRAGMA busy_timeout = 5000')
         if self.path != ':memory:' and Path(self.path).stat().st_size:
             has_meta=self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_meta'").fetchone()
             migrated=has_meta and self.connection.execute("SELECT 1 FROM schema_meta WHERE key='product_index_v2'").fetchone()
@@ -201,6 +204,8 @@ class Store:
                 run_id TEXT PRIMARY KEY,source TEXT NOT NULL,started_at TEXT NOT NULL,finished_at TEXT,health TEXT NOT NULL,
                 record_count INTEGER NOT NULL DEFAULT 0,message TEXT NOT NULL DEFAULT '');
         """)
+        from .migrations import migrate
+        migrate(self)
         if not self.connection.execute("SELECT 1 FROM schema_meta WHERE key='product_index_v2'").fetchone():
             # Older NVD cache entries did not retain CPE attributes. Their missing
             # conditions cannot safely be reconstructed from a product name.
@@ -253,19 +258,22 @@ class Store:
     def assets(self) -> list[dict[str, Any]]:
         return [dict(row) for row in self.connection.execute("SELECT * FROM assets ORDER BY ip_address, asset_id")]
 
-    def search_assets(self, search: str = "", *, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+    def search_assets(self, search: str = "", *, limit: int = 50, offset: int = 0, identity_review: bool = False) -> tuple[list[dict[str, Any]], int]:
         search = search.strip()[:100]
-        where = ""
+        conditions = []
         params: list[Any] = []
         if search:
             escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            where = "WHERE ip_address LIKE ? ESCAPE '\\' OR hostname LIKE ? ESCAPE '\\' OR vendor LIKE ? ESCAPE '\\' OR product LIKE ? ESCAPE '\\'"
+            conditions.append("(ip_address LIKE ? ESCAPE '\\' OR hostname LIKE ? ESCAPE '\\' OR vendor LIKE ? ESCAPE '\\' OR product LIKE ? ESCAPE '\\')")
             params = [f"%{escaped}%"] * 4
+        if identity_review:
+            conditions.append("(TRIM(vendor)='' OR TRIM(product)='' OR identity_confidence!='high' OR verified=0)")
+        where = "WHERE " + " AND ".join(conditions) if conditions else ""
         count = self.connection.execute(f"SELECT COUNT(*) FROM assets {where}", params).fetchone()[0]
         rows = [dict(row) for row in self.connection.execute(f"SELECT * FROM assets {where} ORDER BY ip_address,asset_id LIMIT ? OFFSET ?", [*params, min(max(1, limit), 100), max(0, offset)])]
         return rows, count
 
-    def search_intelligence(self, search: str = "", *, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+    def search_intelligence(self, search: str = "", *, limit: int = 50, offset: int = 0, include_advisories: bool = True) -> tuple[list[dict[str, Any]], int, list[dict[str, Any]]]:
         search = search.strip()[:100]
         where = ""
         params: list[Any] = []
@@ -275,47 +283,28 @@ class Store:
             params = [f"%{escaped}%"] * 3
         count = self.connection.execute(f"SELECT COUNT(*) FROM vulnerabilities {where}", params).fetchone()[0]
         rows = [dict(row) for row in self.connection.execute(f"SELECT * FROM vulnerabilities {where} ORDER BY modified DESC,published DESC,cve_id LIMIT ? OFFSET ?", [*params, min(max(1, limit), 100), max(0, offset)])]
-        advisories = [dict(row) for row in self.connection.execute("SELECT * FROM ics_advisories ORDER BY published DESC LIMIT 20")]
+        advisories = [dict(row) for row in self.connection.execute("SELECT * FROM ics_advisories ORDER BY published DESC LIMIT 20")] if include_advisories else []
         return rows, count, advisories
+
+    def search_ics_advisories(self, search: str = "", *, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+        search=search.strip()[:100]
+        where='';params=[]
+        if search:
+            escaped=search.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
+            where="WHERE advisory_id LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR link LIKE ? ESCAPE '\\'"
+            params=[f'%{escaped}%']*4
+        count=self.connection.execute('SELECT COUNT(*) FROM ics_advisories '+where,params).fetchone()[0]
+        rows=[dict(row) for row in self.connection.execute('SELECT * FROM ics_advisories '+where+' ORDER BY published DESC,advisory_id LIMIT ? OFFSET ?',[*params,min(max(1,limit),100),max(0,offset)])]
+        return rows,count
 
     def recent_network_events(self, *, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
         count = self.connection.execute("SELECT COUNT(*) FROM network_events").fetchone()[0]
         rows = [dict(row) for row in self.connection.execute("""SELECT e.*,GROUP_CONCAT(a.rule_id) AS rule_ids,GROUP_CONCAT(a.alert_id) AS alert_ids,ev.diagnostics_json FROM network_events e LEFT JOIN network_alerts a ON a.event_id=e.event_id AND COALESCE((SELECT state FROM network_alert_lifecycle WHERE alert_id=a.alert_id),'active')='active' LEFT JOIN event_evaluations ev ON ev.event_id=e.event_id GROUP BY e.event_id ORDER BY e.timestamp DESC LIMIT ? OFFSET ?""", (min(max(1, limit), 100), max(0, offset)))]
         return rows, count
 
-    def attack_surface(self) -> dict[str, Any]:
-        """Inventory nodes and bounded communication edges from stored observations only."""
-        rows = [dict(row) for row in self.connection.execute("""SELECT source_ip,source_port,destination_ip,destination_port,protocol,operation,event_type,source_file,
-            MIN(timestamp) AS first_seen,MAX(timestamp) AS last_seen,MIN(event_ref) AS sample_event_ref,COUNT(*) AS event_count
-            FROM network_events GROUP BY source_ip,source_port,destination_ip,destination_port,protocol,operation,event_type,source_file
-            ORDER BY last_seen DESC LIMIT 1000""")]
-        by_ip: dict[str, dict[str, Any]] = {}
-        for asset in self.assets():
-            candidate = by_ip.get(asset["ip_address"])
-            if not candidate or (asset["verified"], asset["identity_confidence"] == "high") > (candidate["verified"], candidate["identity_confidence"] == "high"):
-                by_ip[asset["ip_address"]] = asset
-        observed_ips = {ip for row in rows for ip in (row["source_ip"], row["destination_ip"]) if ip}
-        nodes = []
-        for ip in sorted(set(by_ip) | observed_ips):
-            asset = by_ip.get(ip)
-            nodes.append({
-                "ip_address": ip, "asset_id": asset["asset_id"] if asset else "",
-                "identity": (asset["hostname"] or (asset["vendor"] + " " + asset["product"]).strip() or ("Unknown / low-confidence observed endpoint" if asset["identification_source"] == "zeek_passive" else "Unknown")) if asset else "Unknown peer",
-                "asset_type": asset["asset_type"] if asset else "unknown",
-                "zone": asset["zone"] if asset else "unknown", "criticality": asset["criticality"] if asset else "unknown",
-                "vendor": asset["vendor"] if asset else "", "product": asset["product"] if asset else "",
-                "version": asset["version"] if asset else "", "identity_confidence": asset["identity_confidence"] if asset else "unknown",
-                "verified": bool(asset["verified"]) if asset else False,
-                "last_seen": asset["last_seen"] if asset else "", "observed": ip in observed_ips,
-                "visibility": "Observed in imported logs" if ip in observed_ips else "Inventory only; no imported traffic observed",
-            })
-        edges = []
-        for row in rows:
-            source = by_ip.get(row["source_ip"])
-            destination = by_ip.get(row["destination_ip"])
-            row.update({"source_identity": (source["hostname"] or (source["vendor"] + " " + source["product"]).strip() or ("Unknown / low-confidence observed endpoint" if source["identification_source"] == "zeek_passive" else source["asset_id"])) if source else "Unknown peer", "destination_identity": (destination["hostname"] or (destination["vendor"] + " " + destination["product"]).strip() or ("Unknown / low-confidence observed endpoint" if destination["identification_source"] == "zeek_passive" else destination["asset_id"])) if destination else "Unknown peer"})
-            edges.append(row)
-        return {"nodes": nodes, "edges": edges, "event_count": self.connection.execute("SELECT COUNT(*) FROM network_events").fetchone()[0], "edge_limit": 1000}
+    def attack_surface(self, filters=None) -> dict[str, Any]:
+        from .surface import surface
+        return surface(self,filters)
 
     def finding(self, finding_id: str) -> dict[str, Any] | None:
         row = self.connection.execute("""SELECT f.*,a.ip_address,a.hostname,a.vendor,a.product,a.version,a.criticality,a.identity_confidence,a.zone,
@@ -353,23 +342,6 @@ class Store:
         return [dict(r) | {'record':json.loads(r['record_json'])} for r in self.connection.execute(
             'SELECT source,record_json,retrieved_at,public_trusted FROM vulnerability_sources WHERE cve_id=? ORDER BY source',(cve_id,))]
 
-    def save_ai_remediation(self, finding_id: str, model: str, guidance: dict[str, Any], source_urls: list[str]) -> None:
-        if not self.connection.execute("SELECT 1 FROM findings WHERE finding_id=?", (finding_id,)).fetchone():
-            raise ValueError("Finding not found")
-        self.connection.execute("""INSERT INTO ai_remediations VALUES (?,?,?,?,?) ON CONFLICT(finding_id) DO UPDATE SET
-            model=excluded.model,guidance_json=excluded.guidance_json,source_urls_json=excluded.source_urls_json,generated_at=excluded.generated_at""",
-            (finding_id, model, json.dumps(guidance), json.dumps(source_urls), utc_now()))
-        self.connection.commit()
-
-    def get_ai_remediation(self, finding_id: str) -> dict[str, Any] | None:
-        row = self.connection.execute("SELECT * FROM ai_remediations WHERE finding_id=?", (finding_id,)).fetchone()
-        if not row:
-            return None
-        result = dict(row)
-        result["guidance"] = json.loads(result.pop("guidance_json"))
-        result["source_urls"] = json.loads(result.pop("source_urls_json"))
-        return result
-
     def create_remediation_plan(self, finding_id: str, provider: str, model: str, plan: dict[str, Any], source_urls: list[str]) -> dict[str, Any]:
         if not self.connection.execute("SELECT 1 FROM findings WHERE finding_id=?", (finding_id,)).fetchone():
             raise ValueError("Finding not found")
@@ -398,20 +370,11 @@ class Store:
         return result
 
     def update_remediation_plan(self, finding_id: str, status: str, *, reviewer: str = "", change_notes: str = "", verification_evidence: str = "") -> dict[str, Any]:
-        transitions = {
-            "Recommended": {"Under Review", "Rejected", "Deferred", "Needs More Evidence"},
-            "Under Review": {"Recommended", "Approved", "Rejected", "Deferred", "Needs More Evidence"},
-            "Approved": {"Under Review", "Implemented", "Rejected", "Deferred"},
-            "Implemented": {"Under Review", "Verified", "Deferred"},
-            "Rejected": {"Recommended", "Under Review"},
-            "Deferred": {"Recommended", "Under Review"},
-            "Needs More Evidence": {"Recommended", "Under Review"},
-            "Verified": {"Under Review"},
-        }
+        from .remediation_lifecycle import TRANSITIONS
         row = self.connection.execute("SELECT plan_id,status FROM remediation_plans WHERE finding_id=?", (finding_id,)).fetchone()
         if not row:
             raise ValueError("Remediation plan not found")
-        if status not in transitions.get(row["status"], set()):
+        if status not in TRANSITIONS.get(row["status"], ()):
             raise ValueError(f"Invalid remediation transition: {row['status']} → {status}")
         if status == "Approved" and not reviewer.strip():
             raise ValueError("Reviewer is required for approval")
@@ -460,7 +423,7 @@ class Store:
                 row = {k: (v or "").strip() for k, v in raw.items() if k is not None}
                 ip = row.get("ip_address", "")
                 try:
-                    ipaddress.ip_address(ip)
+                    ip = str(ipaddress.ip_address(ip))
                 except ValueError:
                     errors.append({"row": line, "error": "ip_address must be a valid IPv4 or IPv6 address"})
                     continue
@@ -471,6 +434,7 @@ class Store:
                 if asset_type.casefold() not in {v.casefold() for v in ASSET_TYPES}:
                     errors.append({"row": line, "error": f"Unsupported asset_type: {asset_type}"})
                     continue
+                asset_type=next(v for v in ASSET_TYPES if v.casefold()==asset_type.casefold())
                 if zone.upper() not in {v.upper() for v in ZONES}:
                     errors.append({"row": line, "error": f"Unsupported zone: {zone}"})
                     continue
@@ -487,6 +451,7 @@ class Store:
                 if mac and not re.fullmatch(r'(?:[0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}', mac):
                     errors.append({'row': line, 'error': 'mac_address must contain six hexadecimal octets'})
                     continue
+                row['mac_address']=mac.lower().replace('-',':')
                 try:
                     last_seen = utc_timestamp(row.get('last_seen', ''))
                 except ValueError as exc:
@@ -505,7 +470,7 @@ class Store:
                     "hostname": row.get("hostname", ""), "asset_type": asset_type,
                     "vendor": row.get("vendor", ""), "product": row.get("product", ""),
                     "version": row.get("version", ""), "operating_system": row.get("operating_system", ""),
-                    "zone": zone.upper(), "criticality": criticality.casefold(),
+                    "zone": zone.upper() if zone.upper() in {'IT','OT','DMZ'} else 'unknown', "criticality": criticality.casefold(),
                     "identification_source": row.get("identification_source", "manual") or "manual",
                     "identity_confidence": confidence.casefold(), "last_seen": last_seen,
                     "notes": row.get("notes", ""), "verified": int(row.get("verified", "").casefold() in {"1", "true", "yes"}),
@@ -515,6 +480,9 @@ class Store:
                     self.connection.execute(f"INSERT INTO assets ({','.join(values)}) VALUES ({','.join('?' for _ in values)}) ON CONFLICT(asset_id) DO UPDATE SET " + ",".join(f"{key}=excluded.{key}" for key in values if key != "asset_id"), tuple(values.values()))
                     if passive and passive["asset_id"]!=asset_id:
                         self.audit("passive_identity_reconciled",asset_id,{"previous_asset":dict(passive)})
+                        self.connection.execute('UPDATE software_components SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
+                        self.connection.execute('UPDATE asset_context SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
+                        self.connection.execute('UPDATE process_links SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
                         self.connection.execute("DELETE FROM assets WHERE asset_id=?",(passive["asset_id"],))
                     self.correlate(asset_ids=[asset_id], commit=False)
                     self.audit("asset_import", asset_id, {"identity_source": values["identification_source"]})
@@ -573,6 +541,11 @@ class Store:
                     self._index_products(cve,record['affected_products'])
                 self.connection.execute('INSERT INTO vulnerability_sources VALUES(?,?,?,?,?) ON CONFLICT(cve_id,source) DO UPDATE SET record_json=excluded.record_json,retrieved_at=excluded.retrieved_at,public_trusted=excluded.public_trusted',
                     (cve,source,json.dumps(record),retrieved,int(trusted_public and not record['synthetic'])))
+                # Index all preserved source identities, including structured advisories.
+                for snapshot in self.connection.execute('SELECT record_json FROM vulnerability_sources WHERE cve_id=?',(cve,)):
+                    for product in json.loads(snapshot[0]).get('affected_products',[]):
+                        self.connection.execute('INSERT OR IGNORE INTO affected_product_index VALUES(?,?,?)',(_normalized(product['vendor']),_normalized(product['product']),cve))
+                if cve not in changed_ids:changed_ids.append(cve)
                 current = dict(self.connection.execute('SELECT * FROM vulnerabilities WHERE cve_id=?',(cve,)).fetchone())
                 meaningful = ('summary','published','modified','severity','cvss','kev','exploitation_metadata','mitigation','affected_products','references_json')
                 if not previous or any(previous[k] != current[k] for k in meaningful):
@@ -633,84 +606,8 @@ class Store:
         return rows
 
     def correlate(self, *, asset_ids: list[str] | None = None, cve_ids: list[str] | None = None, commit: bool = True) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        if asset_ids is None:
-            assets=self.assets()
-        else:
-            assets=[dict(row) for asset_id in set(asset_ids) if (row:=self.connection.execute("SELECT * FROM assets WHERE asset_id=?",(asset_id,)).fetchone()) is not None]
-        asset_scope = set(asset_ids) if asset_ids is not None else None
-        cve_scope = set(cve_ids) if cve_ids is not None else None
-        for asset in assets:
-            if asset_scope is not None and asset['asset_id'] not in asset_scope:
-                continue
-            candidates = [dict(r) for r in self.connection.execute(
-                'SELECT v.* FROM vulnerabilities v JOIN affected_product_index i USING(cve_id) WHERE i.vendor=? AND i.product=?',
-                (_normalized(asset['vendor']),_normalized(asset['product'])))]
-            if cve_scope is not None:
-                candidates = [r for r in candidates if r['cve_id'] in cve_scope]
-            candidate_ids = {r['cve_id'] for r in candidates}
-            for old in self.connection.execute('SELECT finding_id,cve_id FROM findings WHERE asset_id=?',(asset['asset_id'],)).fetchall():
-                if old['cve_id'] not in candidate_ids and (cve_scope is None or old['cve_id'] in cve_scope):
-                    self._archive_plan(old['finding_id'],'Asset/product applicability changed')
-                    self.connection.execute('DELETE FROM findings WHERE finding_id=?',(old['finding_id'],))
-            if not asset["vendor"].strip() or not asset["product"].strip():
-                # Incomplete inventory identity is tracked separately; do not fan it out
-                # into one meaningless NEEDS_REVIEW row per CVE.
-                self.connection.execute("DELETE FROM findings WHERE asset_id=?", (asset["asset_id"],))
-                continue
-            for vuln in candidates:
-                affected = json.loads(vuln["affected_products"])
-                product_match = next((p for p in affected if _normalized(p["vendor"]) == _normalized(asset["vendor"]) and _normalized(p["product"]) == _normalized(asset["product"])), None)
-                if product_match is None:
-                    # Do not create unrelated manufacturer-wide findings.
-                    self.connection.execute("DELETE FROM findings WHERE asset_id=? AND cve_id=?", (asset["asset_id"], vuln["cve_id"]))
-                    continue
-                elif product_match.get("conditions_unresolved"):
-                    status, evidence, missing = "NEEDS_REVIEW", [f"Exact vendor/product identity appears in source conditions: {product_match['vendor']} {product_match['product']}"], ["source configuration prerequisites are not evaluated by this matcher"]
-                elif asset["identity_confidence"] == "low":
-                    status, evidence, missing = "NEEDS_REVIEW", [f"Candidate product matches source: {product_match['vendor']} {product_match['product']}"], ["asset identity confidence is low; verify vendor and product"]
-                elif not asset["version"]:
-                    status, evidence = "POTENTIAL_MATCH", [f"Candidate vendor/product identity matches source: {product_match['vendor']} {product_match['product']}"]
-                    missing = ["asset version; source version applicability cannot be evaluated"]
-                    if not product_match.get("versions") and not product_match.get("version_ranges"):
-                        missing.append("source affected-version data")
-                    if asset["identity_confidence"] != "high" or not asset["verified"]:
-                        missing.append("asset identity has not been confirmed at high confidence")
-                else:
-                    version_match = _version_applicability(asset["version"], product_match)
-                    if version_match is None:
-                        status, evidence, missing = "NEEDS_REVIEW", [f"Exact vendor/product identity matches source: {product_match['vendor']} {product_match['product']}"], [f"source version semantics cannot be compared safely with asset version {asset['version']}"]
-                    elif version_match and (asset["identity_confidence"] != "high" or not asset["verified"]):
-                        status, evidence, missing = "POTENTIAL_MATCH", [f"Candidate vendor/product/version matches source: {product_match['vendor']} {product_match['product']} {asset['version']}"], ["asset identity has not been confirmed at high confidence"]
-                    elif version_match:
-                        status, evidence, missing = "CONFIRMED_MATCH", [f"Exact vendor/product match: {product_match['vendor']} {product_match['product']}", f"Asset version {asset['version']} matches source-defined affected-version data"], []
-                    elif asset["identity_confidence"] != "high" or not asset["verified"]:
-                        status, evidence, missing = "NEEDS_REVIEW", [f"Candidate vendor/product matches source: {product_match['vendor']} {product_match['product']}"], ["asset identity must be confirmed before excluding applicability"]
-                    else:
-                        status, evidence, missing = "NO_MATCH_TO_THIS_ADVISORY", [f"Exact vendor/product match, but asset version {asset['version']} is outside source-defined affected versions"], []
-                priority = self._priority(asset, vuln, status)
-                current = self.connection.execute("SELECT * FROM findings WHERE asset_id=? AND cve_id=?", (asset["asset_id"], vuln["cve_id"])).fetchone()
-                finding_id = current["finding_id"] if current else str(uuid.uuid5(uuid.NAMESPACE_URL, f"{asset['asset_id']}:{vuln['cve_id']}"))
-                fingerprint = hashlib.sha256(json.dumps({k:vuln[k] for k in ('summary','mitigation','modified','references_json')},sort_keys=True).encode()).hexdigest()[:16]
-                evidence.append('Advisory content fingerprint: '+fingerprint)
-                evidence.append('Matched source condition: ' + json.dumps(product_match,sort_keys=True))
-                if current and (current['status'] != status or json.loads(current['evidence']) != evidence or current['priority'] != priority):
-                    plan = self.get_remediation_plan(finding_id)
-                    if plan:
-                        self._archive_plan(finding_id,'Supporting finding evidence changed')
-                        self.connection.execute("UPDATE remediation_plans SET status='Needs More Evidence',reviewer='',verification_evidence='',updated_at=? WHERE finding_id=?",(utc_now(),finding_id))
-                        self.connection.execute('INSERT INTO remediation_plan_events VALUES(?,?,?,?,?,?,?)',(str(uuid.uuid4()),plan['plan_id'],plan['status'],'Needs More Evidence','system','Supporting finding evidence changed; review required',utc_now()))
-                self.connection.execute("""INSERT INTO findings VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(asset_id,cve_id) DO UPDATE SET status=excluded.status,evidence=excluded.evidence,missing_evidence=excluded.missing_evidence,priority=excluded.priority,updated_at=excluded.updated_at""", (finding_id, asset["asset_id"], vuln["cve_id"], status, json.dumps(evidence), json.dumps(missing), priority, utc_now()))
-                counts[status] = counts.get(status, 0) + 1
-                if status in {"CONFIRMED_MATCH", "POTENTIAL_MATCH"}:
-                    severity = vuln["severity"] or "Unknown"
-                    explanation = f"{status}: {vuln['cve_id']} {severity}; {evidence[0]}. KEV membership: {'yes' if vuln['kev'] else 'no'} (catalog status does not indicate this asset is under attack)."
-                    self.connection.execute("""INSERT INTO alerts VALUES (?,?,?,?,0,?,?) ON CONFLICT(finding_id) DO UPDATE SET severity=excluded.severity,explanation=excluded.explanation,updated_at=excluded.updated_at""", (str(uuid.uuid5(uuid.NAMESPACE_URL, finding_id)), finding_id, severity, explanation, utc_now(), utc_now()))
-                else:
-                    self.connection.execute("DELETE FROM alerts WHERE finding_id=?", (finding_id,))
-        if commit:
-            self.connection.commit()
-        return counts
+        from .correlation import correlate
+        return correlate(self,asset_ids,cve_ids,commit)
 
     @staticmethod
     def _priority(asset: dict[str, Any], vuln: dict[str, Any], status: str) -> str:
@@ -722,12 +619,12 @@ class Store:
         identity_review_assets = [dict(r) for r in self.connection.execute("""SELECT asset_id,ip_address,hostname,asset_type,vendor,product,version,identity_confidence,verified,identification_source
             FROM assets WHERE TRIM(vendor)='' OR TRIM(product)='' OR identity_confidence!='high' OR verified=0 ORDER BY ip_address,asset_id""" + paging)]
         remediation_plans = []
-        plan_rows = self.connection.execute("""SELECT p.finding_id,f.cve_id,f.asset_id,f.status AS finding_status,f.priority,a.ip_address,a.hostname
+        plan_rows = self.connection.execute("""SELECT p.finding_id,f.cve_id,f.asset_id,f.status AS finding_status,f.priority,f.missing_evidence,a.ip_address,a.hostname,a.identity_confidence
             FROM remediation_plans p JOIN findings f USING(finding_id) JOIN assets a USING(asset_id) ORDER BY p.updated_at DESC""" + paging)
         for row in plan_rows:
             plan = self.get_remediation_plan(row["finding_id"])
             if plan:
-                remediation_plans.append(plan | {"cve_id": row["cve_id"], "asset_id": row["asset_id"], "ip_address": row["ip_address"], "hostname": row["hostname"], "finding_status": row["finding_status"], "priority": row["priority"]})
+                remediation_plans.append(plan | {"cve_id": row["cve_id"], "asset_id": row["asset_id"], "ip_address": row["ip_address"], "hostname": row["hostname"], "finding_status": row["finding_status"], "priority": row["priority"], "current_identity_confidence":row['identity_confidence'], "current_missing_evidence":json.loads(row['missing_evidence'])})
         stale_sources = sum(1 for item in self.source_health() if item["health"] == "stale")
         communication_relationships = self.connection.execute("""SELECT COUNT(*) FROM (SELECT 1 FROM network_events GROUP BY source_ip,source_port,destination_ip,destination_port,protocol,operation,event_type,source_file)""").fetchone()[0]
         return {
@@ -742,7 +639,7 @@ class Store:
             "potential_assets": self.connection.execute("SELECT COUNT(DISTINCT asset_id) FROM findings WHERE status='POTENTIAL_MATCH'").fetchone()[0],
             "kev_findings": self.connection.execute("SELECT COUNT(*) FROM findings f JOIN vulnerabilities v USING(cve_id) WHERE v.kev=1 AND f.status IN ('CONFIRMED_MATCH','POTENTIAL_MATCH')").fetchone()[0],
             "critical_exposed_assets": self.connection.execute("SELECT COUNT(DISTINCT f.asset_id) FROM findings f JOIN assets a USING(asset_id) WHERE a.criticality='critical' AND f.status IN ('CONFIRMED_MATCH','POTENTIAL_MATCH')").fetchone()[0],
-            "unacknowledged_alerts": self.connection.execute("SELECT (SELECT COUNT(*) FROM alerts WHERE acknowledged=0)+(SELECT COUNT(*) FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE a.acknowledged=0 AND COALESCE(l.state,'active')='active')").fetchone()[0],
+            "unacknowledged_alerts": self.connection.execute("SELECT (SELECT COUNT(*) FROM alerts WHERE acknowledged=0)+(SELECT COUNT(*) FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE a.acknowledged=0 AND COALESCE(l.state,'active')='active')+(SELECT COUNT(*) FROM endpoint_alerts WHERE acknowledged=0 AND state='active')").fetchone()[0],
             "findings": [dict(r) for r in self.connection.execute("""SELECT f.*,a.ip_address,a.hostname,a.vendor,a.product,a.version,a.criticality,a.identity_confidence,a.zone,v.summary,v.severity,v.kev,v.source,v.source_url,v.references_json,v.published,v.modified,v.mitigation,v.synthetic,v.cvss FROM findings f JOIN assets a USING(asset_id) JOIN vulnerabilities v USING(cve_id) ORDER BY CASE f.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, f.updated_at DESC""" + paging)],
             "alerts": [dict(r) for r in self.connection.execute("SELECT * FROM alerts ORDER BY created_at DESC" + paging)] + network_alerts,
             "network_alerts": network_alerts,

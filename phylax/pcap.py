@@ -62,7 +62,7 @@ def analyze_pcap(store: Store, path: str | Path, *, policy: dict[str,Any] | None
         results=[]
         with store.atomic('pcap_import'):
             # ingest_file joins the enclosing savepoint rather than committing it.
-            for log_name,kind in (('conn.log','conn'),('modbus.log','modbus')):
+            for log_name,kind in (('conn.log','conn'),('modbus.log','modbus'),('dhcp.log','dhcp'),('software.log','software')):
                 file=output/log_name
                 if file.exists():
                     if file.is_symlink():raise ValueError('Zeek output must not contain symbolic links')
@@ -70,7 +70,7 @@ def analyze_pcap(store: Store, path: str | Path, *, policy: dict[str,Any] | None
             if not results:raise RuntimeError('Zeek produced no supported conn.log/modbus.log; verify capture content and installed analyzers')
             store.audit('pcap_analyzed',digest.hexdigest(),{'filename':path.name[:255],'docker_image':docker_image,'logs':len(results)})
         result={'capture_sha256':digest.hexdigest(),'docker_image':docker_image,'logs':results,
-                'coverage':'Zeek connection and available Modbus logs only; ICSNPP extension installation is optional and not verified by this runner.'}
+                'coverage':'Zeek connection, Modbus, DHCP and software logs when produced; ICSNPP extension installation is optional and not verified by this runner.'}
         store.connection.execute('INSERT INTO pcap_runs VALUES(?,?,?,?)',(digest.hexdigest(),docker_image or executable,json.dumps(result),utc_now()))
         store.connection.commit()
         return result

@@ -10,83 +10,77 @@ import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
-from .ai import AIConfig
 from .core import Store, read_json_limited, ASSET_FIELDS
 from .web_security import CSP, valid_host, valid_origin, valid_token, form_token, protect_forms
 from .prioritization import prioritize
 from .jobs import Jobs
 from .remediation_service import generate_plan
+from .remediation_presenter import plan_card
+from .finding_views import finding_case
+from .advisory_views import advisory_summary
 from .operator_pages import inventory_form,policy_page,settings_page,reports_page
 from .theme import layout, ring, status_marker, term, glossary_page
 from .feeds import sync_store
 from .monitoring import ingest_file, validate_policy, reevaluate_events
-from .remediation import HostedModelProvider, TemplateFallbackProvider, compose_plan
+from . import release_web
+from .ui import field, select, table, pager, reference_links, evidence_lines, evidence_url
+from .topology import render_topology, url as surface_url, values as surface_query
 
 
 MAX_UPLOAD = 5_000_000
 
 
+def kev_status(finding,source_health):
+    """Describe stored membership without claiming absence of exploitation."""
+    if finding.get('synthetic'):
+        return 'Synthetic KEV association: '+('yes' if finding.get('kev') else 'no')
+    if finding.get('kev'):return 'KEV-associated in stored intelligence'
+    catalog=next((r for r in source_health if r['source']=='CISA KEV'),None)
+    if not catalog or not catalog.get('last_success_at'):
+        return 'KEV status unknown; no successful catalog synchronization'
+    health=catalog['health']
+    coverage='cached catalog' if health=='healthy' else 'stale cached catalog' if health=='stale' else 'cached catalog; latest synchronization unavailable'
+    return 'Not listed in CISA KEV '+coverage+' · last success '+catalog['last_success_at']
+
+
 def evidence_html(items) -> str:
-    """Short evidence lines inline; long machine-readable ones collapsed."""
-    out = []
-    for item in items:
-        if len(item) > 120 or item.startswith("Matched source condition:"):
-            label, _, rest = item.partition(": ")
-            out.append(f'<details><summary>{html.escape(label)}</summary><code class="block">{html.escape(rest)}</code></details>')
-        else:
-            out.append(f"<div>{html.escape(item)}</div>")
-    return "".join(out)
+    return evidence_lines(items)
 
 
-def page(store: Store, notice: str = "", page_number: int = 1) -> str:
+def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str = '') -> str:
     page_number = max(1,page_number)
     data = store.dashboard(limit=50,offset=(page_number-1)*50)
+    if finding_id:
+        finding=store.finding(finding_id)
+        if not finding:raise ValueError('Finding not found')
+        return finding_case(store,finding,kev_status(finding,data['source_health']),notice)
     cards = [("Devices in inventory", data["assets"], ""), ("Devices to identify", data["assets_needing_identity_review"], "Identity review"), ("Confirmed affected", data["confirmed_assets"], "Confirmed affected"), ("Possibly affected", data["potential_assets"], "Possibly affected"), ("Known-exploited flaws", data["kev_findings"], "KEV"), ("Critical devices at risk", data["critical_exposed_assets"], ""), ("Network connections seen", data["communication_relationships"], ""), ("New alerts", data["unacknowledged_alerts"], ""), ("Out-of-date data feeds", data["stale_sources"], "")]
     rows = []
     for f in data["findings"]:
         evidence = evidence_html(json.loads(f["evidence"]))
         missing = "<br>".join(html.escape(x) for x in json.loads(f["missing_evidence"])) or "None recorded"
-        references = ", ".join(json.loads(f["references_json"])) or "No references supplied"
+        references = reference_links(json.loads(f["references_json"])) or "No references supplied"
         urgency = prioritize(f,f,f["status"])
         priority_detail = "; ".join(f"{x['input']}: {x['value']} (+{x['points']})" for x in urgency["factors"])
         assessment_confidence = {"CONFIRMED_MATCH": "high", "NO_MATCH_TO_THIS_ADVISORY": "high", "POTENTIAL_MATCH": "medium", "NEEDS_REVIEW": "low"}.get(f["status"], "unknown")
         plan_data = store.get_remediation_plan(f["finding_id"])
-        plan_html = ""
         if plan_data:
-            p = plan_data["plan"]
-            sections = ["finding_summary", "priority_explanation", "preferred_remediation", "operational_impact", "vendor_guidance_status"]
-            if p.get("cisa_required_action"):sections.append("cisa_required_action")
-            detail_html = "".join(f"<p><b>{html.escape(label.replace('_', ' ').title())}:</b> {html.escape(str(p[key]))}</p>" for key, label in ((key, key) for key in sections))
-            detail_html += f"<p><b>Confidence and unresolved questions:</b> {html.escape(json.dumps(p['confidence_and_questions'], ensure_ascii=False))}</p><p><b>Human approval required:</b> {'Yes' if p['human_approval_required'] else 'No'}</p><p><b>Plan source:</b> {html.escape(p.get('provider_note', plan_data['provider']))}</p>"
-            list_sections = ("preconditions", "alternative_controls", "validation_steps", "rollback_considerations", "post_remediation_verification", "source_references")
-            for key in list_sections:
-                detail_html += f"<b>{html.escape(key.replace('_', ' ').title())}</b><ul>" + "".join(f"<li>{html.escape(str(value))}</li>" for value in p.get(key, [])) + "</ul>"
-            if p.get("ai_summary"):
-                detail_html += f"<div class=notice>AI-generated, unverified public-advisory supplement ({html.escape(plan_data['model'])}): {html.escape(p['ai_summary'])}<br>" + "<br>".join(html.escape(x) for x in p.get("ai_steps", [])) + f"<br>{html.escape(p.get('ai_validation', ''))}<br>Cited URLs: {html.escape('; '.join(p.get('ai_source_references',[])))}</div>"
-            statuses = ["Recommended", "Under Review", "Approved", "Implemented", "Verified", "Rejected", "Deferred", "Needs More Evidence"]
-            options = "".join(f'<option value="{html.escape(s)}">{html.escape(s)}</option>' for s in statuses if s != plan_data["status"])
-            detail_html += f'<b>Lifecycle: {html.escape(plan_data["status"])}</b> · Updated {html.escape(plan_data["updated_at"])}<form method="post" action="/remediation/update"><input type="hidden" name="finding_id" value="{html.escape(f["finding_id"], quote=True)}"><select name="status">{options}</select><input name="reviewer" maxlength="120" placeholder="Reviewer (required for approval)"><input name="change_notes" maxlength="2000" placeholder="Change or review notes"><input name="verification_evidence" maxlength="4000" placeholder="Verification evidence (required for Verified)"><button>Update plan</button></form>'
-            plan_html = f'<details><summary>Remediation plan · {html.escape(plan_data["status"])}</summary>{detail_html}</details>'
-        plan_action = f'<form method="post" action="/remediation/create"><input type="hidden" name="finding_id" value="{html.escape(f["finding_id"], quote=True)}"><button>Generate remediation plan</button></form>'
-        rows.append(f"""<tr><td><b class="mono">{html.escape(f['cve_id'])}</b><br>{'DEMO FIXTURE' if f['synthetic'] else html.escape(f['source'])}<br><small>Published {html.escape(f['published'] or 'Unknown')} · modified {html.escape(f['modified'] or 'Unknown')}<br>{html.escape(references)}</small></td>
+            plan_action = (f'<p>Plan status: {html.escape(plan_data["status"])} · updated {html.escape(plan_data["updated_at"])}</p>'
+                           f'<a class="btn" href="/remediation?{urlencode({"finding_id":f["finding_id"]})}">Review plan</a>')
+        else:
+            plan_action = f'<form method="post" action="/remediation/create"><input type="hidden" name="finding_id" value="{html.escape(f["finding_id"], quote=True)}"><button>Generate remediation plan</button></form>'
+        rows.append(f"""<tr id="finding-{html.escape(f['finding_id'],quote=True)}"><td><b class="mono"><a href="/?{urlencode({'finding_id':f['finding_id']})}#finding-{html.escape(f['finding_id'],quote=True)}">{html.escape(f['cve_id'])}</a></b><br>{'DEMO FIXTURE' if f['synthetic'] else html.escape(f['source'])}<br><small>Published {html.escape(f['published'] or 'Unknown')} · modified {html.escape(f['modified'] or 'Unknown')}<br>{references}</small></td>
           <td><span class="mono">{html.escape(f['ip_address'])}</span> {html.escape(f['hostname'])}<br>{html.escape(f['vendor'])} {html.escape(f['product'])} {html.escape(f['version'])}<br><small>{html.escape(f['criticality'])} criticality · identity {html.escape(f['identity_confidence'])} · {html.escape(f['zone'])} zone</small></td>
-          <td>{status_marker(f['status'])}<br><b>Urgency {urgency['score'] if urgency['score'] is not None else 'n/a'} of 12</b> · {html.escape(f['priority'])}<br>{html.escape(f['severity'] or 'Unknown')} severity · {'known to be exploited' if f['kev'] else 'no known exploitation'}<details><summary>Why this score</summary><small>{html.escape(priority_detail)}<br>Match confidence: {assessment_confidence}</small></details></td>
+          <td>{status_marker(f['status'])}<br><b>Urgency {urgency['score'] if urgency['score'] is not None else 'n/a'} of 12</b> · {html.escape(f['priority'])}<br>{html.escape(f['severity'] or 'Unknown')} severity · {html.escape(kev_status(f,data['source_health']))}<details><summary>Why this score</summary><small>{html.escape(priority_detail)}<br>Match confidence: {assessment_confidence}</small></details></td>
           <td>{evidence}<br><small>Missing: {missing}</small></td>
-          <td>{html.escape(f['summary'])}<br><small>{html.escape(f['mitigation'] or 'No verified vendor guidance supplied.')}</small><br>{plan_action}{plan_html}</td></tr>""")
+          <td>{html.escape(f['summary'])}<br><small>{html.escape(f['mitigation'] or 'No verified vendor guidance supplied.')}</small><br>{plan_action}</td></tr>""")
     finding_table = "".join(rows) or '<tr><td colspan="5" class="empty">No findings yet. Import assets and load a local fixture to begin.</td></tr>'
-    alerts = []
-    for a in data["alerts"]:
-        button = "Acknowledged" if a["acknowledged"] else f'<form method="post" action="/ack"><input type="hidden" name="alert_id" value="{html.escape(a["alert_id"])}"><button>Acknowledge</button></form>'
-        simulation_label = "SYNTHETIC TEST EVENT · " if "synthetic" in a.get("source_file", "").casefold() else ""
-        observed_asset = f" · asset {html.escape(a['destination_hostname'] or a['destination_asset_id'])}" if a.get("destination_asset_id") else ""
-        evidence = f"<br><small>Rule: {html.escape(a['rule_id'])} · Event: {html.escape(a['event_ref'])} · {html.escape(a['source_ip'])} → {html.escape(a['destination_ip'])}{observed_asset} · {html.escape(a['event_timestamp'])}<br>Policy evidence: {html.escape(a['policy_evidence'])}</small>" if a.get("rule_id") else ""
-        alerts.append(f'<div class="alert"><div><b>{simulation_label}{html.escape(a["severity"])} · {html.escape(a["alert_id"][:8])}</b><p>{html.escape(a["explanation"])}</p>{evidence}<small>{html.escape(a["created_at"])}</small></div>{button}</div>')
-    alert_html = "".join(alerts) or '<p class="empty">No evidence-backed exposure alerts.</p>'
+    alert_summary = (f'<p>{data["unacknowledged_alerts"]} unacknowledged alerts across vulnerability, network and device-management evidence.</p>'
+                     '<p><a href="/triage?acknowledged=no">Review new alerts in Triage</a></p>')
     health_html = "".join(f'<div class="alert"><div><b>{html.escape(source["source"])} · {html.escape(source["health"])}</b><br><small>Last success: {html.escape(source["last_success_at"] or "Never")} · {html.escape(source["message"])}</small></div></div>' for source in data["source_health"]) or '<p class="empty">No synchronization yet. Stored offline data remains available.</p>'
     updates_html = "".join(f'<div class="alert"><div><b>{html.escape(item["change_type"])} · {html.escape(item["cve_id"])}</b><br><small>{html.escape(item["source"])} · {html.escape(item["changed_at"])}<br>{html.escape(item["summary"])}</small></div></div>' for item in data["recent_intelligence"]) or '<p class="empty">No intelligence records stored yet.</p>'
-    identity_names = ", ".join(html.escape(asset["hostname"] or asset["asset_id"]) for asset in data["identity_review_assets"][:8])
-    identity_review_html = f'<p class="notice">{data["assets_needing_identity_review"]} device(s) cannot be checked for known flaws yet because their make, model or version is not confirmed ({identity_names}). Phylax does not guess these from an IP address. <a href="/assets">Open inventory to fill them in</a>.</p>' if data["identity_review_assets"] else ""
-    largest = max(data['findings_count'],data['exposure_alerts_count'],data['network_alerts_count'],data['assets_needing_identity_review'])
+    identity_review_html = f'<p class="notice">{data["assets_needing_identity_review"]} assets need identity review. Unknown product or version information limits vulnerability assessment. <a href="/assets?identity_review=yes">Review these assets</a>.</p>' if data["assets_needing_identity_review"] else ""
+    largest = data['findings_count']
     pager = (f'<a class="link" href="/?page={page_number-1}">Previous</a>' if page_number>1 else '')
     if page_number>1 or page_number*50 < largest:
         pager += f' <span class="muted">Page {page_number}</span> '
@@ -94,7 +88,11 @@ def page(store: Store, notice: str = "", page_number: int = 1) -> str:
     pager = f'<div class="controls">{pager}</div>' if pager.strip() else ''
     notice_html = f'<div class="notice">{html.escape(notice)}</div>' if notice else ""
     hot = {"Confirmed affected", "Known-exploited flaws", "Critical devices at risk", "New alerts"}
-    stats_html = "".join(f'<div class="{"hot" if label in hot and value else ""}"><dt>{term(tip, label) if tip else html.escape(label)}</dt><dd>{value}</dd></div>' for label, value, tip in cards)
+    def stat_items(items):
+        return "".join(f'<div class="{"hot" if label in hot and value else ""}"><dt>{term(tip, label) if tip else html.escape(label)}</dt><dd>{value}</dd></div>' for label,value,tip in items)
+    primary_metrics={'Devices in inventory','Confirmed affected','Possibly affected','New alerts'}
+    stats_html=stat_items(c for c in cards if c[0] in primary_metrics)
+    more_stats='<details class="workflow"><summary>More inventory and source metrics</summary><dl class="stats">'+stat_items(c for c in cards if c[0] not in primary_metrics)+'</dl></details>'
     scored = []
     for f in data["findings"]:
         u = prioritize(f, f, f["status"])
@@ -103,7 +101,7 @@ def page(store: Store, notice: str = "", page_number: int = 1) -> str:
     scored.sort(key=lambda t: -t[0])
     tone = {"critical": "crit", "high": "high", "medium": "info"}
     focus_cards = "".join(
-        f'<a class="card" href="#findings">{ring(score, 12, str(score), tone.get(priority, "none"))}<div><b>{html.escape(f["cve_id"])}</b>'
+        f'<a class="card" href="/?{urlencode({"finding_id":f["finding_id"]})}#finding-{html.escape(f["finding_id"],quote=True)}">{ring(score, 12, str(score), tone.get(priority, "none"))}<div><b>{html.escape(f["cve_id"])}</b>'
         f'<small>{html.escape(f["hostname"] or f["ip_address"])} · {html.escape(priority)} priority</small><div class="t">{status_marker(f["status"])}</div></div></a>'
         for score, priority, f in scored[:3])
     surface = store.attack_surface()
@@ -120,34 +118,40 @@ def page(store: Store, notice: str = "", page_number: int = 1) -> str:
                     f'<small>Start with <b>{html.escape(top["cve_id"])}</b> on <b>{html.escape(top["hostname"] or top["ip_address"])}</b> '
                     f'(urgency {top_score} of 12, {html.escape(top_priority)}). <a href="#findings">See the findings</a>.</small>')
     else:
-        headline = f"None of your {total_assets} devices match a known flaw yet.<small>Run steps 2 and 4 below to check against the latest information.</small>"
+        headline = f"None of your {total_assets} devices match a known flaw yet.<small>Sync public intelligence or load an offline advisory below. Imports reassess findings automatically.</small>"
     focus_html = f'<p class="headline">{headline}</p><h2>Top priorities</h2><div class="focus">{focus_cards}</div>'
     content = f"""{notice_html}{pager}{identity_review_html}
-<dl class="stats">{stats_html}</dl>
+<dl class="stats">{stats_html}</dl>{more_stats}
 {focus_html}
-<ol class="steps">
+<p><a class="btn" href="/triage">Open unified security triage</a></p>
+<details class="workflow"><summary>Import data</summary><ol class="steps">
 <li><b>1 · Inventory</b><form method="post" action="/assets/import" enctype="multipart/form-data"><input required name="file" type="file" accept=".csv,text/csv" aria-label="Asset CSV"><button>Import asset CSV</button></form><a class="link" href="/assets/edit">Add asset manually</a><a class="link" href="/assets">View inventory</a></li>
 <li><b>2 · Public intelligence</b><form method="post" action="/sync"><button>Sync public sources</button></form><form method="post" action="/intelligence/import" enctype="multipart/form-data"><input required name="file" type="file" accept=".json,application/json" aria-label="Offline fixture"><button>Load offline fixture</button></form></li>
 <li><b>3 · Passive network</b><form method="post" action="/network/import" enctype="multipart/form-data"><input required name="file" type="file" accept=".log,.json,.tsv,text/plain" aria-label="Zeek log"><input name="policy" type="file" accept=".json,application/json" aria-label="Optional policy JSON"><button>Analyze Zeek log</button></form></li>
-<li><b>4 · Assess</b><form method="post" action="/correlate"><button class="primary">Run correlation</button></form><span class="muted">Re-run after any change to steps 1-3.</span></li>
-</ol>
+</ol></details>
 <div class="split"><div><h2 id="findings">Exposure findings</h2><section class="panel"><table class="findings"><thead><tr><th>Vulnerability</th><th>Device</th><th>Risk</th><th>Why we think so</th><th>What it is and what to do</th></tr></thead><tbody>{finding_table}</tbody></table></section></div>
-<div><h2>Security alerts · {data["network_events"]} network events</h2><section class="panel">{alert_html}</section><h2>Intelligence sources</h2><section class="panel">{health_html}</section><h2>Recent intelligence updates</h2><section class="panel">{updates_html}</section></div></div>
+<div><h2>Security alerts · {data["network_events"]} network events</h2><section class="panel text-panel">{alert_summary}</section><h2>Intelligence sources</h2><section class="panel">{health_html}</section><h2>Recent intelligence updates</h2><section class="panel">{updates_html}</section></div></div>
 <footer>Urgency is a transparent rule-based priority; severity and applicability remain separate. KEV indicates catalog-listed exploitation, not an attack on this asset. Absence of a finding does not mean an asset is safe. Timestamps are stored in UTC. Exports are on the <a href="/reports">Reports</a> page.</footer>"""
-    return layout("Overview", content, "/", lead="Local inventory and stored intelligence. No active scanning or device control.", heading="Security overview")
+    if not total_assets:
+        content=notice_html+'''<section class="setup-start"><h2>Start with your asset inventory</h2><p>No devices loaded yet. Add an asset or import a CSV with an IP address for each device. Unknown product and firmware information can stay blank.</p>
+<p><a class="btn primary" href="/assets/edit">Add your first asset</a></p><form method="post" action="/assets/import" enctype="multipart/form-data"><label>Inventory CSV<input required name="file" type="file" accept=".csv,text/csv"></label><button>Import asset CSV</button></form>
+<h3>Then build the evidence</h3><ol><li>Load public intelligence or an offline advisory fixture.</li><li>Import Zeek logs or analyze an offline capture.</li><li>Review applicability, missing evidence and policy alerts.</li></ol><p>Control endpoints remain passive-only. Active IT discovery requires separate target permission.</p>
+<p><a href="/settings">Check data sources and collector setup</a> · <a href="/intelligence">View stored intelligence</a></p></section>'''
+    return layout("Overview", content, "/", lead="Local inventory and stored intelligence. Active IT discovery requires target permission; control endpoints remain passive-only.", heading="Security overview")
 
 
-def assets_page(store: Store, search: str = "", page_number: int = 1) -> str:
+def assets_page(store: Store, search: str = "", page_number: int = 1, *, identity_review: bool = False) -> str:
     page_number = max(1, page_number)
     limit = 50
-    rows, total = store.search_assets(search, limit=limit, offset=(page_number - 1) * limit)
+    rows, total = store.search_assets(search, limit=limit, offset=(page_number - 1) * limit, identity_review=identity_review)
     body = "".join(f"""<tr><td class="nw mono">{html.escape(row['ip_address'])}<br><small>ID {html.escape(row['asset_id'])} · {html.escape(row['mac_address'] or 'MAC unknown')}</small><br><a href="/assets/edit?{urlencode({'asset_id':row['asset_id']})}">Edit</a></td><td>{html.escape(row['hostname'] or 'Unknown')}</td>
       <td>{html.escape(row['asset_type'])}<br><small>{html.escape(row['vendor'])} {html.escape(row['product'])} {html.escape(row['version'])}<br>{html.escape(row['operating_system'])}</small></td>
       <td>{html.escape(row['zone'])}<br>{html.escape(row['criticality'])}</td><td>{html.escape(row['identification_source'])}<br><small>{html.escape(row['identity_confidence'])} confidence · {'verified' if row['verified'] else 'unverified'}</small></td><td>{html.escape(row['last_seen'] or 'Unknown')}<br><small>{html.escape(row['notes'])}</small></td></tr>""" for row in rows) or '<tr><td colspan="6" class="empty">No assets found. Import a CSV from the overview.</td></tr>'
-    query = urlencode({"q": search})
+    query = urlencode({"q": search, **({"identity_review":"yes"} if identity_review else {})})
     previous = f'<a class="link" href="/assets?{query}&page={page_number - 1}">Previous</a>' if page_number > 1 else ""
     next_link = f'<a class="link" href="/assets?{query}&page={page_number + 1}">Next</a>' if page_number * limit < total else ""
-    content = f"""<div class="controls"><form method="get" action="/assets"><input name="q" value="{html.escape(search, quote=True)}" placeholder="Search IP, hostname, vendor, product" aria-label="Search assets"> <button>Search</button></form><a class="btn primary" href="/assets/edit">Add asset</a><a class="btn" href="/assets.csv">Export CSV</a><span class="muted">{total} assets · page {page_number}</span>{previous}{next_link}</div>
+    review_control = '<label class="inline-check"><input type="checkbox" name="identity_review" value="yes"'+(' checked' if identity_review else '')+'> Needs identity review</label>'
+    content = f"""<div class="controls"><form method="get" action="/assets"><input name="q" value="{html.escape(search, quote=True)}" placeholder="Search IP, hostname, vendor, product" aria-label="Search assets">{review_control} <button>Search</button><a href="/assets">Clear filters</a></form><a class="btn primary" href="/assets/edit">Add asset</a><a class="btn" href="/assets.csv">Export CSV</a><span class="muted">{total} assets · page {page_number}</span>{previous}{next_link}</div>
 <section class="panel"><table><thead><tr><th>Address</th><th>Hostname</th><th>Type and identity</th><th>Zone / criticality</th><th>Source / confidence</th><th>Last seen / notes</th></tr></thead><tbody>{body}</tbody></table></section>"""
     return layout("Inventory", content, "/assets", lead="Observed metadata remains separate from operator verification. Unknown identity is not inferred from an IP address.", heading="Asset inventory")
 
@@ -162,7 +166,7 @@ def _pager(path: str, search: str, page_number: int, total: int, limit: int = 50
 def intelligence_page(store: Store, search: str = "", page_number: int = 1) -> str:
     page_number = max(1, page_number)
     limit = 50
-    records, total, advisories = store.search_intelligence(search, limit=limit, offset=(page_number - 1) * limit)
+    records, total, _ = store.search_intelligence(search, limit=limit, offset=(page_number - 1) * limit, include_advisories=False)
     rows = []
     for item in records:
         affected = json.loads(item["affected_products"])
@@ -170,70 +174,141 @@ def intelligence_page(store: Store, search: str = "", page_number: int = 1) -> s
         refs = json.loads(item.get("references_json", "[]"))
         rows.append(f"""<tr><td><b class="mono">{html.escape(item['cve_id'])}</b><br><small>{html.escape(item['source'])}</small></td>
         <td>{html.escape(item['severity'] or 'Unknown')} {('· CVSS ' + html.escape(str(item['cvss']))) if item['cvss'] is not None else ''}<br>KEV {'Yes' if item['kev'] else 'No'}<br><small>Published {html.escape(item['published'] or 'Unknown')}<br>Modified {html.escape(item['modified'] or 'Unknown')}<br>Retrieved {html.escape(item['retrieved_at'])}</small></td>
-        <td>{html.escape(item['summary'])}<br><small>{html.escape(product_text)}</small></td><td>{html.escape(item['mitigation'] or 'No mitigation guidance supplied.')}<br><small>{html.escape('; '.join(refs) or item['source_url'] or 'No reference supplied')}</small></td></tr>""")
-    advisory_rows = "".join(f"<tr><td>{html.escape(row['title'])}</td><td>{html.escape(row['published'] or 'Unknown')}</td><td>{html.escape(row['link'])}</td><td>{html.escape(row['summary'])}</td></tr>" for row in advisories) or '<tr><td colspan="4" class="empty">No CISA ICS advisories stored.</td></tr>'
+        <td>{html.escape(item['summary'])}<br><small>{html.escape(product_text)}</small></td><td>{html.escape(item['mitigation'] or 'No mitigation guidance supplied.')}<br><small>{reference_links(refs or ([item['source_url']] if item['source_url'] else [])) or 'No reference supplied'}</small></td></tr>""")
     pager = _pager("/intelligence", search, page_number, total, limit)
     content = f"""<div class="controls"><form method="get" action="/intelligence"><input name="q" value="{html.escape(search, quote=True)}" placeholder="Search CVE, summary, source" aria-label="Search intelligence"> <button>Search</button></form><form method="post" action="/sync"><button>Sync public sources</button></form>{pager}</div>
-<section class="panel"><table><thead><tr><th>Identifier / source</th><th>Severity / status / dates</th><th>Summary / affected product data</th><th>Mitigation / references</th></tr></thead><tbody>{''.join(rows) or '<tr><td colspan="4" class="empty">No intelligence records found. Sync sources or load the offline fixture.</td></tr>'}</tbody></table></section>
-<h2>CISA ICS advisories</h2><p class="muted">Feed entries and references are retained for operator review; affected versions are not inferred from advisory text.</p><section class="panel"><table><thead><tr><th>Advisory</th><th>Published</th><th>Reference</th><th>Summary</th></tr></thead><tbody>{advisory_rows}</tbody></table></section>"""
-    return layout("Intelligence", content, "/intelligence", lead="Normalized records are cached locally. Product/version applicability remains subject to source evidence and the documented matcher limits.", heading="Threat intelligence")
+<section class="panel"><table><thead><tr><th>Identifier / source</th><th>Severity / status / dates</th><th>Summary / affected product data</th><th>Mitigation / references</th></tr></thead><tbody>{''.join(rows) or '<tr><td colspan="4" class="empty">No intelligence records found. Sync sources or load the offline fixture.</td></tr>'}</tbody></table></section>"""
+    return layout("CVE intelligence", content, "/intelligence", lead="Normalized CVE records are cached locally. Product/version applicability remains subject to source evidence and the documented matcher limits.")
+
+
+def ics_advisories_page(store: Store, search: str = '', page_number: int = 1) -> str:
+    page_number=max(1,page_number);limit=50
+    records,total=store.search_ics_advisories(search,limit=limit,offset=(page_number-1)*limit)
+    rows=''.join(f"<tr><td>{html.escape(row['title'])}</td><td>{html.escape(row['published'] or 'Unknown')}</td><td>{reference_links([row['link']])}</td><td>{advisory_summary(row['summary'])}</td></tr>" for row in records)
+    empty='No advisories match this search. Clear the search to see stored advisories.' if search else 'No CISA ICS advisories stored. Sync public sources to load the advisory feed.'
+    controls=f'''<div class="controls"><form method="get" action="/intelligence/ics"><input name="q" value="{html.escape(search,quote=True)}" placeholder="Search advisory, product or summary" aria-label="Search CISA ICS advisories"> <button>Search</button> <a href="/intelligence/ics">Clear search</a></form><form method="post" action="/sync"><button>Sync public sources</button></form>{_pager('/intelligence/ics',search,page_number,total,limit)}</div>'''
+    content=controls+'<section class="panel"><table><thead><tr><th>Advisory</th><th>Published</th><th>Reference</th><th>Summary</th></tr></thead><tbody>'+(rows or '<tr><td colspan="4" class="empty">'+html.escape(empty)+'</td></tr>')+'</tbody></table></section>'
+    return layout('CISA ICS advisories',content,'/intelligence/ics',lead='Cached advisory feed entries for operator review. Affected versions are not inferred from advisory text.')
 
 
 def network_page(store: Store, page_number: int = 1) -> str:
     page_number = max(1, page_number)
     limit = 50
     events, total = store.recent_network_events(limit=limit, offset=(page_number - 1) * limit)
-    rows = "".join(f"""<tr><td class="mono">{html.escape(row['timestamp'])}<br><small>{html.escape(row['event_ref'])}</small></td><td class="mono">{html.escape(row['source_ip'])}:{html.escape(str(row['source_port'] or ''))}<br>↓ {html.escape(row['destination_ip'])}:{html.escape(str(row['destination_port'] or ''))}</td><td>{html.escape(row['protocol'])} · {html.escape(row['event_type'])}<br>{html.escape(row['operation'])}</td><td>{html.escape(row['rule_ids'] or 'No active rule alert')}<br><small>{html.escape('; '.join(json.loads(row['diagnostics_json'] or '[]')))}<br>{html.escape(row['source_file'])}</small></td></tr>""" for row in events) or '<tr><td colspan="4" class="empty">No network events imported yet. Add Zeek conn.log or Modbus logs from the overview.</td></tr>'
+    rows = "".join(f"""<tr><td class="mono">{html.escape(row['timestamp'])}<br><small><a href="{html.escape(evidence_url(row['event_ref'],'/network?page='+str(page_number)),quote=True)}">{html.escape(row['event_ref'])}</a></small></td><td class="mono">{html.escape(row['source_ip'])}:{html.escape(str(row['source_port'] or ''))}<br>↓ {html.escape(row['destination_ip'])}:{html.escape(str(row['destination_port'] or ''))}</td><td>{html.escape(row['protocol'])} · {html.escape(row['event_type'])}<br>{html.escape(row['operation'])}</td><td>{html.escape(row['rule_ids'] or 'No active rule alert')}<br><small>{html.escape('; '.join(json.loads(row['diagnostics_json'] or '[]')))}<br>{html.escape(row['source_file'])}</small></td></tr>""" for row in events) or '<tr><td colspan="4" class="empty">No network events imported yet. Add Zeek conn.log or Modbus logs from the overview.</td></tr>'
     pager = _pager("/network", "", page_number, total, limit)
     content = f"""<div class="controls"><a class="btn" href="/">Import logs from overview</a>{pager}</div><section class="panel"><table><thead><tr><th>Timestamp / event reference</th><th>Source / destination</th><th>Protocol / operation</th><th>Detection / source file</th></tr></thead><tbody>{rows}</tbody></table></section>"""
     return layout("Network events", content, "/network", lead="Stored Zeek observations. This view does not capture live traffic or send packets to devices.", heading="Passive network monitoring")
 
 
-def attack_surface_page(store: Store) -> str:
-    data = store.attack_surface()
-    nodes = "".join(f"<tr><td class='nw mono'>{html.escape(n['ip_address'])}</td><td>{html.escape(n['identity'])}<br><small>{html.escape(n['asset_type'])} · {html.escape(n['vendor'])} {html.escape(n['product'])} {html.escape(n['version'])}</small></td><td>{html.escape(n['zone'])} zone · {html.escape(n['criticality'])} criticality<br>{html.escape(n['identity_confidence'])} confidence · {'verified' if n['verified'] else 'unverified'}<br><small>{html.escape(n['visibility'])}</small></td><td>{html.escape(n['last_seen'] or 'Not available')}</td></tr>" for n in data['nodes']) or '<tr><td colspan="4" class="empty">No inventory assets or imported network observations yet.</td></tr>'
-    edges = "".join(f"<tr><td>{html.escape(e['source_identity'])} ({html.escape(e['source_ip'])}) → {html.escape(e['destination_identity'])} ({html.escape(e['destination_ip'])})</td><td>{html.escape(str(e['source_port'] or 'unknown'))} → {html.escape(str(e['destination_port'] or 'unknown'))}</td><td>{html.escape(e['protocol'] or 'unknown')} · {html.escape(e['event_type'])}{(' · ' + html.escape(e['operation'])) if e['operation'] else ''}</td><td>{html.escape(e['first_seen'])} → {html.escape(e['last_seen'])}<br><small>{e['event_count']} event(s) · event {html.escape(e['sample_event_ref'])} · {html.escape(e['source_file'] or 'source unavailable')}</small></td></tr>" for e in data['edges']) or '<tr><td colspan="4" class="empty">No communication relationships have been observed in imported logs.</td></tr>'
-    graph_nodes = data["nodes"][:24]
-    position = {node["ip_address"]: (100 + (index % 4) * 220, 70 + (index // 4) * 100) for index, node in enumerate(graph_nodes)}
-    graph_edges = []
-    for edge in data["edges"]:
-        if edge["source_ip"] in position and edge["destination_ip"] in position:
-            x1, y1 = position[edge["source_ip"]]
-            x2, y2 = position[edge["destination_ip"]]
-            graph_edges.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#5b626b" stroke-width="2"><title>Observed {html.escape(edge["protocol"] or "unknown")} flow · {html.escape(edge["first_seen"])} · event {html.escape(edge["sample_event_ref"])}</title></line>')
-    graph_items = []
-    zone_colors = {"IT": "#58a272", "OT": "#d98a2b", "DMZ": "#7ba3d9", "unknown": "#868d96"}
-    for node in graph_nodes:
-        x, y = position[node["ip_address"]]
-        color = zone_colors.get(node["zone"], zone_colors["unknown"])
-        identity = html.escape((node["identity"] or "Unknown")[:24])
-        graph_items.append(f'<g><circle cx="{x}" cy="{y}" r="25" fill="#1a1c1f" stroke="{color}" stroke-width="3"><title>{html.escape(node["identity"])} · {html.escape(node["zone"])} zone · {html.escape(node["criticality"])} criticality · {html.escape(node["identity_confidence"])} confidence</title></circle><text x="{x}" y="{y + 44}" text-anchor="middle" fill="#d8dbe0" font-size="12">{identity}</text><text x="{x}" y="{y + 59}" text-anchor="middle" fill="#868d96" font-size="10">{html.escape(node["ip_address"])}</text></g>')
-    graph = f'<svg viewBox="0 0 900 {max(180, 100 + ((len(graph_nodes) + 3) // 4) * 100)}" role="img" aria-label="Observed communication graph">{"".join(graph_edges)}{"".join(graph_items)}</svg>' if graph_nodes else '<p class="empty">No inventory assets or observed peers to map.</p>'
-    content = f"""<div class="notice">Observed surface is limited to imported logs ({data['event_count']} stored events; at most {data['edge_limit']} grouped relationships shown). Unknown peers and missing metadata remain unknown. Unseen traffic is not evidence of absence. A recorded connection does not prove a firewall permits other traffic between these networks.</div><h2>Topology overview</h2><section class="panel">{graph}<p class="legend">Circle colors: IT green · OT amber · DMZ blue · unknown gray. Lines represent observed events only. Showing at most 24 nodes and {data['edge_limit']} grouped relationships. Zone membership comes from inventory; no trust boundaries are inferred.</p></section><h2>Assets and peers</h2><section class="panel"><table><thead><tr><th>Address</th><th>Identity and product</th><th>Zone / criticality / confidence / visibility</th><th>Inventory last seen</th></tr></thead><tbody>{nodes}</tbody></table></section><h2>Observed communication</h2><section class="panel"><table><thead><tr><th>Relationship</th><th>Observed ports</th><th>Protocol / operation</th><th>Time / evidence</th></tr></thead><tbody>{edges}</tbody></table></section>"""
+def attack_surface_page(store: Store, query=None) -> str:
+    query=query or {}
+    params=surface_query(query)
+    filter_keys={'subnet','zone','criticality','management_status','since','until','node'}
+    filters={k:v for k,v in params.items() if k in filter_keys}
+    active_filters={k:v for k,v in filters.items() if v}
+    data=store.attack_surface(filters)
+    try: surface_page_number=max(1,int(params.get('page','1')))
+    except ValueError: surface_page_number=1
+    total_nodes=len(data['nodes'])
+    surface_page_number=min(surface_page_number,max(1,(total_nodes+99)//100))
+    params['page']=str(surface_page_number)
+    visible_nodes=data['nodes'][(surface_page_number-1)*100:surface_page_number*100]
+    esc=lambda value:html.escape(str(value),quote=True)
+
+    def timestamp(value):
+        if not value:return 'Not available in this view'
+        text=str(value)
+        if 'T' not in text:return esc(text)
+        return '<time datetime="'+esc(text)+'" title="'+esc(text)+'">'+esc(text[:10]+' '+text[11:19]+' UTC')+'</time>'
+
+    def asset_link(node,label=None):
+        return '<a href="'+esc(surface_url(params,selected=node['ip_address']))+'">'+esc(label or node['ip_address'])+'</a>'
+
+    nodes=''.join('<tr><td class="nw mono">'+asset_link(n)+'</td><td>'+esc(n['identity'])
+                  +'<br><small>'+esc(n['asset_type'])+' · '+esc(' '.join(str(n[k]) for k in ('vendor','product','version')))
+                  +'</small></td><td>'+esc(n['zone'])+' zone · '+esc(n['criticality'])+' criticality<br>'
+                  +esc(n['identity_confidence'])+' confidence · '+('verified' if n['verified'] else 'unverified')
+                  +'<br><small>'+esc(n['visibility'])+'</small></td><td>'+timestamp(n['last_seen'])+'</td></tr>'
+                  for n in visible_nodes)
+    assets_table=('<section class="panel"><table><thead><tr><th scope="col">Address</th><th scope="col">Identity and product</th>'
+                  '<th scope="col">Zone / criticality / confidence / visibility</th><th scope="col">Inventory last seen</th>'
+                  '</tr></thead><tbody>'+nodes+'</tbody></table></section>') if nodes else (
+                  '<p class="empty">'+('No endpoints match these surface filters. Widen or clear the filters.' if active_filters
+                                        else 'No inventory assets or imported network observations yet. Import inventory or Zeek logs to begin.')+'</p>')
+    edges=[]
+    for row in data['edges']:
+        return_to=surface_url(params)
+        source=esc(row['source_identity'])+' ('+esc(row['source_ip'])+')'
+        destination=esc(row['destination_identity'])+' ('+esc(row['destination_ip'])+')'
+        metadata=esc(row['protocol'] or 'unknown')+' · '+esc(row['event_type'])
+        if row['operation']:
+            names={'1':'Read coils','2':'Read discrete inputs','3':'Read holding registers','4':'Read input registers','5':'Write single coil','6':'Write single register','15':'Write multiple coils','16':'Write multiple registers'}
+            operation=str(row['operation'])
+            metadata+=' · '+esc(names.get(operation,'Modbus function')+' ('+operation+')' if row['event_type']=='modbus' else operation)
+        source_name=str(row['source_file'] or 'Source unavailable').replace('\\','/').rsplit('/',1)[-1]
+        source_label=source_name if len(source_name)<=60 else source_name[:57]+'…'
+        evidence='<small>'+esc(source_label)+'</small><br><a href="'+esc(evidence_url(row['sample_event_ref'],return_to))+'">Inspect evidence</a>'
+        evidence+='<details class="raw-record"><summary>Event reference and source</summary><p class="mono">'+esc(row['sample_event_ref'])+'</p><p>'+esc(row['source_file'] or 'Source unavailable')+'</p></details>'
+        edges.append('<tr><td>'+source+' → '+destination+'</td><td>'+esc(row['source_port'] if row['source_port'] is not None else 'unknown')
+                     +' → '+esc(row['destination_port'] if row['destination_port'] is not None else 'unknown')+'</td><td>'+metadata
+                     +'</td><td>'+timestamp(row['first_seen'])+'<br>to '+timestamp(row['last_seen'])+'<br><small>'
+                     +esc(row['event_count'])+' event(s)</small><br>'+evidence+'</td></tr>')
+    communication=('<section class="panel"><table><thead><tr><th scope="col">Relationship</th><th scope="col">Observed ports</th>'
+                   '<th scope="col">Protocol / operation</th><th scope="col">Time / evidence</th></tr></thead><tbody>'
+                   +''.join(edges)+'</tbody></table></section>') if edges else (
+                   '<p class="empty">'+('No communication relationships match these filters. Widen or clear the filters; missing traffic does not establish absence.'
+                                         if active_filters else 'No communication relationships have been observed in imported logs. Import Zeek logs to add communication evidence.')+'</p>')
+    inventory_only=[n for n in visible_nodes if not n.get('ever_observed',n['observed'])]
+    inventory_count=sum(not n.get('ever_observed',n['observed']) for n in data['nodes'])
+    inventory_table=table(inventory_only,[('ip_address','Address'),('identity','Identity'),('zone','Zone'),('visibility','Visibility')],
+                          actions=lambda n:asset_link(n,'Inspect asset')) if inventory_only else (
+                          '<p class="empty">'+('No inventory-only assets on this page.' if inventory_count else 'No inventory assets without imported traffic in this view.')+'</p>')
+
+    keep=''.join('<input type="hidden" name="'+esc(k)+'" value="'+esc(v)+'">' for k,v in params.items()
+                 if k in {'q','selected','zoom','processes'})
+    controls='<details class="workflow"><summary>Filter observed surface'+(' · '+str(len(active_filters))+' active' if active_filters else '')+'</summary><form method="get" action="/attack-surface#topology">'+keep
+    controls+='<fieldset><legend>Asset scope</legend><div class="form-grid">'+field('subnet','Subnet CIDR (optional)',filters.get('subnet',''))
+    controls+=select('zone','Network zone',[(v,v or 'All zones') for v in ('','IT','OT','DMZ','unknown')],filters.get('zone',''))
+    controls+=select('criticality','Asset criticality',[(v,v.title() if v else 'All criticalities') for v in ('','low','medium','high','critical','unknown')],filters.get('criticality',''))
+    controls+=select('management_status','Management state',[(v,label) for v,label in (('','All management states'),('approved','Approved'),('unmanaged','Unmanaged — needs review'),('unauthorized','Unauthorized — explicitly blocked'),('needs_identity_review','Identity needs review'),('unmonitored','Not monitored'))],filters.get('management_status',''))+'</div></fieldset>'
+    controls+='<fieldset><legend>Observation time</legend><div class="form-grid">'+field('since','Observed since UTC (ISO 8601)',filters.get('since',''))+field('until','Observed until UTC (ISO 8601)',filters.get('until',''))+'</div><p class="muted">UTC example: 2026-11-04T06:00:00Z. Time filters apply to observations, not inventory or confirmed process support.</p></fieldset>'
+    controls+='<fieldset><legend>Communication focus</legend>'+field('node','Focus endpoint IP',filters.get('node',''))+'<p class="muted">Show communication involving this endpoint.</p></fieldset><button>Apply surface filters</button></form></details>'
+    if active_filters:
+        clear_params={k:v for k,v in params.items() if k not in filter_keys|{'page'}}
+        controls+='<div class="active-filters">'+''.join('<span>'+esc(k.replace('_',' ').title())+': '+esc(v)+'</span>' for k,v in active_filters.items())+'<a href="'+esc(surface_url(clear_params))+'">Clear filters</a></div>'
+    relationship_count=data.get('relationship_count',len(data['edges']))
+    counts=str(data['event_count'])+' stored events in the selected time window, before asset and endpoint filters. Showing '+str(len(data['edges']))+' of '+str(relationship_count)+' eligible grouped communication relationships'
+    if data.get('relationships_truncated'):counts+='; limited to the '+str(data['edge_limit'])+' most recent groups'
+    content=controls+'<p class="muted">'+esc(counts)+'. Visibility is limited to imported logs. Unknown peers and missing metadata remain unknown. Unseen traffic is not evidence of absence. A recorded connection does not prove a firewall permits other traffic between these networks.</p>'
+    content+=render_topology(store,data,query)
+    content+='<details class="workflow"><summary>Inventory without observed traffic · '+str(inventory_count)+' assets</summary>'+inventory_table+'<p class="muted">This list follows the asset table page below. These assets have no imported traffic across all stored times; this does not mean a device is offline or removed.</p></details>'
+    content+='<details class="workflow"><summary>Assets and peers · '+str(total_nodes)+' endpoints</summary>'+assets_table+'<p class="muted">Find asset or peer locates endpoints across this eligible inventory and peer list; it does not narrow the list.</p></details>'
+    content+=pager('/attack-surface',{k:[v] for k,v in params.items()},surface_page_number,total_nodes,100)
+    content+='<h2>Observed communication</h2>'+communication
+    process_rows=[{**r,'relationship_type':'Operator-confirmed support'} for r in data['process_links']]
+    content+='<h2>Operator-confirmed process support</h2>'+(table(process_rows,[('ip_address','Asset address'),('name','Supported process'),('relationship_type','Relationship'),('actor','Confirmed by'),('note','Evidence')]) if process_rows else '<p class="empty">No operator-confirmed process support in this view.</p>')
+    content+='<p class="muted">Time filters apply to observations, not inventory or confirmed process support.</p>'
     return layout("Attack surface", content, "/attack-surface", lead="Inventory identity joined with relationships from imported Zeek logs. No discovery scans or live capture are performed here.", heading="Passive attack surface")
 
 
-def remediation_page(store: Store, page_number: int = 1) -> str:
+def remediation_page(store: Store, page_number: int = 1, *, finding_id='',submitted=None,error='',notice='') -> str:
     page_number=max(1,page_number)
     data=store.dashboard(limit=50,offset=(page_number-1)*50)
     plans = data["remediation_plans"]
-    blocks = []
-    statuses = ["Recommended", "Under Review", "Approved", "Implemented", "Verified", "Rejected", "Deferred", "Needs More Evidence"]
-    for item in plans:
-        plan = item["plan"]
-        details = "".join(f"<p><b>{html.escape(key.replace('_', ' ').title())}:</b> {html.escape(str(plan.get(key, '')))}</p>" for key in ("finding_summary", "priority_explanation", "preferred_remediation", "vendor_guidance_status", "operational_impact", "confidence_and_questions"))
-        for key in ("alternative_controls", "preconditions", "validation_steps", "rollback_considerations", "post_remediation_verification", "source_references"):
-            values = plan.get(key, [])
-            details += f"<b>{html.escape(key.replace('_', ' ').title())}</b><ul>" + "".join(f"<li>{html.escape(str(value))}</li>" for value in values) + "</ul>"
-        if plan.get("ai_summary"):
-            cited = html.escape('; '.join(plan.get('ai_source_references', [])))
-            details += f'<div class="notice">AI-generated, unverified supplement · {html.escape(item["model"])}<p>{html.escape(plan["ai_summary"])}</p>' + "<br>".join(html.escape(s) for s in plan.get("ai_steps", [])) + f'<p>{html.escape(plan.get("ai_validation", ""))}</p>Cited URLs: {cited}<br>Local asset and network evidence was not sent to the model.</div>'
-        options = "".join(f'<option value="{html.escape(s)}">{html.escape(s)}</option>' for s in statuses if s != item["status"])
-        history = "".join(f'<li>{html.escape(h["old_status"])} → {html.escape(h["new_status"])} · {html.escape(h["actor"] or "system")} · {html.escape(h["created_at"])} · {html.escape(h["notes"])}</li>' for h in item["history"])
-        blocks.append(f'<article class="panel plan"><h2>{html.escape(item["cve_id"])} · {html.escape(item["hostname"] or item["ip_address"])} · {html.escape(item["status"])}</h2><p class="muted">Finding {html.escape(item["finding_status"])} · {html.escape(item["priority"])} priority · {html.escape(item["provider"])} {html.escape(item["model"])} · created {html.escape(item["created_at"])}</p>{details}<p>Reviewer: {html.escape(item["reviewer"] or "Not recorded")} · Change notes: {html.escape(item["change_notes"] or "None")}</p><p>Verification evidence: {html.escape(item["verification_evidence"] or "Not recorded")}</p><details><summary>Lifecycle history</summary><ol>{history}</ol></details><form method="post" action="/remediation/update"><input type="hidden" name="finding_id" value="{html.escape(item["finding_id"], quote=True)}"><select name="status">{options}</select><input name="reviewer" maxlength="120" placeholder="Reviewer (required for approval)"><input name="change_notes" maxlength="2000" placeholder="Change or review notes"><input name="verification_evidence" maxlength="4000" placeholder="Evidence (required to mark Verified)"><button>Update plan</button></form></article>')
+    finding_id = submitted.get("finding_id", "") if submitted else finding_id
+    if finding_id:
+        selected=store.get_remediation_plan(finding_id)
+        finding=store.finding(finding_id)
+        if not selected or not finding:raise ValueError('Remediation plan not found')
+        plans=[{**selected,**{k:finding[k] for k in ("cve_id","hostname","ip_address")},"finding_status":finding["status"],"priority":finding["priority"],"current_identity_confidence":finding['identity_confidence'],"current_missing_evidence":json.loads(finding['missing_evidence'])}]
+    blocks = [plan_card(item, submitted if submitted and submitted.get('finding_id')==item['finding_id'] else None, error) for item in plans]
     pager=(f'<a href="/remediation?page={page_number-1}">Previous</a> ' if page_number>1 else '')
     if page_number*50 < data["plans_count"]:pager+=f'<a href="/remediation?page={page_number+1}">Next</a>'
-    body = pager + "".join(blocks) or '<section class="panel empty">No remediation plans yet. Generate one from an exposure finding on the overview.</section>'
+    if finding_id:
+        pager = '<p><a href="/remediation">All remediation plans</a> · <a href="/?'+urlencode({'finding_id':finding_id})+'#finding-'+html.escape(finding_id,quote=True)+'">Back to finding</a></p>'
+    body = pager + "".join(blocks) or '<section class="panel empty">No remediation plans yet. <a href="/#findings">Open an exposure finding on the overview</a> to request a plan.</section>'
+    if notice:body='<p class="notice success" role="status">'+html.escape(notice)+'</p>'+body
     return layout("Remediation plans", body, "/remediation", lead="Recommendations are separate from approvals, implementation, and verified outcomes. No infrastructure changes are performed by Phylax.")
 
 
@@ -248,6 +323,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send(self, body: bytes, content_type: str = "text/html; charset=utf-8", status: int = 200, download: str | None = None) -> None:
         if content_type.startswith('text/html'):
+            label=self.store.connection.execute("SELECT value FROM schema_meta WHERE key='dataset_label'").fetchone()
+            if label:
+                banner='<div class="notice">'+html.escape(label[0])+'</div>'
+                body=re.sub(r'<main\b[^>]*>',lambda match:match[0]+banner,body.decode('utf-8'),count=1).encode('utf-8')
             body = protect_forms(body.decode('utf-8'),self.csrf_token).encode('utf-8')
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -256,7 +335,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Security-Policy",CSP)
         self.send_header("X-Frame-Options","DENY")
         self.send_header("Cache-Control","no-store")
-        self.send_header("Referrer-Policy", "no-referrer")
+        # no-referrer makes Chromium navigation POSTs send Origin: null.
+        # Keep local form origins intact while withholding external referrers.
+        self.send_header("Referrer-Policy", "same-origin")
         if download:
             self.send_header("Content-Disposition", f'attachment; filename="{download}"')
         self.end_headers()
@@ -278,11 +359,16 @@ class Handler(BaseHTTPRequestHandler):
             self._send(b'Invalid Host', 'text/plain; charset=utf-8',403)
             return
         path = urlparse(self.path).path
+        if path in release_web.PAGES:
+            try:self._send(release_web.page(self.store,path,parse_qs(urlparse(self.path).query)).encode())
+            except ValueError as exc:self._send(str(exc).encode(),'text/plain; charset=utf-8',400)
+            return
         if path == "/":
             notice = parse_qs(urlparse(self.path).query).get("notice", [""])[0]
             try: page_number=int(parse_qs(urlparse(self.path).query).get("page",["1"])[0])
             except ValueError: page_number=1
-            self._send(page(self.store, notice,page_number).encode())
+            try:self._send(page(self.store,notice,page_number,parse_qs(urlparse(self.path).query).get('finding_id',[''])[0]).encode())
+            except ValueError as exc:self._send(layout('Finding unavailable','<p>'+html.escape(str(exc))+'</p><a href="/">Return to overview</a>','/').encode(),status=404)
         elif path.startswith('/jobs/'):
             job = self.server.jobs.get(path.rsplit('/',1)[-1])
             if not job:
@@ -311,14 +397,15 @@ class Handler(BaseHTTPRequestHandler):
                 page_number = int(query.get("page", ["1"])[0])
             except ValueError:
                 page_number = 1
-            self._send(assets_page(self.store, query.get("q", [""])[0], page_number).encode())
-        elif path == "/intelligence":
+            self._send(assets_page(self.store, query.get("q", [""])[0], page_number, identity_review=query.get("identity_review",[""])[0]=="yes").encode())
+        elif path in {"/intelligence", "/intelligence/ics"}:
             query = parse_qs(urlparse(self.path).query)
             try:
                 page_number = int(query.get("page", ["1"])[0])
             except ValueError:
                 page_number = 1
-            self._send(intelligence_page(self.store, query.get("q", [""])[0], page_number).encode())
+            render=ics_advisories_page if path=='/intelligence/ics' else intelligence_page
+            self._send(render(self.store, query.get("q", [""])[0], page_number).encode())
         elif path == "/network":
             query = parse_qs(urlparse(self.path).query)
             try:
@@ -327,11 +414,14 @@ class Handler(BaseHTTPRequestHandler):
                 page_number = 1
             self._send(network_page(self.store, page_number).encode())
         elif path == "/attack-surface":
-            self._send(attack_surface_page(self.store).encode())
+            try:self._send(attack_surface_page(self.store,parse_qs(urlparse(self.path).query)).encode())
+            except ValueError as exc:self._send(str(exc).encode(),'text/plain; charset=utf-8',400)
         elif path == "/remediation":
-            try: page_number=int(parse_qs(urlparse(self.path).query).get("page",["1"])[0])
+            query=parse_qs(urlparse(self.path).query)
+            try: page_number=int(query.get("page",["1"])[0])
             except ValueError: page_number=1
-            self._send(remediation_page(self.store,page_number).encode())
+            try:self._send(remediation_page(self.store,page_number,finding_id=query.get("finding_id",[""])[0],notice=query.get("notice",[""])[0]).encode())
+            except ValueError as exc:self._send(str(exc).encode(),'text/plain; charset=utf-8',404)
         elif path == "/assets.csv":
             from io import StringIO
             out = StringIO()
@@ -353,7 +443,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             origin = self.headers.get('Origin')
             if origin and not valid_origin(origin,self.headers['Host'],self.server.server_address[1]):
-                self._send(b'Cross-origin request denied','text/plain; charset=utf-8',403)
+                message=('Cross-origin request denied. Open http://'+self.headers['Host']
+                         +'/ directly in a regular browser tab, reload the dashboard, and retry. '
+                         'The request Origin must match the dashboard host and port; embedded pages and opaque origins are not accepted.')
+                self._send(message.encode(),'text/plain; charset=utf-8',403)
                 return
             length = int(self.headers.get("Content-Length", "0"))
             if length < 0 or length > MAX_UPLOAD + 64_000:
@@ -363,6 +456,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(b'Invalid or expired form token. Reload the dashboard and retry.','text/plain; charset=utf-8',403)
                 return
             path = urlparse(self.path).path
+            if path in release_web.ACTIONS:
+                values=parse_qs(raw.decode('utf-8','strict'),keep_blank_values=True)
+                try:destination=release_web.post(self.store,path,values)
+                except (ValueError,RuntimeError) as exc:
+                    self._send(release_web.error_page(self.store,path,values,str(exc)).encode(),status=400)
+                    return
+                self.send_response(303);self.send_header('Location',destination);self.end_headers();return
             if path == "/correlate":
                 result = self.store.correlate()
                 notice = f"Correlation complete: {result or 'no matching records'}"
@@ -373,11 +473,6 @@ class Handler(BaseHTTPRequestHandler):
                 job_id = self.server.jobs.submit('Sync public sources',sync_work)
                 self.send_response(303);self.send_header('Location','/jobs/'+job_id);self.end_headers()
                 return
-            elif path == "/ack":
-                form = parse_qs(raw.decode("utf-8", "replace"))
-                if not self.store.acknowledge(form.get("alert_id", [""])[0]):
-                    raise ValueError("Alert not found")
-                notice = "Alert acknowledged."
             elif path == "/remediation/create":
                 form = parse_qs(raw.decode("utf-8", "replace"))
                 finding_id = form.get("finding_id", [""])[0]
@@ -439,16 +534,27 @@ class Handler(BaseHTTPRequestHandler):
                     with tempfile.NamedTemporaryFile(prefix="phylax-zeek-", suffix=suffix) as tmp:
                         tmp.write(body)
                         tmp.flush()
-                        result = ingest_file(self.store, tmp.name, kind="modbus" if "modbus" in original_name.casefold() else "conn", policy=policy, source_file=original_name)
+                        kind=next((k for k in ('modbus','dhcp','software') if k in original_name.casefold()),'conn')
+                        result = ingest_file(self.store, tmp.name, kind=kind, policy=policy, source_file=original_name)
                     notice = f"Network analysis: {result['events_inserted']} events, {result['alerts_created']} alerts, {result['duplicates_skipped']} duplicates. " + "; ".join(result["diagnostics"][:3])
             else:
                 self._send(b"Not found", "text/plain; charset=utf-8", 404)
                 return
             self.send_response(303)
-            self.send_header("Location", "/?notice=" + __import__("urllib.parse", fromlist=["quote"]).quote(notice))
+            destination = "/remediation?"+urlencode({'finding_id':finding_id,'notice':notice}) if path == '/remediation/update' else "/?"+urlencode({'notice':notice})
+            self.send_header("Location", destination)
             self.end_headers()
         except (ValueError, UnicodeDecodeError, RuntimeError, TimeoutError, RecursionError) as exc:
-            self._send(page(self.store, f"Input error: {exc}").encode(), status=400)
+            path=urlparse(self.path).path
+            values=parse_qs(raw.decode('utf-8','replace'),keep_blank_values=True) if 'raw' in locals() else {}
+            submitted={k:v[0] for k,v in values.items() if v and k!='csrf_token'}
+            if path=='/assets/save':
+                body=inventory_form(self.store,submitted.get('asset_id',''),submitted=submitted,error=str(exc))
+            elif path=='/policy/apply':body=policy_page(self.store,submitted=submitted,error=str(exc))
+            elif path=='/remediation/update' and self.store.get_remediation_plan(submitted.get('finding_id','')):
+                body=remediation_page(self.store,submitted=submitted,error=str(exc))
+            else:body=page(self.store,f"Input error: {exc}")
+            self._send(body.encode(),status=400)
 
     def log_message(self, fmt: str, *args: object) -> None:
         # Keep the local console useful without logging request payloads or uploaded filenames.

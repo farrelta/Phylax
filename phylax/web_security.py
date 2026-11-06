@@ -7,17 +7,31 @@ from urllib.parse import urlsplit, parse_qs
 CSP = "default-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
 
-def valid_host(host: str, port: int) -> bool:
+def _local_authority(host: str, port: int) -> tuple[str, int] | None:
+    """Canonical loopback authority, without accepting aliases as the same origin."""
     try:
+        if not host or any(c.isspace() or ord(c)<32 for c in host):return None
         parsed=urlsplit('//'+host)
-        return parsed.hostname in {'127.0.0.1','localhost','::1'} and (parsed.port or 80)==port and not parsed.username and not parsed.path and not parsed.query and not parsed.fragment
-    except ValueError:return False
+        actual_port=parsed.port if parsed.port is not None else 80
+        if (parsed.hostname not in {'127.0.0.1','localhost','::1'} or actual_port!=port
+                or parsed.username is not None or parsed.password is not None
+                or parsed.path or parsed.query or parsed.fragment):return None
+        return parsed.hostname,actual_port
+    except ValueError:return None
+
+
+def valid_host(host: str, port: int) -> bool:
+    return _local_authority(host,port) is not None
 
 
 def valid_origin(origin: str, host: str, port: int) -> bool:
     try:
         parsed=urlsplit(origin)
-        return parsed.scheme=='http' and valid_host(parsed.netloc,port) and parsed.netloc==host and parsed.path in {'','/'} and not parsed.query and not parsed.fragment
+        expected=_local_authority(host,port)
+        return bool(expected and parsed.scheme=='http'
+                    and not any(c.isspace() or ord(c)<32 for c in origin)
+                    and _local_authority(parsed.netloc,port)==expected
+                    and parsed.path in {'','/'} and not parsed.query and not parsed.fragment)
     except ValueError:return False
 
 

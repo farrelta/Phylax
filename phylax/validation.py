@@ -36,6 +36,7 @@ def products(value: Any) -> list[dict[str, Any]]:
         if not isinstance(p, dict) or any(not isinstance(p.get(k), str) or not p[k].strip() or len(p[k]) > 500 for k in ('vendor', 'product')):
             raise ValueError('Each affected product needs bounded vendor and product strings')
         item = {'vendor': p['vendor'].strip(), 'product': p['product'].strip(), 'versions': strings(p.get('versions', []), 'versions', length=200)}
+        item['excluded_versions'] = strings(p.get('excluded_versions', []),'excluded_versions',length=200)
         ranges = p.get('version_ranges', [])
         if not isinstance(ranges, list) or len(ranges) > 1000:
             raise ValueError('version_ranges must be an array')
@@ -70,7 +71,7 @@ def products(value: Any) -> list[dict[str, Any]]:
         identity=tuple(re.sub(r'[^a-z0-9]+',' ',item[k].casefold()).strip() for k in ('vendor','product'))
         if identity not in combined:combined[identity]=item;continue
         prior=combined[identity]
-        for key in ('versions','version_ranges','cpe_names','unsupported_constraints'):
+        for key in ('versions','excluded_versions','version_ranges','cpe_names','unsupported_constraints'):
             prior[key].extend(value for value in item[key] if value not in prior[key])
         for key in ('conditions_unresolved','version_semantics_unknown'):prior[key] |= item[key]
     return list(combined.values())
