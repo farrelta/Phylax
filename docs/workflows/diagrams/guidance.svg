@@ -1,0 +1,340 @@
+<svg role="img" aria-label="Guidance generation and public-data boundary" width="1090pt" height="1758pt"
+ viewBox="0.00 0.00 1090.00 1758.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(25.2 1733.22)">
+<title>workflow</title>
+<polygon fill="#0b1017" stroke="none" points="-25.2,25.2 -25.2,-1733.22 1064.33,-1733.22 1064.33,25.2 -25.2,25.2"/>
+<!-- request&#45;&gt;job -->
+<g id="edge1" class="edge">
+<title>request&#45;&gt;job</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M220.92,-1661.73C220.92,-1651 220.92,-1637.99 220.92,-1626.33"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="223.37,-1626.41 220.92,-1619.41 218.47,-1626.41 223.37,-1626.41"/>
+</g>
+<!-- job&#45;&gt;eligible -->
+<g id="edge2" class="edge">
+<title>job&#45;&gt;eligible</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M220.92,-1571.13C220.92,-1560.99 220.92,-1548.39 220.92,-1535.5"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="223.37,-1535.67 220.92,-1528.67 218.47,-1535.67 223.37,-1535.67"/>
+</g>
+<!-- eligible&#45;&gt;localreason -->
+<g id="edge3" class="edge">
+<title>eligible&#45;&gt;localreason</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M215.79,-1407.27C211.72,-1361.15 206.09,-1297.41 202.25,-1253.85"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="204.7,-1253.83 201.65,-1247.08 199.82,-1254.27 204.7,-1253.83"/>
+<text xml:space="preserve" text-anchor="middle" x="220.51" y="-1374.9" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- eligible&#45;&gt;public -->
+<g id="edge4" class="edge">
+<title>eligible&#45;&gt;public</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M257.94,-1416.06C272.13,-1397.13 288.28,-1375.59 302.33,-1356.84"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="304.17,-1358.48 306.41,-1351.41 300.25,-1355.54 304.17,-1358.48"/>
+<text xml:space="preserve" text-anchor="middle" x="297.77" y="-1374.9" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- localreason&#45;&gt;current -->
+<g id="edge11" class="edge">
+<title>localreason&#45;&gt;current</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M197.61,-1162.05C197.31,-1123.91 196.92,-1072.79 196.92,-1072.79 196.92,-1072.79 196.92,-1072.79 196.92,-840.5 196.92,-840.5 223.92,-810.03 223.92,-810.03 223.92,-810.03 255.99,-784.1 285.65,-760.1"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="287.13,-762.06 291.03,-755.75 284.04,-758.25 287.13,-762.06"/>
+</g>
+<!-- public&#45;&gt;remote -->
+<g id="edge6" class="edge">
+<title>public&#45;&gt;remote</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M349.93,-1266.9C360.41,-1231.61 375.37,-1181.2 384.86,-1149.21"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="387.15,-1150.1 386.79,-1142.69 382.45,-1148.71 387.15,-1150.1"/>
+</g>
+<!-- remote&#45;&gt;validate -->
+<g id="edge7" class="edge">
+<title>remote&#45;&gt;validate</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M403.8,-1094.46C409.2,-1082.32 416.17,-1066.65 423.05,-1051.18"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="425.13,-1052.53 425.74,-1045.14 420.65,-1050.54 425.13,-1052.53"/>
+</g>
+<!-- validate&#45;&gt;good -->
+<g id="edge8" class="edge">
+<title>validate&#45;&gt;good</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M411.63,-940.06C396.15,-920.37 378.57,-898.02 364.15,-879.68"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="366.27,-878.41 360.02,-874.43 362.42,-881.44 366.27,-878.41"/>
+<text xml:space="preserve" text-anchor="middle" x="393.41" y="-898.23" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- validate&#45;&gt;failure -->
+<g id="edge9" class="edge">
+<title>validate&#45;&gt;failure</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M482.69,-938.84C497.33,-916.53 514.08,-891.01 526.66,-871.84"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="528.56,-873.42 530.35,-866.22 524.46,-870.73 528.56,-873.42"/>
+<text xml:space="preserve" text-anchor="middle" x="516.09" y="-898.23" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- good&#45;&gt;current -->
+<g id="edge10" class="edge">
+<title>good&#45;&gt;current</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M334.92,-809.54C334.92,-798.57 334.92,-785.89 334.92,-773.6"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="337.37,-773.84 334.92,-766.84 332.47,-773.84 337.37,-773.84"/>
+</g>
+<!-- failure&#45;&gt;current -->
+<g id="edge12" class="edge">
+<title>failure&#45;&gt;current</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M506.73,-818.17C476.02,-800.67 432.7,-775.98 397.25,-755.77"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="398.55,-753.7 391.26,-752.36 396.13,-757.95 398.55,-753.7"/>
+</g>
+<!-- current&#45;&gt;retry -->
+<g id="edge13" class="edge">
+<title>current&#45;&gt;retry</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M328.08,-674.75C324.83,-654.06 320.98,-629.56 317.85,-609.66"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="320.28,-609.34 316.77,-602.81 315.44,-610.1 320.28,-609.34"/>
+<text xml:space="preserve" text-anchor="middle" x="330.86" y="-641.97" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- current&#45;&gt;existing -->
+<g id="edge14" class="edge">
+<title>current&#45;&gt;existing</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M395.58,-688.47C443.98,-664.7 511.84,-631.39 562.61,-606.46"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="563.59,-608.71 568.79,-603.43 561.43,-604.31 563.59,-608.71"/>
+<text xml:space="preserve" text-anchor="middle" x="500.73" y="-641.97" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- existing&#45;&gt;keep -->
+<g id="edge15" class="edge">
+<title>existing&#45;&gt;keep</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M632.92,-524.6C632.92,-485.44 632.92,-429.9 632.92,-395.59"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="635.37,-395.59 632.92,-388.59 630.47,-395.59 635.37,-395.59"/>
+<text xml:space="preserve" text-anchor="middle" x="640.79" y="-493.66" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- existing&#45;&gt;compose -->
+<g id="edge16" class="edge">
+<title>existing&#45;&gt;compose</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M687.37,-537.34C719.96,-517.82 761.33,-493.05 794.3,-473.3"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="795.45,-475.47 800.2,-469.77 792.94,-471.26 795.45,-475.47"/>
+<text xml:space="preserve" text-anchor="middle" x="768.2" y="-493.66" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- keep&#45;&gt;review -->
+<g id="edge21" class="edge">
+<title>keep&#45;&gt;review</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M635.45,-340.48C642.35,-280.61 660.92,-119.28 660.92,-119.28 660.92,-119.28 685.84,-99.84 711.28,-79.99"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="712.77,-81.94 716.78,-75.7 709.75,-78.07 712.77,-81.94"/>
+</g>
+<!-- compose&#45;&gt;save -->
+<g id="edge17" class="edge">
+<title>compose&#45;&gt;save</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M850.92,-407.85C850.92,-385.31 850.92,-353.77 850.92,-327.45"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="853.37,-327.78 850.92,-320.78 848.47,-327.78 853.37,-327.78"/>
+</g>
+<!-- save&#45;&gt;archive -->
+<g id="edge18" class="edge">
+<title>save&#45;&gt;archive</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M812.88,-235.84C801.71,-223.95 792.42,-214.06 792.42,-214.06 792.42,-214.06 786.98,-201.44 780.93,-187.42"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="783.22,-186.55 778.2,-181.09 778.72,-188.49 783.22,-186.55"/>
+<text xml:space="preserve" text-anchor="middle" x="841.17" y="-204.56" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Replacing prior plan</text>
+</g>
+<!-- save&#45;&gt;review -->
+<g id="edge19" class="edge">
+<title>save&#45;&gt;review</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M877.58,-235.84C885.41,-223.95 891.92,-214.06 891.92,-214.06 891.92,-214.06 891.92,-201.31 891.92,-201.31 891.92,-201.31 868.92,-119.28 868.92,-119.28 868.92,-119.28 844,-99.84 818.56,-79.99"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="820.09,-78.07 813.06,-75.7 817.07,-81.94 820.09,-78.07"/>
+<text xml:space="preserve" text-anchor="middle" x="908.49" y="-146.17" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">New plan</text>
+</g>
+<!-- archive&#45;&gt;review -->
+<g id="edge20" class="edge">
+<title>archive&#45;&gt;review</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M764.92,-118.78C764.92,-107.8 764.92,-95.09 764.92,-83.05"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="767.37,-83.1 764.92,-76.1 762.47,-83.1 767.37,-83.1"/>
+</g>
+<!-- private&#45;&gt;compose -->
+<g id="edge5" class="edge">
+<title>private&#45;&gt;compose</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M918.45,-529.35C905.45,-512.04 890.42,-492.01 877.84,-475.25"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="880.13,-474.23 873.97,-470.1 876.21,-477.17 880.13,-474.23"/>
+<text xml:space="preserve" text-anchor="middle" x="945.36" y="-493.66" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Local evidence only</text>
+</g>
+<!-- request -->
+<g id="node1" class="node">
+<title>request</title>
+<g id="a_node1"><a xlink:title="Operator requests plan for a selected finding">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M307.38,-1708.02C307.38,-1708.02 134.46,-1708.02 134.46,-1708.02 128.46,-1708.02 122.46,-1702.02 122.46,-1696.02 122.46,-1696.02 122.46,-1674.24 122.46,-1674.24 122.46,-1668.24 128.46,-1662.24 134.46,-1662.24 134.46,-1662.24 307.38,-1662.24 307.38,-1662.24 313.38,-1662.24 319.38,-1668.24 319.38,-1674.24 319.38,-1674.24 319.38,-1696.02 319.38,-1696.02 319.38,-1702.02 313.38,-1708.02 307.38,-1708.02"/>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1687.98" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Operator requests plan for a</text>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1673.73" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">selected finding</text>
+</a>
+</g>
+</g>
+<!-- job -->
+<g id="node2" class="node">
+<title>job</title>
+<g id="a_node2"><a xlink:title="Bounded process&#45;local background job with progress">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M309.63,-1617.24C309.63,-1617.24 132.21,-1617.24 132.21,-1617.24 126.21,-1617.24 120.21,-1611.24 120.21,-1605.24 120.21,-1605.24 120.21,-1583.46 120.21,-1583.46 120.21,-1577.46 126.21,-1571.46 132.21,-1571.46 132.21,-1571.46 309.63,-1571.46 309.63,-1571.46 315.63,-1571.46 321.63,-1577.46 321.63,-1583.46 321.63,-1583.46 321.63,-1605.24 321.63,-1605.24 321.63,-1611.24 315.63,-1617.24 309.63,-1617.24"/>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1597.2" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Bounded process&#45;local</text>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1582.95" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">background job with progress</text>
+</a>
+</g>
+</g>
+<!-- eligible -->
+<g id="node3" class="node">
+<title>eligible</title>
+<g id="a_node3"><a xlink:title="Configured provider AND trusted public snapshot AND non&#45;synthetic record?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M209.34,-1523.31C209.34,-1523.31 11.58,-1469.58 11.58,-1469.58 5.79,-1468 5.79,-1464.86 11.58,-1463.28 11.58,-1463.28 209.34,-1409.55 209.34,-1409.55 215.13,-1407.97 226.71,-1407.97 232.5,-1409.55 232.5,-1409.55 430.26,-1463.28 430.26,-1463.28 436.05,-1464.86 436.05,-1468 430.26,-1469.58 430.26,-1469.58 232.5,-1523.31 232.5,-1523.31 226.71,-1524.89 215.13,-1524.89 209.34,-1523.31"/>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1476.41" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Configured provider AND trusted</text>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1462.16" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">public snapshot AND</text>
+<text xml:space="preserve" text-anchor="middle" x="220.92" y="-1447.91" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">non&#45;synthetic record?</text>
+</a>
+</g>
+</g>
+<!-- localreason -->
+<g id="node4" class="node">
+<title>localreason</title>
+<g id="a_node4"><a xlink:title="Explain disabled / synthetic / untrusted&#45;source path; no hosted request">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M295.25,-1237.61C295.25,-1241.75 251.63,-1245.11 197.92,-1245.11 144.21,-1245.11 100.58,-1241.75 100.58,-1237.61 100.58,-1237.61 100.58,-1170.07 100.58,-1170.07 100.58,-1165.93 144.21,-1162.57 197.92,-1162.57 251.63,-1162.57 295.25,-1165.93 295.25,-1170.07 295.25,-1170.07 295.25,-1237.61 295.25,-1237.61"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M295.25,-1237.61C295.25,-1233.47 251.63,-1230.1 197.92,-1230.1 144.21,-1230.1 100.58,-1233.47 100.58,-1237.61"/>
+<text xml:space="preserve" text-anchor="middle" x="197.92" y="-1213.81" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Explain disabled / synthetic /</text>
+<text xml:space="preserve" text-anchor="middle" x="197.92" y="-1199.56" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">untrusted&#45;source path; no</text>
+<text xml:space="preserve" text-anchor="middle" x="197.92" y="-1185.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">hosted request</text>
+</a>
+</g>
+</g>
+<!-- public -->
+<g id="node5" class="node">
+<title>public</title>
+<g id="a_node5"><a xlink:title="Allowlist public CVE/advisory fields and supplied reference URLs">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M437.13,-1342.15C437.13,-1346.29 392.66,-1349.65 337.92,-1349.65 283.18,-1349.65 238.71,-1346.29 238.71,-1342.15 238.71,-1342.15 238.71,-1274.61 238.71,-1274.61 238.71,-1270.47 283.18,-1267.11 337.92,-1267.11 392.66,-1267.11 437.13,-1270.47 437.13,-1274.61 437.13,-1274.61 437.13,-1342.15 437.13,-1342.15"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M437.13,-1342.15C437.13,-1338.01 392.66,-1334.64 337.92,-1334.64 283.18,-1334.64 238.71,-1338.01 238.71,-1342.15"/>
+<text xml:space="preserve" text-anchor="middle" x="337.92" y="-1318.36" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Allowlist public CVE/advisory</text>
+<text xml:space="preserve" text-anchor="middle" x="337.92" y="-1304.11" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">fields and supplied reference</text>
+<text xml:space="preserve" text-anchor="middle" x="337.92" y="-1289.86" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">URLs</text>
+</a>
+</g>
+</g>
+<!-- remote -->
+<g id="node6" class="node">
+<title>remote</title>
+<g id="a_node6"><a xlink:title="Hosted model receives public advisory fields only">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M482.63,-1140.57C482.63,-1140.57 305.21,-1140.57 305.21,-1140.57 299.21,-1140.57 293.21,-1134.57 293.21,-1128.57 293.21,-1128.57 293.21,-1106.79 293.21,-1106.79 293.21,-1100.79 299.21,-1094.79 305.21,-1094.79 305.21,-1094.79 482.63,-1094.79 482.63,-1094.79 488.63,-1094.79 494.63,-1100.79 494.63,-1106.79 494.63,-1106.79 494.63,-1128.57 494.63,-1128.57 494.63,-1134.57 488.63,-1140.57 482.63,-1140.57"/>
+<text xml:space="preserve" text-anchor="middle" x="393.92" y="-1120.53" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Hosted model receives public</text>
+<text xml:space="preserve" text-anchor="middle" x="393.92" y="-1106.28" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">advisory fields only</text>
+</a>
+</g>
+</g>
+<!-- validate -->
+<g id="node7" class="node">
+<title>validate</title>
+<g id="a_node7"><a xlink:title="Response shape, citations, timeout / failure and command&#45;syntax checks pass?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M438.37,-1046.52C438.37,-1046.52 249.55,-993.03 249.55,-993.03 243.77,-991.39 243.77,-988.12 249.55,-986.49 249.55,-986.49 438.37,-933 438.37,-933 444.15,-931.36 455.69,-931.36 461.47,-933 461.47,-933 650.29,-986.49 650.29,-986.49 656.07,-988.12 656.07,-991.39 650.29,-993.03 650.29,-993.03 461.47,-1046.52 461.47,-1046.52 455.69,-1048.15 444.15,-1048.15 438.37,-1046.52"/>
+<text xml:space="preserve" text-anchor="middle" x="449.92" y="-999.73" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Response shape, citations,</text>
+<text xml:space="preserve" text-anchor="middle" x="449.92" y="-985.48" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">timeout / failure and</text>
+<text xml:space="preserve" text-anchor="middle" x="449.92" y="-971.23" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">command&#45;syntax checks pass?</text>
+</a>
+</g>
+</g>
+<!-- good -->
+<g id="node8" class="node">
+<title>good</title>
+<g id="a_node8"><a xlink:title="AI&#45;generated, unverified public&#45;guidance supplement">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M432.25,-867.26C432.25,-870.41 388.63,-872.98 334.92,-872.98 281.21,-872.98 237.58,-870.41 237.58,-867.26 237.58,-867.26 237.58,-815.75 237.58,-815.75 237.58,-812.6 281.21,-810.03 334.92,-810.03 388.63,-810.03 432.25,-812.6 432.25,-815.75 432.25,-815.75 432.25,-867.26 432.25,-867.26"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M432.25,-867.26C432.25,-864.1 388.63,-861.53 334.92,-861.53 281.21,-861.53 237.58,-864.1 237.58,-867.26"/>
+<text xml:space="preserve" text-anchor="middle" x="334.92" y="-844.35" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">AI&#45;generated, unverified</text>
+<text xml:space="preserve" text-anchor="middle" x="334.92" y="-830.1" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">public&#45;guidance supplement</text>
+</a>
+</g>
+</g>
+<!-- failure -->
+<g id="node9" class="node">
+<title>failure</title>
+<g id="a_node9"><a xlink:title="Record explicit provider / validation failure">
+<path fill="#2b1c23" stroke="#bd8591" stroke-width="1.1" d="M620.75,-864.39C620.75,-864.39 471.08,-864.39 471.08,-864.39 465.08,-864.39 459.08,-858.39 459.08,-852.39 459.08,-852.39 459.08,-830.61 459.08,-830.61 459.08,-824.61 465.08,-818.61 471.08,-818.61 471.08,-818.61 620.75,-818.61 620.75,-818.61 626.75,-818.61 632.75,-824.61 632.75,-830.61 632.75,-830.61 632.75,-852.39 632.75,-852.39 632.75,-858.39 626.75,-864.39 620.75,-864.39"/>
+<text xml:space="preserve" text-anchor="middle" x="545.92" y="-844.35" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Record explicit provider /</text>
+<text xml:space="preserve" text-anchor="middle" x="545.92" y="-830.1" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">validation failure</text>
+</a>
+</g>
+</g>
+<!-- current -->
+<g id="node10" class="node">
+<title>current</title>
+<g id="a_node10"><a xlink:title="Finding unchanged during generation?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M323.29,-762.08C323.29,-762.08 166.13,-722.2 166.13,-722.2 160.32,-720.73 160.32,-717.78 166.13,-716.3 166.13,-716.3 323.29,-676.42 323.29,-676.42 329.1,-674.95 340.74,-674.95 346.55,-676.42 346.55,-676.42 503.71,-716.3 503.71,-716.3 509.52,-717.78 509.52,-720.73 503.71,-722.2 503.71,-722.2 346.55,-762.08 346.55,-762.08 340.74,-763.56 329.1,-763.56 323.29,-762.08"/>
+<text xml:space="preserve" text-anchor="middle" x="334.92" y="-722.1" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Finding unchanged during</text>
+<text xml:space="preserve" text-anchor="middle" x="334.92" y="-707.85" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">generation?</text>
+</a>
+</g>
+</g>
+<!-- retry -->
+<g id="node11" class="node">
+<title>retry</title>
+<g id="a_node11"><a xlink:title="Reject stale result; operator reviews current finding and retries">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M395.75,-600.96C395.75,-600.96 228.08,-600.96 228.08,-600.96 222.08,-600.96 216.08,-594.96 216.08,-588.96 216.08,-588.96 216.08,-552.93 216.08,-552.93 216.08,-546.93 222.08,-540.93 228.08,-540.93 228.08,-540.93 395.75,-540.93 395.75,-540.93 401.75,-540.93 407.75,-546.93 407.75,-552.93 407.75,-552.93 407.75,-588.96 407.75,-588.96 407.75,-594.96 401.75,-600.96 395.75,-600.96"/>
+<text xml:space="preserve" text-anchor="middle" x="311.92" y="-580.92" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Reject stale result; operator</text>
+<text xml:space="preserve" text-anchor="middle" x="311.92" y="-566.67" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">reviews current finding and</text>
+<text xml:space="preserve" text-anchor="middle" x="311.92" y="-552.42" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">retries</text>
+</a>
+</g>
+</g>
+<!-- existing -->
+<g id="node12" class="node">
+<title>existing</title>
+<g id="a_node12"><a xlink:title="Fallback reason and previous hosted plan exists?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M621.23,-614.02C621.23,-614.02 446.19,-573.64 446.19,-573.64 440.35,-572.29 440.35,-569.59 446.19,-568.24 446.19,-568.24 621.23,-527.86 621.23,-527.86 627.07,-526.51 638.77,-526.51 644.61,-527.86 644.61,-527.86 819.65,-568.24 819.65,-568.24 825.49,-569.59 825.49,-572.29 819.65,-573.64 819.65,-573.64 644.61,-614.02 644.61,-614.02 638.77,-615.37 627.07,-615.37 621.23,-614.02"/>
+<text xml:space="preserve" text-anchor="middle" x="632.92" y="-573.79" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Fallback reason and previous</text>
+<text xml:space="preserve" text-anchor="middle" x="632.92" y="-559.54" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">hosted plan exists?</text>
+</a>
+</g>
+</g>
+<!-- keep -->
+<g id="node13" class="node">
+<title>keep</title>
+<g id="a_node13"><a xlink:title="Keep previous hosted plan; record failure reason">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M714.5,-386.38C714.5,-386.38 551.33,-386.38 551.33,-386.38 545.33,-386.38 539.33,-380.38 539.33,-374.38 539.33,-374.38 539.33,-352.6 539.33,-352.6 539.33,-346.6 545.33,-340.6 551.33,-340.6 551.33,-340.6 714.5,-340.6 714.5,-340.6 720.5,-340.6 726.5,-346.6 726.5,-352.6 726.5,-352.6 726.5,-374.38 726.5,-374.38 726.5,-380.38 720.5,-386.38 714.5,-386.38"/>
+<text xml:space="preserve" text-anchor="middle" x="632.92" y="-366.34" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Keep previous hosted plan;</text>
+<text xml:space="preserve" text-anchor="middle" x="632.92" y="-352.09" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">record failure reason</text>
+</a>
+</g>
+</g>
+<!-- compose -->
+<g id="node14" class="node">
+<title>compose</title>
+<g id="a_node14"><a xlink:title="Compose deterministic local plan; attach valid public AI supplement if available">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M936.25,-468.41C936.25,-468.41 765.58,-468.41 765.58,-468.41 759.58,-468.41 753.58,-462.41 753.58,-456.41 753.58,-456.41 753.58,-420.38 753.58,-420.38 753.58,-414.38 759.58,-408.38 765.58,-408.38 765.58,-408.38 936.25,-408.38 936.25,-408.38 942.25,-408.38 948.25,-414.38 948.25,-420.38 948.25,-420.38 948.25,-456.41 948.25,-456.41 948.25,-462.41 942.25,-468.41 936.25,-468.41"/>
+<text xml:space="preserve" text-anchor="middle" x="850.92" y="-448.37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Compose deterministic local</text>
+<text xml:space="preserve" text-anchor="middle" x="850.92" y="-434.12" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">plan; attach valid public AI</text>
+<text xml:space="preserve" text-anchor="middle" x="850.92" y="-419.87" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">supplement if available</text>
+</a>
+</g>
+</g>
+<!-- save -->
+<g id="node15" class="node">
+<title>save</title>
+<g id="a_node15"><a xlink:title="Store plan, actual model, timestamps, supplied / cited URLs and provenance">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M947.88,-311.1C947.88,-315.24 904.42,-318.6 850.92,-318.6 797.42,-318.6 753.96,-315.24 753.96,-311.1 753.96,-311.1 753.96,-243.56 753.96,-243.56 753.96,-239.42 797.42,-236.06 850.92,-236.06 904.42,-236.06 947.88,-239.42 947.88,-243.56 947.88,-243.56 947.88,-311.1 947.88,-311.1"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M947.88,-311.1C947.88,-306.96 904.42,-303.59 850.92,-303.59 797.42,-303.59 753.96,-306.96 753.96,-311.1"/>
+<text xml:space="preserve" text-anchor="middle" x="850.92" y="-287.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Store plan, actual model,</text>
+<text xml:space="preserve" text-anchor="middle" x="850.92" y="-273.06" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">timestamps, supplied / cited</text>
+<text xml:space="preserve" text-anchor="middle" x="850.92" y="-258.81" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">URLs and provenance</text>
+</a>
+</g>
+</g>
+<!-- archive -->
+<g id="node16" class="node">
+<title>archive</title>
+<g id="a_node16"><a xlink:title="Regeneration archives old contents and clears prior review / verification">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M843.5,-179.31C843.5,-179.31 686.33,-179.31 686.33,-179.31 680.33,-179.31 674.33,-173.31 674.33,-167.31 674.33,-167.31 674.33,-131.28 674.33,-131.28 674.33,-125.28 680.33,-119.28 686.33,-119.28 686.33,-119.28 843.5,-119.28 843.5,-119.28 849.5,-119.28 855.5,-125.28 855.5,-131.28 855.5,-131.28 855.5,-167.31 855.5,-167.31 855.5,-173.31 849.5,-179.31 843.5,-179.31"/>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-159.27" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Regeneration archives old</text>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-145.02" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">contents and clears prior</text>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-130.77" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">review / verification</text>
+</a>
+</g>
+</g>
+<!-- review -->
+<g id="node17" class="node">
+<title>review</title>
+<g id="a_node17"><a xlink:title="Continue to human lifecycle; finding severity, applicability, urgency and acknowledgement unchanged">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M856.25,-74.28C856.25,-74.28 673.58,-74.28 673.58,-74.28 667.58,-74.28 661.58,-68.28 661.58,-62.28 661.58,-62.28 661.58,-12 661.58,-12 661.58,-6 667.58,0 673.58,0 673.58,0 856.25,0 856.25,0 862.25,0 868.25,-6 868.25,-12 868.25,-12 868.25,-62.28 868.25,-62.28 868.25,-68.28 862.25,-74.28 856.25,-74.28"/>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-54.24" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Continue to human lifecycle;</text>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-39.99" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">finding severity,</text>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-25.74" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">applicability, urgency and</text>
+<text xml:space="preserve" text-anchor="middle" x="764.92" y="-11.49" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">acknowledgement unchanged</text>
+</a>
+</g>
+</g>
+<!-- private -->
+<g id="node18" class="node">
+<title>private</title>
+<g id="a_node18"><a xlink:title="Inventory, IPs, events, policies, local risk and process context stay local">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M1039.13,-604.71C1039.13,-608.85 998.7,-612.21 948.92,-612.21 899.14,-612.21 858.71,-608.85 858.71,-604.71 858.71,-604.71 858.71,-537.17 858.71,-537.17 858.71,-533.03 899.14,-529.67 948.92,-529.67 998.7,-529.67 1039.13,-533.03 1039.13,-537.17 1039.13,-537.17 1039.13,-604.71 1039.13,-604.71"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M1039.13,-604.71C1039.13,-600.57 998.7,-597.2 948.92,-597.2 899.14,-597.2 858.71,-600.57 858.71,-604.71"/>
+<text xml:space="preserve" text-anchor="middle" x="948.92" y="-580.92" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Inventory, IPs, events,</text>
+<text xml:space="preserve" text-anchor="middle" x="948.92" y="-566.67" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">policies, local risk and</text>
+<text xml:space="preserve" text-anchor="middle" x="948.92" y="-552.42" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">process context stay local</text>
+</a>
+</g>
+</g>
+</g>
+</svg>

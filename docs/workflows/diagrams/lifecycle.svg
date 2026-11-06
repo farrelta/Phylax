@@ -1,0 +1,275 @@
+<svg role="img" aria-label="Complete remediation lifecycle" width="1765pt" height="665pt"
+ viewBox="0.00 0.00 1765.00 665.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(25.2 639.47)">
+<title>workflow</title>
+<polygon fill="#0b1017" stroke="none" points="-25.2,25.2 -25.2,-639.47 1739.72,-639.47 1739.72,25.2 -25.2,25.2"/>
+<!-- start&#45;&gt;recommended -->
+<g id="edge1" class="edge">
+<title>start&#45;&gt;recommended</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M218.31,-257.27C270.26,-257.27 330.83,-257.27 375.87,-257.27"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="375.71,-259.72 382.71,-257.27 375.71,-254.82 375.71,-259.72"/>
+<text xml:space="preserve" text-anchor="middle" x="301.42" y="-260.52" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">New or replacement plan</text>
+</g>
+<!-- recommended&#45;&gt;underreview -->
+<g id="edge2" class="edge">
+<title>recommended&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M475.61,-275.52C497.79,-293.7 523.59,-317.77 523.59,-317.77 523.59,-317.77 595.63,-378.76 631.45,-414.8"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="629.48,-416.29 636.12,-419.6 632.99,-412.87 629.48,-416.29"/>
+</g>
+<!-- recommended&#45;&gt;rejected -->
+<g id="edge3" class="edge">
+<title>recommended&#45;&gt;rejected</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M501.83,-255.57C668.64,-259.27 1149.93,-289.25 1301.78,-305.59"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1301.16,-307.99 1308.38,-306.32 1301.7,-303.12 1301.16,-307.99"/>
+</g>
+<!-- recommended&#45;&gt;deferred -->
+<g id="edge4" class="edge">
+<title>recommended&#45;&gt;deferred</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M492.77,-238.74C553.93,-222.57 651.18,-203.77 651.18,-203.77 651.18,-203.77 651.18,-203.77 1350.27,-203.77 1350.27,-203.77 1446.6,-268.77 1446.6,-268.77 1446.6,-268.77 1600.32,-418.64 1655.16,-479.59"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1653.16,-481.03 1659.64,-484.64 1656.83,-477.78 1653.16,-481.03"/>
+</g>
+<!-- recommended&#45;&gt;needsmoreevidence -->
+<g id="edge5" class="edge">
+<title>recommended&#45;&gt;needsmoreevidence</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M455.96,-238.87C478.03,-212.69 523.59,-170.77 523.59,-170.77 523.59,-170.77 755.97,-145.85 885.87,-136.97"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="885.79,-139.43 892.61,-136.52 885.46,-134.54 885.79,-139.43"/>
+</g>
+<!-- underreview&#45;&gt;recommended -->
+<g id="edge6" class="edge">
+<title>underreview&#45;&gt;recommended</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M618.32,-420.93C580.52,-392.96 523.59,-344.77 523.59,-344.77 523.59,-344.77 484.87,-308.65 461.53,-282.28"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="463.47,-280.78 457.05,-277.08 459.76,-283.98 463.47,-280.78"/>
+</g>
+<!-- underreview&#45;&gt;approved -->
+<g id="edge7" class="edge">
+<title>underreview&#45;&gt;approved</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M706.86,-455.39C741.36,-465.74 779.76,-477.27 779.76,-477.27 779.76,-477.27 872.76,-477.27 872.76,-477.27 872.76,-477.27 897.17,-475.78 921.68,-474.29"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="921.82,-476.74 928.66,-473.86 921.52,-471.84 921.82,-476.74"/>
+<text xml:space="preserve" text-anchor="middle" x="826.26" y="-480.52" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Reviewer required</text>
+</g>
+<!-- underreview&#45;&gt;rejected -->
+<g id="edge8" class="edge">
+<title>underreview&#45;&gt;rejected</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M706.85,-423.82C838.7,-393.94 1176.79,-332.76 1301.31,-316.38"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1301.62,-318.81 1308.25,-315.49 1300.99,-313.95 1301.62,-318.81"/>
+</g>
+<!-- underreview&#45;&gt;deferred -->
+<g id="edge9" class="edge">
+<title>underreview&#45;&gt;deferred</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M696.74,-457.68C733.35,-478.98 779.76,-509.77 779.76,-509.77 779.76,-509.77 894.76,-530.77 894.76,-530.77 894.76,-530.77 1071.68,-545.77 1071.68,-545.77 1071.68,-545.77 1251.93,-558.77 1251.93,-558.77 1251.93,-558.77 1468.6,-567.77 1468.6,-567.77 1468.6,-567.77 1614.1,-567.77 1614.1,-567.77 1614.1,-567.77 1636.1,-532.77 1636.1,-532.77 1636.1,-532.77 1637.55,-531.18 1639.89,-528.71"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1641.48,-530.58 1644.59,-523.85 1637.96,-527.18 1641.48,-530.58"/>
+</g>
+<!-- underreview&#45;&gt;needsmoreevidence -->
+<g id="edge10" class="edge">
+<title>underreview&#45;&gt;needsmoreevidence</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M667.67,-420.92C715.93,-368.16 871.99,-218.88 939.55,-160.07"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="940.85,-162.19 944.55,-155.76 937.65,-158.48 940.85,-162.19"/>
+</g>
+<!-- approved&#45;&gt;underreview -->
+<g id="edge11" class="edge">
+<title>approved&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M930.56,-467.18C876.05,-461.7 778.79,-451.91 715.13,-445.5"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="715.63,-443.09 708.42,-444.83 715.14,-447.97 715.63,-443.09"/>
+</g>
+<!-- approved&#45;&gt;implemented -->
+<g id="edge12" class="edge">
+<title>approved&#45;&gt;implemented</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1014.12,-481.66C1041.17,-488.52 1071.68,-496.27 1071.68,-496.27 1071.68,-496.27 1206.32,-517.69 1287.73,-530.64"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1286.97,-533 1294.27,-531.68 1287.74,-528.16 1286.97,-533"/>
+<text xml:space="preserve" text-anchor="middle" x="1150.81" y="-524.15" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Record external implementation</text>
+</g>
+<!-- approved&#45;&gt;rejected -->
+<g id="edge13" class="edge">
+<title>approved&#45;&gt;rejected</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1009.6,-452.79C1037.65,-438.55 1071.68,-421.27 1071.68,-421.27 1071.68,-421.27 1229.93,-385.27 1229.93,-385.27 1229.93,-385.27 1251.93,-344.27 1251.93,-344.27 1251.93,-344.27 1277.27,-336.12 1301.95,-328.17"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1302.42,-330.6 1308.33,-326.12 1300.92,-325.93 1302.42,-330.6"/>
+</g>
+<!-- approved&#45;&gt;deferred -->
+<g id="edge14" class="edge">
+<title>approved&#45;&gt;deferred</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1014.2,-473.2C1136.31,-478.95 1497.26,-495.94 1627.11,-502.05"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1626.91,-504.49 1634.02,-502.37 1627.14,-499.6 1626.91,-504.49"/>
+</g>
+<!-- approved&#45;&gt;external -->
+<g id="edge26" class="edge">
+<title>approved&#45;&gt;external</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" stroke-dasharray="5,2" d="M1014.12,-461.82C1041.17,-455.57 1071.68,-448.52 1071.68,-448.52 1071.68,-448.52 1164.86,-431.93 1243.05,-418.01"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1243.43,-420.43 1249.89,-416.79 1242.57,-415.6 1243.43,-420.43"/>
+<text xml:space="preserve" text-anchor="middle" x="1150.81" y="-451.77" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Guidance only</text>
+</g>
+<!-- implemented&#45;&gt;underreview -->
+<g id="edge15" class="edge">
+<title>implemented&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1295.92,-540.08C1215.73,-539.79 1071.68,-539.27 1071.68,-539.27 1071.68,-539.27 779.76,-496.27 779.76,-496.27 779.76,-496.27 737.47,-477.23 701.77,-461.15"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="703.18,-459.1 695.79,-458.46 701.17,-463.57 703.18,-459.1"/>
+</g>
+<!-- implemented&#45;&gt;deferred -->
+<g id="edge17" class="edge">
+<title>implemented&#45;&gt;deferred</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1402.69,-534.45C1464.83,-527.54 1567.48,-516.14 1627.2,-509.5"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1627.35,-511.95 1634.03,-508.75 1626.8,-507.08 1627.35,-511.95"/>
+</g>
+<!-- implemented&#45;&gt;verified -->
+<g id="edge16" class="edge">
+<title>implemented&#45;&gt;verified</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1402.69,-546.26C1466.03,-553.49 1571.44,-565.52 1630.59,-572.28"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1630.09,-574.69 1637.32,-573.05 1630.65,-569.82 1630.09,-574.69"/>
+<text xml:space="preserve" text-anchor="middle" x="1541.35" y="-573.44" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Verification evidence required</text>
+</g>
+<!-- rejected&#45;&gt;recommended -->
+<g id="edge18" class="edge">
+<title>rejected&#45;&gt;recommended</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1310.04,-315.3C1170.53,-313.87 687.7,-284.36 510.3,-266.95"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="510.7,-264.53 503.49,-266.27 510.21,-269.41 510.7,-264.53"/>
+</g>
+<!-- rejected&#45;&gt;underreview -->
+<g id="edge19" class="edge">
+<title>rejected&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1309.9,-325.18C1195.53,-352.4 856.18,-414.3 715.43,-434.08"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="715.1,-431.65 708.5,-435.04 715.77,-436.51 715.1,-431.65"/>
+</g>
+<!-- deferred&#45;&gt;recommended -->
+<g id="edge20" class="edge">
+<title>deferred&#45;&gt;recommended</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1648.63,-486.05C1589.08,-434.68 1446.6,-295.77 1446.6,-295.77 1446.6,-295.77 1350.27,-230.77 1350.27,-230.77 651.18,-230.77 651.18,-230.77 651.18,-230.77 651.18,-230.77 570.85,-246.3 510.3,-254.74"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="510.15,-252.29 503.54,-255.66 510.81,-257.14 510.15,-252.29"/>
+</g>
+<!-- deferred&#45;&gt;underreview -->
+<g id="edge21" class="edge">
+<title>deferred&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1665.83,-522.55C1654.57,-539.47 1636.1,-559.77 1636.1,-559.77 1636.1,-559.77 1614.1,-594.77 1614.1,-594.77 1614.1,-594.77 1468.6,-594.77 1468.6,-594.77 1468.6,-594.77 1251.93,-585.77 1251.93,-585.77 1251.93,-585.77 1071.68,-572.77 1071.68,-572.77 1071.68,-572.77 894.76,-557.77 894.76,-557.77 894.76,-557.77 779.76,-536.77 779.76,-536.77 779.76,-536.77 712.99,-492.46 676.44,-463.03"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="678.23,-461.34 671.27,-458.78 675.12,-465.12 678.23,-461.34"/>
+</g>
+<!-- needsmoreevidence&#45;&gt;recommended -->
+<g id="edge22" class="edge">
+<title>needsmoreevidence&#45;&gt;recommended</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M894.27,-152.63C766.29,-171.75 523.59,-197.77 523.59,-197.77 523.59,-197.77 502.87,-216.84 482.6,-233.68"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="481.21,-231.66 477.35,-237.99 484.32,-235.44 481.21,-231.66"/>
+</g>
+<!-- needsmoreevidence&#45;&gt;underreview -->
+<g id="edge23" class="edge">
+<title>needsmoreevidence&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M956.69,-154.67C908.4,-207.44 752.51,-356.56 684.92,-415.4"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="683.62,-413.29 679.92,-419.72 686.82,-416.99 683.62,-413.29"/>
+</g>
+<!-- verified&#45;&gt;underreview -->
+<g id="edge24" class="edge">
+<title>verified&#45;&gt;underreview</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1644.21,-595.77C1629.15,-605.02 1614.1,-614.27 1614.1,-614.27 1614.1,-614.27 1468.6,-614.27 1468.6,-614.27 1468.6,-614.27 1251.93,-609.27 1251.93,-609.27 1251.93,-609.27 1071.68,-598.27 1071.68,-598.27 1071.68,-598.27 894.76,-584.27 894.76,-584.27 894.76,-584.27 779.76,-564.27 779.76,-564.27 779.76,-564.27 714.8,-500.12 677.95,-463.73"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="679.74,-462.06 673.04,-458.88 676.3,-465.55 679.74,-462.06"/>
+</g>
+<!-- evidence&#45;&gt;needsmoreevidence -->
+<g id="edge25" class="edge">
+<title>evidence&#45;&gt;needsmoreevidence</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M758.14,-64.81C814.6,-77.48 872.76,-90.52 872.76,-90.52 872.76,-90.52 898.52,-102.49 923.69,-114.19"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="922.57,-116.36 929.95,-117.09 924.63,-111.92 922.57,-116.36"/>
+<text xml:space="preserve" text-anchor="middle" x="826.26" y="-93.77" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Re&#45;review required</text>
+</g>
+<!-- start -->
+<g id="node1" class="node">
+<title>start</title>
+<g id="a_node1"><a xlink:title="Generate new plan / regenerate existing plan">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M205.92,-280.16C205.92,-280.16 12,-280.16 12,-280.16 6,-280.16 0,-274.16 0,-268.16 0,-268.16 0,-246.38 0,-246.38 0,-240.38 6,-234.38 12,-234.38 12,-234.38 205.92,-234.38 205.92,-234.38 211.92,-234.38 217.92,-240.38 217.92,-246.38 217.92,-246.38 217.92,-268.16 217.92,-268.16 217.92,-274.16 211.92,-280.16 205.92,-280.16"/>
+<text xml:space="preserve" text-anchor="middle" x="108.96" y="-260.12" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Generate new plan / regenerate</text>
+<text xml:space="preserve" text-anchor="middle" x="108.96" y="-245.87" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">existing plan</text>
+</a>
+</g>
+</g>
+<!-- recommended -->
+<g id="node2" class="node">
+<title>recommended</title>
+<g id="a_node2"><a xlink:title="Recommended">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M489.59,-275.27C489.59,-275.27 396.92,-275.27 396.92,-275.27 390.92,-275.27 384.92,-269.27 384.92,-263.27 384.92,-263.27 384.92,-251.27 384.92,-251.27 384.92,-245.27 390.92,-239.27 396.92,-239.27 396.92,-239.27 489.59,-239.27 489.59,-239.27 495.59,-239.27 501.59,-245.27 501.59,-251.27 501.59,-251.27 501.59,-263.27 501.59,-263.27 501.59,-269.27 495.59,-275.27 489.59,-275.27"/>
+<text xml:space="preserve" text-anchor="middle" x="443.26" y="-253" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Recommended</text>
+</a>
+</g>
+</g>
+<!-- underreview -->
+<g id="node3" class="node">
+<title>underreview</title>
+<g id="a_node3"><a xlink:title="Under Review">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M694.39,-457.27C694.39,-457.27 609.97,-457.27 609.97,-457.27 603.97,-457.27 597.97,-451.27 597.97,-445.27 597.97,-445.27 597.97,-433.27 597.97,-433.27 597.97,-427.27 603.97,-421.27 609.97,-421.27 609.97,-421.27 694.39,-421.27 694.39,-421.27 700.39,-421.27 706.39,-427.27 706.39,-433.27 706.39,-433.27 706.39,-445.27 706.39,-445.27 706.39,-451.27 700.39,-457.27 694.39,-457.27"/>
+<text xml:space="preserve" text-anchor="middle" x="652.18" y="-435" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Under Review</text>
+</a>
+</g>
+</g>
+<!-- approved -->
+<g id="node4" class="node">
+<title>approved</title>
+<g id="a_node4"><a xlink:title="Approved">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1001.68,-489.27C1001.68,-489.27 942.76,-489.27 942.76,-489.27 936.76,-489.27 930.76,-483.27 930.76,-477.27 930.76,-477.27 930.76,-465.27 930.76,-465.27 930.76,-459.27 936.76,-453.27 942.76,-453.27 942.76,-453.27 1001.68,-453.27 1001.68,-453.27 1007.68,-453.27 1013.68,-459.27 1013.68,-465.27 1013.68,-465.27 1013.68,-477.27 1013.68,-477.27 1013.68,-483.27 1007.68,-489.27 1001.68,-489.27"/>
+<text xml:space="preserve" text-anchor="middle" x="972.22" y="-467" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Approved</text>
+</a>
+</g>
+</g>
+<!-- implemented -->
+<g id="node5" class="node">
+<title>implemented</title>
+<g id="a_node5"><a xlink:title="Implemented">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1390.35,-558.27C1390.35,-558.27 1308.18,-558.27 1308.18,-558.27 1302.18,-558.27 1296.18,-552.27 1296.18,-546.27 1296.18,-546.27 1296.18,-534.27 1296.18,-534.27 1296.18,-528.27 1302.18,-522.27 1308.18,-522.27 1308.18,-522.27 1390.35,-522.27 1390.35,-522.27 1396.35,-522.27 1402.35,-528.27 1402.35,-534.27 1402.35,-534.27 1402.35,-546.27 1402.35,-546.27 1402.35,-552.27 1396.35,-558.27 1390.35,-558.27"/>
+<text xml:space="preserve" text-anchor="middle" x="1349.27" y="-536" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Implemented</text>
+</a>
+</g>
+</g>
+<!-- rejected -->
+<g id="node6" class="node">
+<title>rejected</title>
+<g id="a_node6"><a xlink:title="Rejected">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1376.1,-331.27C1376.1,-331.27 1322.43,-331.27 1322.43,-331.27 1316.43,-331.27 1310.43,-325.27 1310.43,-319.27 1310.43,-319.27 1310.43,-307.27 1310.43,-307.27 1310.43,-301.27 1316.43,-295.27 1322.43,-295.27 1322.43,-295.27 1376.1,-295.27 1376.1,-295.27 1382.1,-295.27 1388.1,-301.27 1388.1,-307.27 1388.1,-307.27 1388.1,-319.27 1388.1,-319.27 1388.1,-325.27 1382.1,-331.27 1376.1,-331.27"/>
+<text xml:space="preserve" text-anchor="middle" x="1349.27" y="-309" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Rejected</text>
+</a>
+</g>
+</g>
+<!-- deferred -->
+<g id="node7" class="node">
+<title>deferred</title>
+<g id="a_node7"><a xlink:title="Deferred">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1702.52,-522.27C1702.52,-522.27 1648.1,-522.27 1648.1,-522.27 1642.1,-522.27 1636.1,-516.27 1636.1,-510.27 1636.1,-510.27 1636.1,-498.27 1636.1,-498.27 1636.1,-492.27 1642.1,-486.27 1648.1,-486.27 1648.1,-486.27 1702.52,-486.27 1702.52,-486.27 1708.52,-486.27 1714.52,-492.27 1714.52,-498.27 1714.52,-498.27 1714.52,-510.27 1714.52,-510.27 1714.52,-516.27 1708.52,-522.27 1702.52,-522.27"/>
+<text xml:space="preserve" text-anchor="middle" x="1675.31" y="-500" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Deferred</text>
+</a>
+</g>
+</g>
+<!-- needsmoreevidence -->
+<g id="node8" class="node">
+<title>needsmoreevidence</title>
+<g id="a_node8"><a xlink:title="Needs More Evidence">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1037.68,-154.27C1037.68,-154.27 906.76,-154.27 906.76,-154.27 900.76,-154.27 894.76,-148.27 894.76,-142.27 894.76,-142.27 894.76,-130.27 894.76,-130.27 894.76,-124.27 900.76,-118.27 906.76,-118.27 906.76,-118.27 1037.68,-118.27 1037.68,-118.27 1043.68,-118.27 1049.68,-124.27 1049.68,-130.27 1049.68,-130.27 1049.68,-142.27 1049.68,-142.27 1049.68,-148.27 1043.68,-154.27 1037.68,-154.27"/>
+<text xml:space="preserve" text-anchor="middle" x="972.22" y="-132" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Needs More Evidence</text>
+</a>
+</g>
+</g>
+<!-- verified -->
+<g id="node9" class="node">
+<title>verified</title>
+<g id="a_node9"><a xlink:title="Verified">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M1699.15,-595.27C1699.15,-595.27 1651.48,-595.27 1651.48,-595.27 1645.48,-595.27 1639.48,-589.27 1639.48,-583.27 1639.48,-583.27 1639.48,-571.27 1639.48,-571.27 1639.48,-565.27 1645.48,-559.27 1651.48,-559.27 1651.48,-559.27 1699.15,-559.27 1699.15,-559.27 1705.15,-559.27 1711.15,-565.27 1711.15,-571.27 1711.15,-571.27 1711.15,-583.27 1711.15,-583.27 1711.15,-589.27 1705.15,-595.27 1699.15,-595.27"/>
+<text xml:space="preserve" text-anchor="middle" x="1675.31" y="-573" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Verified</text>
+</a>
+</g>
+</g>
+<!-- evidence -->
+<g id="node10" class="node">
+<title>evidence</title>
+<g id="a_node10"><a xlink:title="Supporting finding evidence / priority changes u2192 archive snapshot and clear review">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M757.76,-75.04C757.76,-79.18 710.44,-82.54 652.18,-82.54 593.91,-82.54 546.59,-79.18 546.59,-75.04 546.59,-75.04 546.59,-7.5 546.59,-7.5 546.59,-3.36 593.91,0 652.18,0 710.44,0 757.76,-3.36 757.76,-7.5 757.76,-7.5 757.76,-75.04 757.76,-75.04"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M757.76,-75.04C757.76,-70.9 710.44,-67.53 652.18,-67.53 593.91,-67.53 546.59,-70.9 546.59,-75.04"/>
+<text xml:space="preserve" text-anchor="middle" x="652.18" y="-51.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Supporting finding evidence /</text>
+<text xml:space="preserve" text-anchor="middle" x="652.18" y="-37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">priority changes u2192 archive</text>
+<text xml:space="preserve" text-anchor="middle" x="652.18" y="-22.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">snapshot and clear review</text>
+</a>
+</g>
+</g>
+<!-- external -->
+<g id="node11" class="node">
+<title>external</title>
+<g id="a_node11"><a xlink:title="Any infrastructure change is performed separately by authorized people">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M1446.6,-433.04C1446.6,-437.18 1402.97,-440.54 1349.27,-440.54 1295.56,-440.54 1251.93,-437.18 1251.93,-433.04 1251.93,-433.04 1251.93,-365.5 1251.93,-365.5 1251.93,-361.36 1295.56,-358 1349.27,-358 1402.97,-358 1446.6,-361.36 1446.6,-365.5 1446.6,-365.5 1446.6,-433.04 1446.6,-433.04"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M1446.6,-433.04C1446.6,-428.9 1402.97,-425.53 1349.27,-425.53 1295.56,-425.53 1251.93,-428.9 1251.93,-433.04"/>
+<text xml:space="preserve" text-anchor="middle" x="1349.27" y="-409.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Any infrastructure change is</text>
+<text xml:space="preserve" text-anchor="middle" x="1349.27" y="-395" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">performed separately by</text>
+<text xml:space="preserve" text-anchor="middle" x="1349.27" y="-380.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">authorized people</text>
+</a>
+</g>
+</g>
+</g>
+</svg>

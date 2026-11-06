@@ -1,0 +1,4 @@
+asset_id,ip_address,hostname,asset_type,zone,criticality,notes
+manual-extra,172.30.77.60,SYNTHETIC-Manual-Server,server,IT,low,SYNTHETIC manual import only
+manual-invalid,not-an-ip,BAD,server,IT,low,Invalid row should be rejected
+manual-unknown,172.30.77.61,SYNTHETIC-Unknown,unknown,unknown,medium,SYNTHETIC missing vendor and firmware

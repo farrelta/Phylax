@@ -1,0 +1,334 @@
+<svg role="img" aria-label="Passive collection and ingestion" width="895pt" height="1559pt"
+ viewBox="0.00 0.00 895.00 1559.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(25.2 1533.35)">
+<title>workflow</title>
+<polygon fill="#0b1017" stroke="none" points="-25.2,25.2 -25.2,-1533.35 870.16,-1533.35 870.16,25.2 -25.2,25.2"/>
+<!-- entry&#45;&gt;file -->
+<g id="edge1" class="edge">
+<title>entry&#45;&gt;file</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M378.75,-1444.84C378.75,-1409.94 378.75,-1352.95 378.75,-1314.93"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="381.2,-1315.31 378.75,-1308.31 376.3,-1315.31 381.2,-1315.31"/>
+<text xml:space="preserve" text-anchor="middle" x="403.88" y="-1413.59" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Import log</text>
+</g>
+<!-- entry&#45;&gt;pcap -->
+<g id="edge2" class="edge">
+<title>entry&#45;&gt;pcap</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M411.49,-1451.52C434.13,-1434.86 464.59,-1412.44 489.81,-1393.88"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="491.24,-1395.86 495.43,-1389.74 488.34,-1391.91 491.24,-1395.86"/>
+<text xml:space="preserve" text-anchor="middle" x="503.96" y="-1413.59" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Replay capture</text>
+</g>
+<!-- entry&#45;&gt;watch -->
+<g id="edge3" class="edge">
+<title>entry&#45;&gt;watch</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M354.12,-1449.81C321.41,-1415.55 267.75,-1359.32 267.75,-1359.32 267.75,-1359.32 267.75,-1359.32 267.75,-671.99 267.75,-671.99 271.89,-614.04 274.55,-576.73"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="276.99,-577.02 275.04,-569.86 272.1,-576.67 276.99,-577.02"/>
+<text xml:space="preserve" text-anchor="middle" x="298.5" y="-978.6" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Watch folder</text>
+</g>
+<!-- file&#45;&gt;parse -->
+<g id="edge8" class="edge">
+<title>file&#45;&gt;parse</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M380.62,-1243.06C384.84,-1173.49 394.75,-1010.1 394.75,-1010.1 394.75,-1010.1 515.38,-979.1 605.16,-956.03"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="605.69,-958.42 611.86,-954.31 604.47,-953.68 605.69,-958.42"/>
+</g>
+<!-- pcap&#45;&gt;tools -->
+<g id="edge4" class="edge">
+<title>pcap&#45;&gt;tools</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M546.52,-1327.88C555.62,-1300.49 569.35,-1259.13 580.16,-1226.57"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="582.43,-1227.49 582.31,-1220.08 577.78,-1225.95 582.43,-1227.49"/>
+</g>
+<!-- tools&#45;&gt;toolerror -->
+<g id="edge5" class="edge">
+<title>tools&#45;&gt;toolerror</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M571.41,-1135.69C558.12,-1115.28 542.09,-1090.68 529.85,-1071.9"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="531.98,-1070.67 526.1,-1066.14 527.87,-1073.34 531.98,-1070.67"/>
+<text xml:space="preserve" text-anchor="middle" x="557.92" y="-1098.3" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- tools&#45;&gt;logs -->
+<g id="edge6" class="edge">
+<title>tools&#45;&gt;logs</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M636.26,-1138.86C656.77,-1120.31 681.78,-1097.7 702.41,-1079.04"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="703.88,-1081.02 707.43,-1074.51 700.6,-1077.39 703.88,-1081.02"/>
+<text xml:space="preserve" text-anchor="middle" x="690.7" y="-1098.3" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- logs&#45;&gt;parse -->
+<g id="edge7" class="edge">
+<title>logs&#45;&gt;parse</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M730.83,-1009.6C725.06,-994.61 718.15,-976.68 712.42,-961.77"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="714.76,-961.05 709.96,-955.4 710.19,-962.81 714.76,-961.05"/>
+</g>
+<!-- watch&#45;&gt;stable -->
+<g id="edge9" class="edge">
+<title>watch&#45;&gt;stable</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M278.63,-521.61C279.67,-509.25 281.01,-493.32 282.3,-477.98"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="284.73,-478.39 282.87,-471.21 279.84,-477.98 284.73,-478.39"/>
+</g>
+<!-- stable&#45;&gt;wait -->
+<g id="edge10" class="edge">
+<title>stable&#45;&gt;wait</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M252.86,-384.79C236.75,-366.55 217.82,-345.11 203,-328.33"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="204.9,-326.78 198.43,-323.16 201.23,-330.03 204.9,-326.78"/>
+<text xml:space="preserve" text-anchor="middle" x="232.47" y="-346.88" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- stable&#45;&gt;snapshot -->
+<g id="edge12" class="edge">
+<title>stable&#45;&gt;snapshot</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M334.61,-387.79C360.75,-368.47 392.63,-344.91 416.83,-327.03"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="418.25,-329.03 422.42,-322.89 415.34,-325.09 418.25,-329.03"/>
+<text xml:space="preserve" text-anchor="middle" x="397.99" y="-346.88" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- wait&#45;&gt;watch -->
+<g id="edge11" class="edge">
+<title>wait&#45;&gt;watch</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M127.29,-322.07C74.74,-345.32 0,-378.38 0,-378.38 0,-378.38 0,-469.94 0,-469.94 0,-469.94 104.23,-497.82 184.76,-519.35"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="183.96,-521.68 191.36,-521.12 185.23,-516.94 183.96,-521.68"/>
+<text xml:space="preserve" text-anchor="middle" x="22.88" y="-421.04" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Later poll</text>
+</g>
+<!-- snapshot&#45;&gt;new -->
+<g id="edge13" class="edge">
+<title>snapshot&#45;&gt;new</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M494.74,-275.41C523.2,-259.91 561.7,-238.94 594.25,-221.21"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="595.09,-223.54 600.06,-218.04 592.74,-219.24 595.09,-223.54"/>
+</g>
+<!-- new&#45;&gt;skip -->
+<g id="edge14" class="edge">
+<title>new&#45;&gt;skip</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M658.75,-138.81C658.75,-123.63 658.75,-106.64 658.75,-91.19"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="661.2,-91.45 658.75,-84.45 656.3,-91.45 661.2,-91.45"/>
+<text xml:space="preserve" text-anchor="middle" x="665.5" y="-107.79" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- new&#45;&gt;parse -->
+<g id="edge15" class="edge">
+<title>new&#45;&gt;parse</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M705.37,-219.88C750.7,-252.75 812.75,-297.74 812.75,-297.74 812.75,-817.79 812.75,-817.79 812.75,-817.79 812.75,-817.79 784.75,-862.57 784.75,-862.57 784.75,-862.57 758.58,-883.41 735.45,-901.83"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="733.97,-899.87 730.02,-906.15 737.03,-903.71 733.97,-899.87"/>
+<text xml:space="preserve" text-anchor="middle" x="820.62" y="-541.83" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- parse&#45;&gt;valid -->
+<g id="edge16" class="edge">
+<title>parse&#45;&gt;valid</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M675.95,-907.13C660.72,-893.41 640.72,-875.4 622.67,-859.15"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="624.71,-857.69 617.87,-854.83 621.43,-861.33 624.71,-857.69"/>
+</g>
+<!-- valid&#45;&gt;rollback -->
+<g id="edge17" class="edge">
+<title>valid&#45;&gt;rollback</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M535.04,-780.38C509.3,-758.52 476.42,-730.61 450.81,-708.85"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="452.65,-707.2 445.73,-704.54 449.48,-710.94 452.65,-707.2"/>
+<text xml:space="preserve" text-anchor="middle" x="500" y="-739.51" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- valid&#45;&gt;commit -->
+<g id="edge19" class="edge">
+<title>valid&#45;&gt;commit</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M594.39,-774.78C601.47,-758.32 609.68,-739.24 617.04,-722.13"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="619.18,-723.35 619.7,-715.95 614.68,-721.42 619.18,-723.35"/>
+<text xml:space="preserve" text-anchor="middle" x="618.78" y="-739.51" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- rollback&#45;&gt;watch -->
+<g id="edge18" class="edge">
+<title>rollback&#45;&gt;watch</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M378.57,-642.44C356.76,-621.78 327.83,-594.36 306.37,-574.03"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="308.23,-572.41 301.46,-569.38 304.86,-575.97 308.23,-572.41"/>
+<text xml:space="preserve" text-anchor="middle" x="392" y="-600.22" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Correct / change file</text>
+</g>
+<!-- commit&#45;&gt;dispatch -->
+<g id="edge20" class="edge">
+<title>commit&#45;&gt;dispatch</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M637.75,-631.42C637.75,-616.14 637.75,-598.84 637.75,-583.81"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="640.2,-583.93 637.75,-576.93 635.3,-583.93 640.2,-583.93"/>
+</g>
+<!-- dispatch&#45;&gt;health -->
+<g id="edge21" class="edge">
+<title>dispatch&#45;&gt;health</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M640.96,-514.59C642.91,-496.76 645.4,-474.03 647.38,-455.94"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="649.8,-456.36 648.13,-449.14 644.93,-455.83 649.8,-456.36"/>
+</g>
+<!-- entry -->
+<g id="node1" class="node">
+<title>entry</title>
+<g id="a_node1"><a xlink:title="Choose passive input">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M367,-1505.71C367,-1505.71 238.58,-1479.06 238.58,-1479.06 232.7,-1477.84 232.7,-1475.4 238.58,-1474.18 238.58,-1474.18 367,-1447.53 367,-1447.53 372.88,-1446.31 384.62,-1446.31 390.5,-1447.53 390.5,-1447.53 518.92,-1474.18 518.92,-1474.18 524.8,-1475.4 524.8,-1477.84 518.92,-1479.06 518.92,-1479.06 390.5,-1505.71 390.5,-1505.71 384.62,-1506.93 372.88,-1506.93 367,-1505.71"/>
+<text xml:space="preserve" text-anchor="middle" x="378.75" y="-1472.34" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Choose passive input</text>
+</a>
+</g>
+</g>
+<!-- file -->
+<g id="node2" class="node">
+<title>file</title>
+<g id="a_node2"><a xlink:title="CLI or dashboard: finalized Zeek log">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M471.21,-1300.59C471.21,-1303.74 429.77,-1306.31 378.75,-1306.31 327.73,-1306.31 286.29,-1303.74 286.29,-1300.59 286.29,-1300.59 286.29,-1249.08 286.29,-1249.08 286.29,-1245.92 327.73,-1243.36 378.75,-1243.36 429.77,-1243.36 471.21,-1245.92 471.21,-1249.08 471.21,-1249.08 471.21,-1300.59 471.21,-1300.59"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M471.21,-1300.59C471.21,-1297.43 429.77,-1294.86 378.75,-1294.86 327.73,-1294.86 286.29,-1297.43 286.29,-1300.59"/>
+<text xml:space="preserve" text-anchor="middle" x="378.75" y="-1277.68" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">CLI or dashboard: finalized</text>
+<text xml:space="preserve" text-anchor="middle" x="378.75" y="-1263.43" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Zeek log</text>
+</a>
+</g>
+</g>
+<!-- pcap -->
+<g id="node3" class="node">
+<title>pcap</title>
+<g id="a_node3"><a xlink:title="Offline PCAP: local Zeek or installed network&#45;disabled Docker image">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M617.59,-1388.34C617.59,-1388.34 455.92,-1388.34 455.92,-1388.34 449.92,-1388.34 443.92,-1382.34 443.92,-1376.34 443.92,-1376.34 443.92,-1340.31 443.92,-1340.31 443.92,-1334.31 449.92,-1328.31 455.92,-1328.31 455.92,-1328.31 617.59,-1328.31 617.59,-1328.31 623.59,-1328.31 629.59,-1334.31 629.59,-1340.31 629.59,-1340.31 629.59,-1376.34 629.59,-1376.34 629.59,-1382.34 623.59,-1388.34 617.59,-1388.34"/>
+<text xml:space="preserve" text-anchor="middle" x="536.75" y="-1368.3" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Offline PCAP: local Zeek or</text>
+<text xml:space="preserve" text-anchor="middle" x="536.75" y="-1354.05" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">installed network&#45;disabled</text>
+<text xml:space="preserve" text-anchor="middle" x="536.75" y="-1339.8" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Docker image</text>
+</a>
+</g>
+</g>
+<!-- tools -->
+<g id="node4" class="node">
+<title>tools</title>
+<g id="a_node4"><a xlink:title="Tool / capture available and valid?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M585.09,-1218.54C585.09,-1218.54 418.99,-1178.4 418.99,-1178.4 413.16,-1176.99 413.16,-1174.17 418.99,-1172.76 418.99,-1172.76 585.09,-1132.62 585.09,-1132.62 590.92,-1131.21 602.58,-1131.21 608.41,-1132.62 608.41,-1132.62 774.51,-1172.76 774.51,-1172.76 780.34,-1174.17 780.34,-1176.99 774.51,-1178.4 774.51,-1178.4 608.41,-1218.54 608.41,-1218.54 602.58,-1219.95 590.92,-1219.95 585.09,-1218.54"/>
+<text xml:space="preserve" text-anchor="middle" x="596.75" y="-1178.43" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Tool / capture available and</text>
+<text xml:space="preserve" text-anchor="middle" x="596.75" y="-1164.18" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">valid?</text>
+</a>
+</g>
+</g>
+<!-- toolerror -->
+<g id="node5" class="node">
+<title>toolerror</title>
+<g id="a_node5"><a xlink:title="Show diagnostic; retain stored workflows">
+<path fill="#2b1c23" stroke="#bd8591" stroke-width="1.1" d="M601.71,-1064.47C601.71,-1064.47 419.79,-1064.47 419.79,-1064.47 413.79,-1064.47 407.79,-1058.47 407.79,-1052.47 407.79,-1052.47 407.79,-1030.69 407.79,-1030.69 407.79,-1024.69 413.79,-1018.69 419.79,-1018.69 419.79,-1018.69 601.71,-1018.69 601.71,-1018.69 607.71,-1018.69 613.71,-1024.69 613.71,-1030.69 613.71,-1030.69 613.71,-1052.47 613.71,-1052.47 613.71,-1058.47 607.71,-1064.47 601.71,-1064.47"/>
+<text xml:space="preserve" text-anchor="middle" x="510.75" y="-1044.43" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Show diagnostic; retain stored</text>
+<text xml:space="preserve" text-anchor="middle" x="510.75" y="-1030.18" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">workflows</text>
+</a>
+</g>
+</g>
+<!-- logs -->
+<g id="node6" class="node">
+<title>logs</title>
+<g id="a_node6"><a xlink:title="Zeek output logs with capture reference">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M844.96,-1067.33C844.96,-1070.49 799.15,-1073.05 742.75,-1073.05 686.35,-1073.05 640.54,-1070.49 640.54,-1067.33 640.54,-1067.33 640.54,-1015.82 640.54,-1015.82 640.54,-1012.67 686.35,-1010.1 742.75,-1010.1 799.15,-1010.1 844.96,-1012.67 844.96,-1015.82 844.96,-1015.82 844.96,-1067.33 844.96,-1067.33"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M844.96,-1067.33C844.96,-1064.17 799.15,-1061.6 742.75,-1061.6 686.35,-1061.6 640.54,-1064.17 640.54,-1067.33"/>
+<text xml:space="preserve" text-anchor="middle" x="742.75" y="-1044.43" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Zeek output logs with capture</text>
+<text xml:space="preserve" text-anchor="middle" x="742.75" y="-1030.18" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">reference</text>
+</a>
+</g>
+</g>
+<!-- watch -->
+<g id="node7" class="node">
+<title>watch</title>
+<g id="a_node7"><a xlink:title="Watcher polls finalized conn / modbus / dhcp / software logs">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M366.96,-567.85C366.96,-567.85 186.54,-567.85 186.54,-567.85 180.54,-567.85 174.54,-561.85 174.54,-555.85 174.54,-555.85 174.54,-534.07 174.54,-534.07 174.54,-528.07 180.54,-522.07 186.54,-522.07 186.54,-522.07 366.96,-522.07 366.96,-522.07 372.96,-522.07 378.96,-528.07 378.96,-534.07 378.96,-534.07 378.96,-555.85 378.96,-555.85 378.96,-561.85 372.96,-567.85 366.96,-567.85"/>
+<text xml:space="preserve" text-anchor="middle" x="276.75" y="-547.81" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Watcher polls finalized conn /</text>
+<text xml:space="preserve" text-anchor="middle" x="276.75" y="-533.56" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">modbus / dhcp / software logs</text>
+</a>
+</g>
+</g>
+<!-- stable -->
+<g id="node8" class="node">
+<title>stable</title>
+<g id="a_node8"><a xlink:title="Supported, bounded, non&#45;symlink file stable across two polls?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M274.99,-467.58C274.99,-467.58 70.84,-426.53 70.84,-426.53 64.96,-425.34 64.96,-422.98 70.84,-421.8 70.84,-421.8 274.99,-380.75 274.99,-380.75 280.87,-379.56 292.63,-379.56 298.51,-380.75 298.51,-380.75 502.66,-421.8 502.66,-421.8 508.54,-422.98 508.54,-425.34 502.66,-426.53 502.66,-426.53 298.51,-467.58 298.51,-467.58 292.63,-468.76 280.87,-468.76 274.99,-467.58"/>
+<text xml:space="preserve" text-anchor="middle" x="286.75" y="-427.01" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Supported, bounded, non&#45;symlink</text>
+<text xml:space="preserve" text-anchor="middle" x="286.75" y="-412.76" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">file stable across two polls?</text>
+</a>
+</g>
+</g>
+<!-- wait -->
+<g id="node9" class="node">
+<title>wait</title>
+<g id="a_node9"><a xlink:title="Wait for stability or report skipped / unsupported file">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M255.96,-321.63C255.96,-321.63 99.54,-321.63 99.54,-321.63 93.54,-321.63 87.54,-315.63 87.54,-309.63 87.54,-309.63 87.54,-287.85 87.54,-287.85 87.54,-281.85 93.54,-275.85 99.54,-275.85 99.54,-275.85 255.96,-275.85 255.96,-275.85 261.96,-275.85 267.96,-281.85 267.96,-287.85 267.96,-287.85 267.96,-309.63 267.96,-309.63 267.96,-315.63 261.96,-321.63 255.96,-321.63"/>
+<text xml:space="preserve" text-anchor="middle" x="177.75" y="-301.59" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Wait for stability or report</text>
+<text xml:space="preserve" text-anchor="middle" x="177.75" y="-287.34" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">skipped / unsupported file</text>
+</a>
+</g>
+</g>
+<!-- snapshot -->
+<g id="node10" class="node">
+<title>snapshot</title>
+<g id="a_node10"><a xlink:title="Snapshot and hash stable content">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M531.59,-321.63C531.59,-321.63 375.92,-321.63 375.92,-321.63 369.92,-321.63 363.92,-315.63 363.92,-309.63 363.92,-309.63 363.92,-287.85 363.92,-287.85 363.92,-281.85 369.92,-275.85 375.92,-275.85 375.92,-275.85 531.59,-275.85 531.59,-275.85 537.59,-275.85 543.59,-281.85 543.59,-287.85 543.59,-287.85 543.59,-309.63 543.59,-309.63 543.59,-315.63 537.59,-321.63 531.59,-321.63"/>
+<text xml:space="preserve" text-anchor="middle" x="453.75" y="-301.59" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Snapshot and hash stable</text>
+<text xml:space="preserve" text-anchor="middle" x="453.75" y="-287.34" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">content</text>
+</a>
+</g>
+</g>
+<!-- new -->
+<g id="node11" class="node">
+<title>new</title>
+<g id="a_node11"><a xlink:title="Content differs from saved outcome?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M647.1,-227.98C647.1,-227.98 484.73,-187.94 484.73,-187.94 478.91,-186.51 478.91,-183.63 484.73,-182.2 484.73,-182.2 647.1,-142.16 647.1,-142.16 652.92,-140.73 664.58,-140.73 670.4,-142.16 670.4,-142.16 832.77,-182.2 832.77,-182.2 838.59,-183.63 838.59,-186.51 832.77,-187.94 832.77,-187.94 670.4,-227.98 670.4,-227.98 664.58,-229.41 652.92,-229.41 647.1,-227.98"/>
+<text xml:space="preserve" text-anchor="middle" x="658.75" y="-187.92" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Content differs from saved</text>
+<text xml:space="preserve" text-anchor="middle" x="658.75" y="-173.67" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">outcome?</text>
+</a>
+</g>
+</g>
+<!-- skip -->
+<g id="node12" class="node">
+<title>skip</title>
+<g id="a_node12"><a xlink:title="Skip unchanged content; retain prior success or failure diagnostic">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M765.09,-75.04C765.09,-79.18 717.42,-82.54 658.75,-82.54 600.08,-82.54 552.41,-79.18 552.41,-75.04 552.41,-75.04 552.41,-7.5 552.41,-7.5 552.41,-3.36 600.08,0 658.75,0 717.42,0 765.09,-3.36 765.09,-7.5 765.09,-7.5 765.09,-75.04 765.09,-75.04"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M765.09,-75.04C765.09,-70.9 717.42,-67.53 658.75,-67.53 600.08,-67.53 552.41,-70.9 552.41,-75.04"/>
+<text xml:space="preserve" text-anchor="middle" x="658.75" y="-51.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Skip unchanged content; retain</text>
+<text xml:space="preserve" text-anchor="middle" x="658.75" y="-37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">prior success or failure</text>
+<text xml:space="preserve" text-anchor="middle" x="658.75" y="-22.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">diagnostic</text>
+</a>
+</g>
+</g>
+<!-- parse -->
+<g id="node13" class="node">
+<title>parse</title>
+<g id="a_node13"><a xlink:title="Use dedicated JSON Lines / TSV parser for each log kind">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M795.84,-953.35C795.84,-953.35 605.66,-953.35 605.66,-953.35 599.66,-953.35 593.66,-947.35 593.66,-941.35 593.66,-941.35 593.66,-919.57 593.66,-919.57 593.66,-913.57 599.66,-907.57 605.66,-907.57 605.66,-907.57 795.84,-907.57 795.84,-907.57 801.84,-907.57 807.84,-913.57 807.84,-919.57 807.84,-919.57 807.84,-941.35 807.84,-941.35 807.84,-947.35 801.84,-953.35 795.84,-953.35"/>
+<text xml:space="preserve" text-anchor="middle" x="700.75" y="-933.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Use dedicated JSON Lines / TSV</text>
+<text xml:space="preserve" text-anchor="middle" x="700.75" y="-919.06" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">parser for each log kind</text>
+</a>
+</g>
+</g>
+<!-- valid -->
+<g id="node14" class="node">
+<title>valid</title>
+<g id="a_node14"><a xlink:title="Whole file remains valid and unchanged during import?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M565.07,-859.83C565.07,-859.83 393.76,-819.54 393.76,-819.54 387.92,-818.17 387.92,-815.42 393.76,-814.05 393.76,-814.05 565.07,-773.76 565.07,-773.76 570.91,-772.39 582.59,-772.39 588.43,-773.76 588.43,-773.76 759.74,-814.05 759.74,-814.05 765.58,-815.42 765.58,-818.17 759.74,-819.54 759.74,-819.54 588.43,-859.83 588.43,-859.83 582.59,-861.2 570.91,-861.2 565.07,-859.83"/>
+<text xml:space="preserve" text-anchor="middle" x="576.75" y="-819.64" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Whole file remains valid and</text>
+<text xml:space="preserve" text-anchor="middle" x="576.75" y="-805.39" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">unchanged during import?</text>
+</a>
+</g>
+</g>
+<!-- rollback -->
+<g id="node15" class="node">
+<title>rollback</title>
+<g id="a_node15"><a xlink:title="Roll back this file; record failure; changed content may retry">
+<path fill="#2b1c23" stroke="#bd8591" stroke-width="1.1" d="M498.83,-703.01C498.83,-703.01 320.67,-703.01 320.67,-703.01 314.67,-703.01 308.67,-697.01 308.67,-691.01 308.67,-691.01 308.67,-654.98 308.67,-654.98 308.67,-648.98 314.67,-642.98 320.67,-642.98 320.67,-642.98 498.83,-642.98 498.83,-642.98 504.83,-642.98 510.83,-648.98 510.83,-654.98 510.83,-654.98 510.83,-691.01 510.83,-691.01 510.83,-697.01 504.83,-703.01 498.83,-703.01"/>
+<text xml:space="preserve" text-anchor="middle" x="409.75" y="-682.97" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Roll back this file; record</text>
+<text xml:space="preserve" text-anchor="middle" x="409.75" y="-668.72" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">failure; changed content may</text>
+<text xml:space="preserve" text-anchor="middle" x="409.75" y="-654.47" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">retry</text>
+</a>
+</g>
+</g>
+<!-- commit -->
+<g id="node16" class="node">
+<title>commit</title>
+<g id="a_node16"><a xlink:title="Atomic deduplicated records; observed time distinct from ingestion time">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M738.09,-706.76C738.09,-710.9 693.11,-714.26 637.75,-714.26 582.39,-714.26 537.41,-710.9 537.41,-706.76 537.41,-706.76 537.41,-639.22 537.41,-639.22 537.41,-635.08 582.39,-631.72 637.75,-631.72 693.11,-631.72 738.09,-635.08 738.09,-639.22 738.09,-639.22 738.09,-706.76 738.09,-706.76"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M738.09,-706.76C738.09,-702.62 693.11,-699.25 637.75,-699.25 582.39,-699.25 537.41,-702.62 537.41,-706.76"/>
+<text xml:space="preserve" text-anchor="middle" x="637.75" y="-682.97" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Atomic deduplicated records;</text>
+<text xml:space="preserve" text-anchor="middle" x="637.75" y="-668.72" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">observed time distinct from</text>
+<text xml:space="preserve" text-anchor="middle" x="637.75" y="-654.47" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">ingestion time</text>
+</a>
+</g>
+</g>
+<!-- dispatch -->
+<g id="node17" class="node">
+<title>dispatch</title>
+<g id="a_node17"><a xlink:title="Connections / Modbus u2192 events and rules; DHCP u2192 identity; software u2192 components">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M746.71,-574.97C746.71,-574.97 528.79,-574.97 528.79,-574.97 522.79,-574.97 516.79,-568.97 516.79,-562.97 516.79,-562.97 516.79,-526.94 516.79,-526.94 516.79,-520.94 522.79,-514.94 528.79,-514.94 528.79,-514.94 746.71,-514.94 746.71,-514.94 752.71,-514.94 758.71,-520.94 758.71,-526.94 758.71,-526.94 758.71,-562.97 758.71,-562.97 758.71,-568.97 752.71,-574.97 746.71,-574.97"/>
+<text xml:space="preserve" text-anchor="middle" x="637.75" y="-554.93" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Connections / Modbus u2192 events</text>
+<text xml:space="preserve" text-anchor="middle" x="637.75" y="-540.68" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">and rules; DHCP u2192 identity;</text>
+<text xml:space="preserve" text-anchor="middle" x="637.75" y="-526.43" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">software u2192 components</text>
+</a>
+</g>
+</g>
+<!-- health -->
+<g id="node18" class="node">
+<title>health</title>
+<g id="a_node18"><a xlink:title="Update collector health, change history and evidence references">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M747.71,-447.05C747.71,-447.05 553.79,-447.05 553.79,-447.05 547.79,-447.05 541.79,-441.05 541.79,-435.05 541.79,-435.05 541.79,-413.27 541.79,-413.27 541.79,-407.27 547.79,-401.27 553.79,-401.27 553.79,-401.27 747.71,-401.27 747.71,-401.27 753.71,-401.27 759.71,-407.27 759.71,-413.27 759.71,-413.27 759.71,-435.05 759.71,-435.05 759.71,-441.05 753.71,-447.05 747.71,-447.05"/>
+<text xml:space="preserve" text-anchor="middle" x="650.75" y="-427.01" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Update collector health, change</text>
+<text xml:space="preserve" text-anchor="middle" x="650.75" y="-412.76" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">history and evidence references</text>
+</a>
+</g>
+</g>
+</g>
+</svg>

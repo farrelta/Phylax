@@ -1,0 +1,37 @@
+digraph workflow {
+graph [rankdir=TB, bgcolor="#0b1017", pad="0.35", nodesep="0.38", ranksep="0.6", splines=polyline, outputorder=edgesfirst];
+node [fontname="DejaVu Sans", fontsize=12, fontcolor="#e6e8ec", shape=box, style="rounded,filled", penwidth=1.1, margin="0.18,0.12"];
+edge [fontname="DejaVu Sans", fontsize=10, fontcolor="#c2cbd8", color="#8392a5", arrowsize=0.7, penwidth=1.1];
+"open" [label="Monitoring \u2192 Attack surface", tooltip="Monitoring \u2192 Attack surface", shape=box, fillcolor="#14202f", color="#7197bd"];
+"filters" [label="Filter subnet, zone,\ncriticality, management state,\nUTC window or endpoint", tooltip="Filter subnet, zone, criticality, management state, UTC window or endpoint", shape=box, fillcolor="#14202f", color="#7197bd"];
+"surface" [label="Join inventory with imported\noperational communication;\nretain unknown peers", tooltip="Join inventory with imported operational communication; retain unknown peers", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"traffic" [label="Observed endpoints in filtered\nevidence?", tooltip="Observed endpoints in filtered evidence?", shape=diamond, fillcolor="#292419", color="#b39461"];
+"empty" [label="Empty graph: import logs or\nwiden filters; inventory stays\navailable", tooltip="Empty graph: import logs or widen filters; inventory stays available", shape=box, fillcolor="#292217", color="#c4a071"];
+"graph" [label="Zone-grouped node diagram and\ndirected observed connections", tooltip="Zone-grouped node diagram and directed observed connections", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"controls" [label="Find all known assets/peers,\nzoom or hide confirmed process\nlinks", tooltip="Find all known assets/peers, zoom or hide confirmed process links", shape=box, fillcolor="#14202f", color="#7197bd"];
+"select" [label="Select an observed node or\ninventory-only asset", tooltip="Select an observed node or inventory-only asset", shape=box, fillcolor="#292217", color="#c4a071"];
+"details" [label="Read identity confidence,\nmanagement, observed times and\napplicability counts", tooltip="Read identity confidence, management, observed times and applicability counts", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"event" [label="Open original communication\nevent / source record", tooltip="Open original communication event / source record", shape=box, fillcolor="#292217", color="#c4a071"];
+"finding" [label="Open focused vulnerability\nfinding or inventory editor", tooltip="Open focused vulnerability finding or inventory editor", shape=box, fillcolor="#292217", color="#c4a071"];
+"context" [label="Open operator-confirmed process\ncontext", tooltip="Open operator-confirmed process context", shape=box, fillcolor="#292217", color="#c4a071"];
+"all" [label="Expand inventory-only list /\nfull assets; inspect\ncommunication and support\ntables", tooltip="Expand inventory-only list / full assets; inspect communication and support tables", shape=box, fillcolor="#292217", color="#c4a071"];
+"triage" [label="Continue investigation in\nTriage or plan review", tooltip="Continue investigation in Triage or plan review", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"open" -> "filters" [label="", style=solid];
+"filters" -> "surface" [label="", style=solid];
+"surface" -> "traffic" [label="", style=solid];
+"traffic" -> "empty" [label="No", style=solid];
+"traffic" -> "graph" [label="Yes", style=solid];
+"graph" -> "controls" [label="", style=solid];
+"controls" -> "graph" [label="Local view update", style=dashed];
+"graph" -> "select" [label="", style=solid];
+"surface" -> "all" [label="", style=solid];
+"all" -> "select" [label="", style=solid];
+"select" -> "details" [label="", style=solid];
+"details" -> "event" [label="", style=solid];
+"details" -> "finding" [label="", style=solid];
+"graph" -> "context" [label="Confirmed process link", style=solid];
+"event" -> "triage" [label="", style=solid];
+"finding" -> "triage" [label="", style=solid];
+"context" -> "triage" [label="", style=solid];
+"empty" -> "filters" [label="Widen view", style=dashed];
+}

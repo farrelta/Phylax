@@ -1,0 +1,37 @@
+digraph workflow {
+graph [rankdir=TB, bgcolor="#0b1017", pad="0.35", nodesep="0.38", ranksep="0.6", splines=polyline, outputorder=edgesfirst];
+node [fontname="DejaVu Sans", fontsize=12, fontcolor="#e6e8ec", shape=box, style="rounded,filled", penwidth=1.1, margin="0.18,0.12"];
+edge [fontname="DejaVu Sans", fontsize=10, fontcolor="#c2cbd8", color="#8392a5", arrowsize=0.7, penwidth=1.1];
+"launch" [label="Start CLI or localhost\ndashboard with selected\ndatabase", tooltip="Start CLI or localhost dashboard with selected database", shape=box, fillcolor="#14202f", color="#7197bd"];
+"upgrade" [label="Open SQLite; apply additive\nversioned migrations as needed", tooltip="Open SQLite; apply additive versioned migrations as needed", shape=box, fillcolor="#14202f", color="#7197bd"];
+"backup" [label="Pre-upgrade backup for an\nexisting database", tooltip="Pre-upgrade backup for an existing database", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"config" [label="Review Settings: source health\nand collector status", tooltip="Review Settings: source health and collector status", shape=box, fillcolor="#292217", color="#c4a071"];
+"inputs" [label="Configure public sources,\npolicies and monitored subnets", tooltip="Configure public sources, policies and monitored subnets", shape=box, fillcolor="#14202f", color="#7197bd"];
+"optional" [label="Configure optional AI; install\nZeek / Docker or Nmap only for\nrelevant workflows", tooltip="Configure optional AI; install Zeek / Docker or Nmap only for relevant workflows", shape=box, fillcolor="#14202f", color="#7197bd"];
+"processes" [label="Run dashboard, watcher and scan\nworker separately as needed", tooltip="Run dashboard, watcher and scan worker separately as needed", shape=box, fillcolor="#14202f", color="#7197bd"];
+"request" [label="Dashboard request", tooltip="Dashboard request", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"guard" [label="Valid Host; mutation also has\nmatching Origin and form token?", tooltip="Valid Host; mutation also has matching Origin and form token?", shape=diamond, fillcolor="#292419", color="#b39461"];
+"deny" [label="Reject request; retain\nauthoritative stored state", tooltip="Reject request; retain authoritative stored state", shape=box, fillcolor="#2b1c23", color="#bd8591"];
+"form" [label="Validate bounded input and\ncurrent record revision", tooltip="Validate bounded input and current record revision", shape=box, fillcolor="#14202f", color="#7197bd"];
+"valid" [label="Valid and current?", tooltip="Valid and current?", shape=diamond, fillcolor="#292419", color="#b39461"];
+"retry" [label="Show escaped draft and error;\nreload stale record or correct\nfields", tooltip="Show escaped draft and error; reload stale record or correct fields", shape=box, fillcolor="#292217", color="#c4a071"];
+"save" [label="Save explicit change with\nprovenance / audit where\nsupported", tooltip="Save explicit change with provenance / audit where supported", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"continue" [label="Continue to data and operator\nworkflows", tooltip="Continue to data and operator workflows", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"launch" -> "upgrade" [label="", style=solid];
+"upgrade" -> "backup" [label="Existing DB upgrade", style=solid];
+"backup" -> "config" [label="", style=solid];
+"upgrade" -> "config" [label="New / current schema", style=solid];
+"config" -> "inputs" [label="", style=solid];
+"config" -> "optional" [label="", style=solid];
+"inputs" -> "processes" [label="", style=solid];
+"optional" -> "processes" [label="", style=solid];
+"processes" -> "continue" [label="", style=solid];
+"request" -> "guard" [label="", style=solid];
+"guard" -> "deny" [label="No", style=solid];
+"guard" -> "form" [label="Yes", style=solid];
+"form" -> "valid" [label="", style=solid];
+"valid" -> "retry" [label="No", style=solid];
+"retry" -> "form" [label="Correct and resubmit", style=solid];
+"valid" -> "save" [label="Yes", style=solid];
+"save" -> "continue" [label="", style=solid];
+}

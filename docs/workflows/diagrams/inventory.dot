@@ -1,0 +1,37 @@
+digraph workflow {
+graph [rankdir=TB, bgcolor="#0b1017", pad="0.35", nodesep="0.38", ranksep="0.6", splines=polyline, outputorder=edgesfirst];
+node [fontname="DejaVu Sans", fontsize=12, fontcolor="#e6e8ec", shape=box, style="rounded,filled", penwidth=1.1, margin="0.18,0.12"];
+edge [fontname="DejaVu Sans", fontsize=10, fontcolor="#c2cbd8", color="#8392a5", arrowsize=0.7, penwidth=1.1];
+"input" [label="Add / edit an asset or import\nCSV", tooltip="Add / edit an asset or import CSV", shape=box, fillcolor="#14202f", color="#7197bd"];
+"validate" [label="Validate addresses, enums, IDs,\ntimestamps and bounded fields", tooltip="Validate addresses, enums, IDs, timestamps and bounded fields", shape=box, fillcolor="#14202f", color="#7197bd"];
+"good" [label="Row valid?", tooltip="Row valid?", shape=diamond, fillcolor="#292419", color="#b39461"];
+"bad" [label="Report malformed row; operator\ncorrects and retries", tooltip="Report malformed row; operator corrects and retries", shape=box, fillcolor="#292217", color="#c4a071"];
+"identity" [label="Existing asset ID or reliable\nsimple passive record\nreconciliation?", tooltip="Existing asset ID or reliable simple passive record reconciliation?", shape=diamond, fillcolor="#292419", color="#b39461"];
+"update" [label="Update existing record under\nimport rules", tooltip="Update existing record under import rules", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"create" [label="Create separate asset; keep\nincomplete fields unknown", tooltip="Create separate asset; keep incomplete fields unknown", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"conflict" [label="Ambiguous IP / MAC evidence\nremains reviewable; no hostname\n/ MAC auto-merge", tooltip="Ambiguous IP / MAC evidence remains reviewable; no hostname / MAC auto-merge", shape=box, fillcolor="#292217", color="#c4a071"];
+"context" [label="Add owner, facility, lifecycle,\ntags and criticality rationale", tooltip="Add owner, facility, lifecycle, tags and criticality rationale", shape=box, fillcolor="#14202f", color="#7197bd"];
+"process" [label="Confirm or unlink process\nsupport with operator and note", tooltip="Confirm or unlink process support with operator and note", shape=box, fillcolor="#14202f", color="#7197bd"];
+"verify" [label="Operator verifies\nproduct/version evidence and\nconfidence", tooltip="Operator verifies product/version evidence and confidence", shape=box, fillcolor="#292217", color="#c4a071"];
+"reassess" [label="Automatically reevaluate\nrelevant findings", tooltip="Automatically reevaluate relevant findings", shape=box, fillcolor="#14202f", color="#7197bd"];
+"independent" [label="Management approval and scan\npermission remain separate", tooltip="Management approval and scan permission remain separate", shape=box, fillcolor="#292217", color="#c4a071"];
+"export" [label="Search / paginate inventory;\nexport CSV or reports", tooltip="Search / paginate inventory; export CSV or reports", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"input" -> "validate" [label="", style=solid];
+"validate" -> "good" [label="", style=solid];
+"good" -> "bad" [label="No", style=solid];
+"bad" -> "input" [label="Retry corrected rows", style=solid];
+"good" -> "identity" [label="Yes", style=solid];
+"identity" -> "update" [label="Reliable match", style=solid];
+"identity" -> "create" [label="New / insufficient match", style=solid];
+"create" -> "conflict" [label="Conflicting evidence", style=solid];
+"update" -> "verify" [label="", style=solid];
+"create" -> "verify" [label="", style=solid];
+"conflict" -> "verify" [label="", style=solid];
+"verify" -> "reassess" [label="", style=solid];
+"update" -> "context" [label="", style=solid];
+"create" -> "context" [label="", style=solid];
+"context" -> "process" [label="", style=solid];
+"process" -> "export" [label="", style=solid];
+"reassess" -> "independent" [label="", style=solid];
+"independent" -> "export" [label="", style=solid];
+}

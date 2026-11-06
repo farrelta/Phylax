@@ -1,0 +1,23 @@
+{
+  "synthetic": true,
+  "vulnerabilities": [
+    {
+      "cve_id": "CVE-2099-99998",
+      "summary": "SYNTHETIC MANUAL TEST ONLY: exact Apache component applicability; not a real advisory",
+      "source": "synthetic-manual-test",
+      "synthetic": true,
+      "severity": "high",
+      "kev": false,
+      "affected_products": [
+        {
+          "vendor": "apache",
+          "product": "http_server",
+          "versions": [
+            "2.4.41"
+          ]
+        }
+      ],
+      "references": []
+    }
+  ]
+}

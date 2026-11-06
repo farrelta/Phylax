@@ -1,0 +1,142 @@
+{
+  "workflow_count": 14,
+  "chapters": [
+    {
+      "key": "overview",
+      "title": "End-to-end system",
+      "sources": [
+        "phylax/web.py",
+        "phylax/release_web.py",
+        "phylax/core.py",
+        "phylax/topology.py"
+      ]
+    },
+    {
+      "key": "setup",
+      "title": "Setup, access and configuration",
+      "sources": [
+        "phylax/migrations.py",
+        "phylax/web_security.py",
+        "phylax/web.py",
+        "phylax/operator_pages.py"
+      ]
+    },
+    {
+      "key": "inventory",
+      "title": "Inventory and operational context",
+      "sources": [
+        "phylax/core.py",
+        "phylax/validation.py",
+        "phylax/asset_intelligence.py",
+        "phylax/configuration_pages.py"
+      ]
+    },
+    {
+      "key": "passive",
+      "title": "Passive collection and ingestion",
+      "sources": [
+        "phylax/pcap.py",
+        "phylax/monitoring.py",
+        "phylax/observations.py",
+        "phylax/watcher.py"
+      ]
+    },
+    {
+      "key": "management",
+      "title": "Identity, management and change review",
+      "sources": [
+        "phylax/asset_intelligence.py",
+        "phylax/observations.py",
+        "phylax/review_pages.py"
+      ]
+    },
+    {
+      "key": "discovery",
+      "title": "Approved active IT discovery",
+      "sources": [
+        "phylax/discovery.py",
+        "phylax/release_cli.py",
+        "phylax/configuration_pages.py"
+      ]
+    },
+    {
+      "key": "intelligence",
+      "title": "Intelligence sync, resume and offline load",
+      "sources": [
+        "phylax/feeds.py",
+        "phylax/adapters.py",
+        "phylax/csaf.py",
+        "phylax/core.py"
+      ]
+    },
+    {
+      "key": "correlation",
+      "title": "Software, applicability and reassessment",
+      "sources": [
+        "phylax/correlation.py",
+        "phylax/observations.py",
+        "phylax/prioritization.py",
+        "phylax/core.py"
+      ]
+    },
+    {
+      "key": "triage",
+      "title": "Policy detection, urgency and Triage",
+      "sources": [
+        "phylax/monitoring.py",
+        "phylax/triage.py",
+        "phylax/triage_views.py",
+        "phylax/prioritization.py"
+      ]
+    },
+    {
+      "key": "topology",
+      "title": "Topology investigation",
+      "sources": [
+        "phylax/topology.py",
+        "phylax/surface.py",
+        "phylax/web.py",
+        "phylax/release_web.py"
+      ]
+    },
+    {
+      "key": "guidance",
+      "title": "Guidance generation and public-data boundary",
+      "sources": [
+        "phylax/remediation_service.py",
+        "phylax/ai.py",
+        "phylax/remediation.py",
+        "phylax/jobs.py"
+      ]
+    },
+    {
+      "key": "lifecycle",
+      "title": "Complete remediation lifecycle",
+      "sources": [
+        "phylax/remediation_lifecycle.py",
+        "phylax/core.py",
+        "phylax/correlation.py"
+      ]
+    },
+    {
+      "key": "operations",
+      "title": "Reporting, offline operation and recovery",
+      "sources": [
+        "phylax/reports.py",
+        "phylax/migrations.py",
+        "phylax/jobs.py",
+        "phylax/watcher.py",
+        "phylax/discovery.py"
+      ]
+    },
+    {
+      "key": "demo",
+      "title": "Complete controlled demonstration",
+      "sources": [
+        "scripts/prepare_release_demo.py",
+        "docs/manual-testing.md",
+        "demo/README.md"
+      ]
+    }
+  ]
+}

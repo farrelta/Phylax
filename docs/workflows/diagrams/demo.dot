@@ -1,0 +1,38 @@
+digraph workflow {
+graph [rankdir=TB, bgcolor="#0b1017", pad="0.35", nodesep="0.38", ranksep="0.6", splines=polyline, outputorder=edgesfirst];
+node [fontname="DejaVu Sans", fontsize=12, fontcolor="#e6e8ec", shape=box, style="rounded,filled", penwidth=1.1, margin="0.18,0.12"];
+edge [fontname="DejaVu Sans", fontsize=10, fontcolor="#c2cbd8", color="#8392a5", arrowsize=0.7, penwidth=1.1];
+"prepare" [label="Prepare clearly labeled\nfictional lab and disposable\ndatabase", tooltip="Prepare clearly labeled fictional lab and disposable database", shape=box, fillcolor="#14202f", color="#7197bd"];
+"inventory" [label="Import / validate inventory;\ninclude known and incomplete\nidentities", tooltip="Import / validate inventory; include known and incomplete identities", shape=box, fillcolor="#14202f", color="#7197bd"];
+"context" [label="Add owners, criticality\nrationale and confirmed process\nsupport", tooltip="Add owners, criticality rationale and confirmed process support", shape=box, fillcolor="#14202f", color="#7197bd"];
+"subnet" [label="Configure monitored subnet,\nmanagement decisions and\npassive policy", tooltip="Configure monitored subnet, management decisions and passive policy", shape=box, fillcolor="#14202f", color="#7197bd"];
+"passive" [label="Replay benign / write captures\nor import all four Zeek log\nkinds", tooltip="Replay benign / write captures or import all four Zeek log kinds", shape=box, fillcolor="#14202f", color="#7197bd"];
+"changes" [label="Review unmanaged peer, DHCP\nassociation and service/version\nchanges", tooltip="Review unmanaged peer, DHCP association and service/version changes", shape=box, fillcolor="#292217", color="#c4a071"];
+"scan" [label="Explicitly permit isolated\nsupporting IT host; queue /\nschedule bounded discovery", tooltip="Explicitly permit isolated supporting IT host; queue / schedule bounded discovery", shape=box, fillcolor="#14202f", color="#7197bd"];
+"software" [label="Review unverified software;\napply exact mapping; confirm\nevidence", tooltip="Review unverified software; apply exact mapping; confirm evidence", shape=box, fillcolor="#292217", color="#c4a071"];
+"intel" [label="Load deterministic advisory\ncases plus verified public\nsnapshot for hosted demo", tooltip="Load deterministic advisory cases plus verified public snapshot for hosted demo", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"matches" [label="Review confirmed / potential /\nexcluded / needs-review\nevidence", tooltip="Review confirmed / potential / excluded / needs-review evidence", shape=box, fillcolor="#292217", color="#c4a071"];
+"rules" [label="Demonstrate writer, unexpected\ncommunication and maintenance\nviolations", tooltip="Demonstrate writer, unexpected communication and maintenance violations", shape=box, fillcolor="#292217", color="#c4a071"];
+"map" [label="Inspect topology, original\nevents, process context and\nmissing visibility", tooltip="Inspect topology, original events, process context and missing visibility", shape=box, fillcolor="#292217", color="#c4a071"];
+"triage" [label="Compare urgency factors and\nacknowledge reviewed alerts", tooltip="Compare urgency factors and acknowledge reviewed alerts", shape=box, fillcolor="#292217", color="#c4a071"];
+"guidance" [label="Request eligible public\nguidance; exercise local\nfallback / provider failure\nhonestly", tooltip="Request eligible public guidance; exercise local fallback / provider failure honestly", shape=box, fillcolor="#292217", color="#c4a071"];
+"plan" [label="Review plan; record approved,\nexternally implemented and\nverified test evidence", tooltip="Review plan; record approved, externally implemented and verified test evidence", shape=box, fillcolor="#292217", color="#c4a071"];
+"report" [label="Export reports and compare\nevidence/counts", tooltip="Export reports and compare evidence/counts", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"offline" [label="Disconnect; reopen stored\nviews, offline replay and saved\nguidance; show health times", tooltip="Disconnect; reopen stored views, offline replay and saved guidance; show health times", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"prepare" -> "inventory" [label="", style=solid];
+"inventory" -> "context" [label="", style=solid];
+"context" -> "subnet" [label="", style=solid];
+"subnet" -> "passive" [label="", style=solid];
+"passive" -> "changes" [label="", style=solid];
+"changes" -> "scan" [label="", style=solid];
+"scan" -> "software" [label="", style=solid];
+"software" -> "intel" [label="", style=solid];
+"intel" -> "matches" [label="", style=solid];
+"matches" -> "rules" [label="", style=solid];
+"rules" -> "map" [label="", style=solid];
+"map" -> "triage" [label="", style=solid];
+"triage" -> "guidance" [label="", style=solid];
+"guidance" -> "plan" [label="", style=solid];
+"plan" -> "report" [label="", style=solid];
+"report" -> "offline" [label="", style=solid];
+}

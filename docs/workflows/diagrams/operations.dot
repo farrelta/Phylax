@@ -1,0 +1,38 @@
+digraph workflow {
+graph [rankdir=TB, bgcolor="#0b1017", pad="0.35", nodesep="0.38", ranksep="0.6", splines=polyline, outputorder=edgesfirst];
+node [fontname="DejaVu Sans", fontsize=12, fontcolor="#e6e8ec", shape=box, style="rounded,filled", penwidth=1.1, margin="0.18,0.12"];
+edge [fontname="DejaVu Sans", fontsize=10, fontcolor="#c2cbd8", color="#8392a5", arrowsize=0.7, penwidth=1.1];
+"review" [label="Reviewed local findings,\nobservations, decisions and\nplans", tooltip="Reviewed local findings, observations, decisions and plans", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"export" [label="Reports or CLI export", tooltip="Reports or CLI export", shape=box, fillcolor="#14202f", color="#7197bd"];
+"formats" [label="JSON / CSV / Markdown;\ninventory CSV separately", tooltip="JSON / CSV / Markdown; inventory CSV separately", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"content" [label="Generation time, identity,\nprovenance, applicability,\nmissing evidence, priority,\nchanges and context", tooltip="Generation time, identity, provenance, applicability, missing evidence, priority, changes and context", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"disconnect" [label="Internet unavailable", tooltip="Internet unavailable", shape=diamond, fillcolor="#292419", color="#b39461"];
+"local" [label="Inventory, stored intelligence,\nfindings, triage, topology,\nreports and offline PCAP\nanalysis remain available", tooltip="Inventory, stored intelligence, findings, triage, topology, reports and offline PCAP analysis remain available", shape=box, fillcolor="#15271f", color="#7eaa90"];
+"unavailable" [label="Live feed sync / hosted\ngeneration may fail; keep cache\nand prior hosted plan as\napplicable", tooltip="Live feed sync / hosted generation may fail; keep cache and prior hosted plan as applicable", shape=box, fillcolor="#292217", color="#c4a071"];
+"restart" [label="Process stops / restarts", tooltip="Process stops / restarts", shape=diamond, fillcolor="#292419", color="#b39461"];
+"db" [label="SQLite inventory, evidence,\npermissions, scan queue, plans,\nsource cache and NVD\ncheckpoints persist", tooltip="SQLite inventory, evidence, permissions, scan queue, plans, source cache and NVD checkpoints persist", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"nvd" [label="NVD resumes saved page/window\non next sync", tooltip="NVD resumes saved page/window on next sync", shape=box, fillcolor="#14202f", color="#7197bd"];
+"watcher" [label="Watcher rechecks stable content\nhashes and saved outcomes", tooltip="Watcher rechecks stable content hashes and saved outcomes", shape=box, fillcolor="#14202f", color="#7197bd"];
+"scanner" [label="Expired running scan \u2192\nInterrupted; queued work\nrevalidated; no catch-up burst", tooltip="Expired running scan \u2192 Interrupted; queued work revalidated; no catch-up burst", shape=box, fillcolor="#292217", color="#c4a071"];
+"webjobs" [label="Web job queue/progress is\nprocess-local; inspect stored\nresult and resubmit if needed", tooltip="Web job queue/progress is process-local; inspect stored result and resubmit if needed", shape=box, fillcolor="#292217", color="#c4a071"];
+"health" [label="Inspect source staleness and\ncollector/worker heartbeat\nseparately", tooltip="Inspect source staleness and collector/worker heartbeat separately", shape=box, fillcolor="#292217", color="#c4a071"];
+"upgrade" [label="Before schema upgrade: backup\nexisting DB; preserve IDs and\nverify copy", tooltip="Before schema upgrade: backup existing DB; preserve IDs and verify copy", shape=box, fillcolor="#14202f", color="#7197bd"];
+"audit" [label="Review stored audit / plan\narchives; keep reports and\nlocal backups appropriately", tooltip="Review stored audit / plan archives; keep reports and local backups appropriately", shape=cylinder, fillcolor="#17202a", color="#738397"];
+"review" -> "export" [label="", style=solid];
+"export" -> "formats" [label="", style=solid];
+"formats" -> "content" [label="", style=solid];
+"content" -> "audit" [label="", style=solid];
+"disconnect" -> "local" [label="Stored/local workflows", style=solid];
+"disconnect" -> "unavailable" [label="Needs external service", style=solid];
+"restart" -> "db" [label="", style=solid];
+"db" -> "nvd" [label="", style=solid];
+"db" -> "watcher" [label="", style=solid];
+"db" -> "scanner" [label="", style=solid];
+"restart" -> "webjobs" [label="", style=solid];
+"nvd" -> "health" [label="", style=solid];
+"watcher" -> "health" [label="", style=solid];
+"scanner" -> "health" [label="", style=solid];
+"webjobs" -> "health" [label="", style=solid];
+"upgrade" -> "db" [label="", style=solid];
+"health" -> "audit" [label="", style=solid];
+}

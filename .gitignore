@@ -3,17 +3,16 @@ __pycache__/
 data/
 .env
 .venv/
-demo/runtime/
 report.json
 .agents/
-docs/*
-!docs/workflows/
 skills-lock.json
 .codex/
 .impeccable/
-docs/
-demo/
+
+# Generated lab state and local verification artifacts.
+demo/runtime/
 verification/
-MANUAL_TESTING.md
+
+# Local product briefs and development release history.
 PRODUCT.md
 RELEASE_NOTES.md

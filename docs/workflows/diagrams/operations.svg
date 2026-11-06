@@ -1,0 +1,286 @@
+<svg role="img" aria-label="Reporting, offline operation and recovery" width="1283pt" height="731pt"
+ viewBox="0.00 0.00 1283.00 731.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(25.2 705.36)">
+<title>workflow</title>
+<polygon fill="#0b1017" stroke="none" points="-25.2,25.2 -25.2,-705.36 1257.37,-705.36 1257.37,25.2 -25.2,25.2"/>
+<!-- review&#45;&gt;export -->
+<g id="edge1" class="edge">
+<title>review&#45;&gt;export</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M96.84,-597.31C97.71,-571.6 98.82,-539.12 99.58,-516.82"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="102.02,-516.97 99.81,-509.9 97.12,-516.81 102.02,-516.97"/>
+</g>
+<!-- export&#45;&gt;formats -->
+<g id="edge2" class="edge">
+<title>export&#45;&gt;formats</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M103,-471.58C107.56,-440.62 117.21,-375.21 122.93,-336.41"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="125.32,-337.02 123.91,-329.74 120.47,-336.31 125.32,-337.02"/>
+</g>
+<!-- formats&#45;&gt;content -->
+<g id="edge3" class="edge">
+<title>formats&#45;&gt;content</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M134.97,-281.51C139.09,-269.34 144.41,-253.62 149.63,-238.19"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="151.89,-239.16 151.81,-231.75 147.25,-237.59 151.89,-239.16"/>
+</g>
+<!-- content&#45;&gt;audit -->
+<g id="edge4" class="edge">
+<title>content&#45;&gt;audit</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M209.68,-127.21C219.49,-114.91 229.96,-101.79 239.66,-89.64"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="241.47,-91.3 243.92,-84.3 237.64,-88.24 241.47,-91.3"/>
+</g>
+<!-- disconnect&#45;&gt;local -->
+<g id="edge5" class="edge">
+<title>disconnect&#45;&gt;local</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1012.9,-613.99C989.7,-596.43 962.21,-575.62 962.21,-575.62 962.21,-575.62 942.7,-554.61 923.1,-533.5"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="925.01,-531.95 918.45,-528.49 921.41,-535.28 925.01,-531.95"/>
+<text xml:space="preserve" text-anchor="middle" x="1017.34" y="-566.12" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Stored/local workflows</text>
+</g>
+<!-- disconnect&#45;&gt;unavailable -->
+<g id="edge6" class="edge">
+<title>disconnect&#45;&gt;unavailable</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1059.13,-610.23C1070.41,-588.96 1086.21,-559.17 1099.2,-534.66"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1101.24,-536.05 1102.36,-528.71 1096.91,-533.75 1101.24,-536.05"/>
+<text xml:space="preserve" text-anchor="middle" x="1139.71" y="-566.12" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Needs external service</text>
+</g>
+<!-- restart&#45;&gt;db -->
+<g id="edge7" class="edge">
+<title>restart&#45;&gt;db</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M422.87,-614.91C457.41,-595.74 507.96,-567.68 552.26,-543.09"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="553.21,-545.36 558.14,-539.82 550.83,-541.08 553.21,-545.36"/>
+</g>
+<!-- restart&#45;&gt;webjobs -->
+<g id="edge11" class="edge">
+<title>restart&#45;&gt;webjobs</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M374.82,-608.21C364.6,-562.57 345.05,-475.22 333.86,-425.26"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="336.29,-424.9 332.37,-418.6 331.51,-425.97 336.29,-424.9"/>
+</g>
+<!-- db&#45;&gt;nvd -->
+<g id="edge8" class="edge">
+<title>db&#45;&gt;nvd</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M646.46,-438.28C646.46,-405.61 646.46,-364.16 646.46,-336.37"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="648.91,-336.53 646.46,-329.53 644.01,-336.53 648.91,-336.53"/>
+</g>
+<!-- db&#45;&gt;watcher -->
+<g id="edge9" class="edge">
+<title>db&#45;&gt;watcher</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M714.99,-439.01C761.91,-404.91 822.37,-360.98 860.79,-333.06"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="862.13,-335.12 866.35,-329.02 859.25,-331.16 862.13,-335.12"/>
+</g>
+<!-- db&#45;&gt;scanner -->
+<g id="edge10" class="edge">
+<title>db&#45;&gt;scanner</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M580.11,-439.01C538.39,-407.7 485.63,-368.11 448.48,-340.23"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="450.13,-338.41 443.07,-336.16 447.19,-342.33 450.13,-338.41"/>
+</g>
+<!-- nvd&#45;&gt;health -->
+<g id="edge12" class="edge">
+<title>nvd&#45;&gt;health</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M602.56,-281.36C565.02,-262.28 510.47,-234.54 467.8,-212.84"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="469.09,-210.74 461.74,-209.75 466.86,-215.11 469.09,-210.74"/>
+</g>
+<!-- watcher&#45;&gt;health -->
+<g id="edge13" class="edge">
+<title>watcher&#45;&gt;health</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M808.93,-281.29C725.04,-260.31 599.54,-228.91 510.21,-206.56"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="510.95,-204.22 503.56,-204.9 509.76,-208.98 510.95,-204.22"/>
+</g>
+<!-- scanner&#45;&gt;health -->
+<g id="edge14" class="edge">
+<title>scanner&#45;&gt;health</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M402.46,-274.29C402.46,-257.29 402.46,-235.72 402.46,-217.46"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="404.91,-217.47 402.46,-210.47 400.01,-217.47 404.91,-217.47"/>
+</g>
+<!-- webjobs&#45;&gt;health -->
+<g id="edge15" class="edge">
+<title>webjobs&#45;&gt;health</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M303,-356.34C294.33,-345 286.46,-334.71 286.46,-334.71 286.46,-334.71 286.46,-274.68 286.46,-274.68 286.46,-274.68 326.78,-241.63 359.88,-214.5"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="361.24,-216.55 365.11,-210.22 358.14,-212.77 361.24,-216.55"/>
+</g>
+<!-- health&#45;&gt;audit -->
+<g id="edge17" class="edge">
+<title>health&#45;&gt;audit</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M375.34,-148.24C359.4,-130.99 338.88,-108.77 320.75,-89.15"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="322.64,-87.58 316.09,-84.1 319.04,-90.9 322.64,-87.58"/>
+</g>
+<!-- upgrade&#45;&gt;db -->
+<g id="edge16" class="edge">
+<title>upgrade&#45;&gt;db</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M675.26,-608.48C671.13,-591.61 665.8,-569.81 660.85,-549.58"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="663.26,-549.15 659.22,-542.94 658.5,-550.32 663.26,-549.15"/>
+</g>
+<!-- review -->
+<g id="node1" class="node">
+<title>review</title>
+<g id="a_node1"><a xlink:title="Reviewed local findings, observations, decisions and plans">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M190.92,-672.66C190.92,-676.8 148.13,-680.16 95.46,-680.16 42.79,-680.16 0,-676.8 0,-672.66 0,-672.66 0,-605.12 0,-605.12 0,-600.98 42.79,-597.62 95.46,-597.62 148.13,-597.62 190.92,-600.98 190.92,-605.12 190.92,-605.12 190.92,-672.66 190.92,-672.66"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M190.92,-672.66C190.92,-668.52 148.13,-665.15 95.46,-665.15 42.79,-665.15 0,-668.52 0,-672.66"/>
+<text xml:space="preserve" text-anchor="middle" x="95.46" y="-648.87" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Reviewed local findings,</text>
+<text xml:space="preserve" text-anchor="middle" x="95.46" y="-634.62" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">observations, decisions and</text>
+<text xml:space="preserve" text-anchor="middle" x="95.46" y="-620.37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">plans</text>
+</a>
+</g>
+</g>
+<!-- export -->
+<g id="node2" class="node">
+<title>export</title>
+<g id="a_node2"><a xlink:title="Reports or CLI export">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M165.17,-507.8C165.17,-507.8 35.75,-507.8 35.75,-507.8 29.75,-507.8 23.75,-501.8 23.75,-495.8 23.75,-495.8 23.75,-483.8 23.75,-483.8 23.75,-477.8 29.75,-471.8 35.75,-471.8 35.75,-471.8 165.17,-471.8 165.17,-471.8 171.17,-471.8 177.17,-477.8 177.17,-483.8 177.17,-483.8 177.17,-495.8 177.17,-495.8 177.17,-501.8 171.17,-507.8 165.17,-507.8"/>
+<text xml:space="preserve" text-anchor="middle" x="100.46" y="-485.53" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Reports or CLI export</text>
+</a>
+</g>
+</g>
+<!-- formats -->
+<g id="node3" class="node">
+<title>formats</title>
+<g id="a_node3"><a xlink:title="JSON / CSV / Markdown; inventory CSV separately">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M203.8,-327.58C203.8,-327.58 51.13,-327.58 51.13,-327.58 45.13,-327.58 39.13,-321.58 39.13,-315.58 39.13,-315.58 39.13,-293.8 39.13,-293.8 39.13,-287.8 45.13,-281.8 51.13,-281.8 51.13,-281.8 203.8,-281.8 203.8,-281.8 209.8,-281.8 215.8,-287.8 215.8,-293.8 215.8,-293.8 215.8,-315.58 215.8,-315.58 215.8,-321.58 209.8,-327.58 203.8,-327.58"/>
+<text xml:space="preserve" text-anchor="middle" x="127.46" y="-307.54" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">JSON / CSV / Markdown;</text>
+<text xml:space="preserve" text-anchor="middle" x="127.46" y="-293.29" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">inventory CSV separately</text>
+</a>
+</g>
+</g>
+<!-- content -->
+<g id="node4" class="node">
+<title>content</title>
+<g id="a_node4"><a xlink:title="Generation time, identity, provenance, applicability, missing evidence, priority, changes and context">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M260.8,-220.39C260.8,-225.51 219.86,-229.68 169.46,-229.68 119.06,-229.68 78.13,-225.51 78.13,-220.39 78.13,-220.39 78.13,-136.83 78.13,-136.83 78.13,-131.7 119.06,-127.54 169.46,-127.54 219.86,-127.54 260.8,-131.7 260.8,-136.83 260.8,-136.83 260.8,-220.39 260.8,-220.39"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M260.8,-220.39C260.8,-215.27 219.86,-211.11 169.46,-211.11 119.06,-211.11 78.13,-215.27 78.13,-220.39"/>
+<text xml:space="preserve" text-anchor="middle" x="169.46" y="-195.71" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Generation time, identity,</text>
+<text xml:space="preserve" text-anchor="middle" x="169.46" y="-181.46" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">provenance, applicability,</text>
+<text xml:space="preserve" text-anchor="middle" x="169.46" y="-167.21" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">missing evidence, priority,</text>
+<text xml:space="preserve" text-anchor="middle" x="169.46" y="-152.96" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">changes and context</text>
+</a>
+</g>
+</g>
+<!-- disconnect -->
+<g id="node5" class="node">
+<title>disconnect</title>
+<g id="a_node5"><a xlink:title="Internet unavailable">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M1032.73,-667.87C1032.73,-667.87 911.02,-641.44 911.02,-641.44 905.15,-640.17 905.15,-637.62 911.02,-636.34 911.02,-636.34 1032.73,-609.91 1032.73,-609.91 1038.6,-608.64 1050.32,-608.64 1056.19,-609.91 1056.19,-609.91 1177.9,-636.34 1177.9,-636.34 1183.77,-637.62 1183.77,-640.17 1177.9,-641.44 1177.9,-641.44 1056.19,-667.87 1056.19,-667.87 1050.32,-669.15 1038.6,-669.15 1032.73,-667.87"/>
+<text xml:space="preserve" text-anchor="middle" x="1044.46" y="-634.62" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Internet unavailable</text>
+</a>
+</g>
+</g>
+<!-- local -->
+<g id="node6" class="node">
+<title>local</title>
+<g id="a_node6"><a xlink:title="Inventory, stored intelligence, findings, triage, topology, reports and offline PCAP analysis remain available">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M973.3,-526.94C973.3,-526.94 793.62,-526.94 793.62,-526.94 787.62,-526.94 781.62,-520.94 781.62,-514.94 781.62,-514.94 781.62,-464.66 781.62,-464.66 781.62,-458.66 787.62,-452.66 793.62,-452.66 793.62,-452.66 973.3,-452.66 973.3,-452.66 979.3,-452.66 985.3,-458.66 985.3,-464.66 985.3,-464.66 985.3,-514.94 985.3,-514.94 985.3,-520.94 979.3,-526.94 973.3,-526.94"/>
+<text xml:space="preserve" text-anchor="middle" x="883.46" y="-506.9" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Inventory, stored intelligence,</text>
+<text xml:space="preserve" text-anchor="middle" x="883.46" y="-492.65" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">findings, triage, topology,</text>
+<text xml:space="preserve" text-anchor="middle" x="883.46" y="-478.4" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">reports and offline PCAP</text>
+<text xml:space="preserve" text-anchor="middle" x="883.46" y="-464.15" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">analysis remain available</text>
+</a>
+</g>
+</g>
+<!-- unavailable -->
+<g id="node7" class="node">
+<title>unavailable</title>
+<g id="a_node7"><a xlink:title="Live feed sync / hosted generation may fail; keep cache and prior hosted plan as applicable">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1220.17,-526.94C1220.17,-526.94 1024.75,-526.94 1024.75,-526.94 1018.75,-526.94 1012.75,-520.94 1012.75,-514.94 1012.75,-514.94 1012.75,-464.66 1012.75,-464.66 1012.75,-458.66 1018.75,-452.66 1024.75,-452.66 1024.75,-452.66 1220.17,-452.66 1220.17,-452.66 1226.17,-452.66 1232.17,-458.66 1232.17,-464.66 1232.17,-464.66 1232.17,-514.94 1232.17,-514.94 1232.17,-520.94 1226.17,-526.94 1220.17,-526.94"/>
+<text xml:space="preserve" text-anchor="middle" x="1122.46" y="-506.9" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Live feed sync / hosted</text>
+<text xml:space="preserve" text-anchor="middle" x="1122.46" y="-492.65" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">generation may fail; keep cache</text>
+<text xml:space="preserve" text-anchor="middle" x="1122.46" y="-478.4" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">and prior hosted plan as</text>
+<text xml:space="preserve" text-anchor="middle" x="1122.46" y="-464.15" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">applicable</text>
+</a>
+</g>
+</g>
+<!-- restart -->
+<g id="node8" class="node">
+<title>restart</title>
+<g id="a_node8"><a xlink:title="Process stops / restarts">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M369.68,-668.15C369.68,-668.15 230.07,-641.17 230.07,-641.17 224.18,-640.03 224.18,-637.75 230.07,-636.62 230.07,-636.62 369.68,-609.64 369.68,-609.64 375.57,-608.5 387.35,-608.5 393.24,-609.64 393.24,-609.64 532.85,-636.62 532.85,-636.62 538.74,-637.75 538.74,-640.03 532.85,-641.17 532.85,-641.17 393.24,-668.15 393.24,-668.15 387.35,-669.28 375.57,-669.28 369.68,-668.15"/>
+<text xml:space="preserve" text-anchor="middle" x="381.46" y="-634.62" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Process stops / restarts</text>
+</a>
+</g>
+</g>
+<!-- db -->
+<g id="node9" class="node">
+<title>db</title>
+<g id="a_node9"><a xlink:title="SQLite inventory, evidence, permissions, scan queue, plans, source cache and NVD checkpoints persist">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M754.3,-531.59C754.3,-536.71 705.96,-540.87 646.46,-540.87 586.96,-540.87 538.62,-536.71 538.62,-531.59 538.62,-531.59 538.62,-448.02 538.62,-448.02 538.62,-442.9 586.96,-438.74 646.46,-438.74 705.96,-438.74 754.3,-442.9 754.3,-448.02 754.3,-448.02 754.3,-531.59 754.3,-531.59"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M754.3,-531.59C754.3,-526.46 705.96,-522.3 646.46,-522.3 586.96,-522.3 538.62,-526.46 538.62,-531.59"/>
+<text xml:space="preserve" text-anchor="middle" x="646.46" y="-506.9" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">SQLite inventory, evidence,</text>
+<text xml:space="preserve" text-anchor="middle" x="646.46" y="-492.65" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">permissions, scan queue, plans,</text>
+<text xml:space="preserve" text-anchor="middle" x="646.46" y="-478.4" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">source cache and NVD</text>
+<text xml:space="preserve" text-anchor="middle" x="646.46" y="-464.15" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">checkpoints persist</text>
+</a>
+</g>
+</g>
+<!-- nvd -->
+<g id="node10" class="node">
+<title>nvd</title>
+<g id="a_node10"><a xlink:title="NVD resumes saved page/window on next sync">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M748.67,-327.58C748.67,-327.58 544.25,-327.58 544.25,-327.58 538.25,-327.58 532.25,-321.58 532.25,-315.58 532.25,-315.58 532.25,-293.8 532.25,-293.8 532.25,-287.8 538.25,-281.8 544.25,-281.8 544.25,-281.8 748.67,-281.8 748.67,-281.8 754.67,-281.8 760.67,-287.8 760.67,-293.8 760.67,-293.8 760.67,-315.58 760.67,-315.58 760.67,-321.58 754.67,-327.58 748.67,-327.58"/>
+<text xml:space="preserve" text-anchor="middle" x="646.46" y="-307.54" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">NVD resumes saved page/window</text>
+<text xml:space="preserve" text-anchor="middle" x="646.46" y="-293.29" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">on next sync</text>
+</a>
+</g>
+</g>
+<!-- watcher -->
+<g id="node11" class="node">
+<title>watcher</title>
+<g id="a_node11"><a xlink:title="Watcher rechecks stable content hashes and saved outcomes">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M997.67,-327.58C997.67,-327.58 799.25,-327.58 799.25,-327.58 793.25,-327.58 787.25,-321.58 787.25,-315.58 787.25,-315.58 787.25,-293.8 787.25,-293.8 787.25,-287.8 793.25,-281.8 799.25,-281.8 799.25,-281.8 997.67,-281.8 997.67,-281.8 1003.67,-281.8 1009.67,-287.8 1009.67,-293.8 1009.67,-293.8 1009.67,-315.58 1009.67,-315.58 1009.67,-321.58 1003.67,-327.58 997.67,-327.58"/>
+<text xml:space="preserve" text-anchor="middle" x="898.46" y="-307.54" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Watcher rechecks stable content</text>
+<text xml:space="preserve" text-anchor="middle" x="898.46" y="-293.29" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">hashes and saved outcomes</text>
+</a>
+</g>
+</g>
+<!-- scanner -->
+<g id="node12" class="node">
+<title>scanner</title>
+<g id="a_node12"><a xlink:title="Expired running scan u2192 Interrupted; queued work revalidated; no catch&#45;up burst">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M493.42,-334.71C493.42,-334.71 311.5,-334.71 311.5,-334.71 305.5,-334.71 299.5,-328.71 299.5,-322.71 299.5,-322.71 299.5,-286.68 299.5,-286.68 299.5,-280.68 305.5,-274.68 311.5,-274.68 311.5,-274.68 493.42,-274.68 493.42,-274.68 499.42,-274.68 505.42,-280.68 505.42,-286.68 505.42,-286.68 505.42,-322.71 505.42,-322.71 505.42,-328.71 499.42,-334.71 493.42,-334.71"/>
+<text xml:space="preserve" text-anchor="middle" x="402.46" y="-314.67" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Expired running scan u2192</text>
+<text xml:space="preserve" text-anchor="middle" x="402.46" y="-300.42" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Interrupted; queued work</text>
+<text xml:space="preserve" text-anchor="middle" x="402.46" y="-286.17" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">revalidated; no catch&#45;up burst</text>
+</a>
+</g>
+</g>
+<!-- webjobs -->
+<g id="node13" class="node">
+<title>webjobs</title>
+<g id="a_node13"><a xlink:title="Web job queue/progress is process&#45;local; inspect stored result and resubmit if needed">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M414.17,-416.74C414.17,-416.74 236.75,-416.74 236.75,-416.74 230.75,-416.74 224.75,-410.74 224.75,-404.74 224.75,-404.74 224.75,-368.71 224.75,-368.71 224.75,-362.71 230.75,-356.71 236.75,-356.71 236.75,-356.71 414.17,-356.71 414.17,-356.71 420.17,-356.71 426.17,-362.71 426.17,-368.71 426.17,-368.71 426.17,-404.74 426.17,-404.74 426.17,-410.74 420.17,-416.74 414.17,-416.74"/>
+<text xml:space="preserve" text-anchor="middle" x="325.46" y="-396.7" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Web job queue/progress is</text>
+<text xml:space="preserve" text-anchor="middle" x="325.46" y="-382.45" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">process&#45;local; inspect stored</text>
+<text xml:space="preserve" text-anchor="middle" x="325.46" y="-368.2" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">result and resubmit if needed</text>
+</a>
+</g>
+</g>
+<!-- health -->
+<g id="node14" class="node">
+<title>health</title>
+<g id="a_node14"><a xlink:title="Inspect source staleness and collector/worker heartbeat separately">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M489.67,-208.62C489.67,-208.62 315.25,-208.62 315.25,-208.62 309.25,-208.62 303.25,-202.62 303.25,-196.62 303.25,-196.62 303.25,-160.59 303.25,-160.59 303.25,-154.59 309.25,-148.59 315.25,-148.59 315.25,-148.59 489.67,-148.59 489.67,-148.59 495.67,-148.59 501.67,-154.59 501.67,-160.59 501.67,-160.59 501.67,-196.62 501.67,-196.62 501.67,-202.62 495.67,-208.62 489.67,-208.62"/>
+<text xml:space="preserve" text-anchor="middle" x="402.46" y="-188.58" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Inspect source staleness and</text>
+<text xml:space="preserve" text-anchor="middle" x="402.46" y="-174.33" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">collector/worker heartbeat</text>
+<text xml:space="preserve" text-anchor="middle" x="402.46" y="-160.08" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">separately</text>
+</a>
+</g>
+</g>
+<!-- upgrade -->
+<g id="node15" class="node">
+<title>upgrade</title>
+<g id="a_node15"><a xlink:title="Before schema upgrade: backup existing DB; preserve IDs and verify copy">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M781.3,-668.91C781.3,-668.91 583.62,-668.91 583.62,-668.91 577.62,-668.91 571.62,-662.91 571.62,-656.91 571.62,-656.91 571.62,-620.88 571.62,-620.88 571.62,-614.88 577.62,-608.88 583.62,-608.88 583.62,-608.88 781.3,-608.88 781.3,-608.88 787.3,-608.88 793.3,-614.88 793.3,-620.88 793.3,-620.88 793.3,-656.91 793.3,-656.91 793.3,-662.91 787.3,-668.91 781.3,-668.91"/>
+<text xml:space="preserve" text-anchor="middle" x="682.46" y="-648.87" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Before schema upgrade: backup</text>
+<text xml:space="preserve" text-anchor="middle" x="682.46" y="-634.62" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">existing DB; preserve IDs and</text>
+<text xml:space="preserve" text-anchor="middle" x="682.46" y="-620.37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">verify copy</text>
+</a>
+</g>
+</g>
+<!-- audit -->
+<g id="node16" class="node">
+<title>audit</title>
+<g id="a_node16"><a xlink:title="Review stored audit / plan archives; keep reports and local backups appropriately">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M372.55,-75.04C372.55,-79.18 329.93,-82.54 277.46,-82.54 224.99,-82.54 182.38,-79.18 182.38,-75.04 182.38,-75.04 182.38,-7.5 182.38,-7.5 182.38,-3.36 224.99,0 277.46,0 329.93,0 372.55,-3.36 372.55,-7.5 372.55,-7.5 372.55,-75.04 372.55,-75.04"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M372.55,-75.04C372.55,-70.9 329.93,-67.53 277.46,-67.53 224.99,-67.53 182.38,-70.9 182.38,-75.04"/>
+<text xml:space="preserve" text-anchor="middle" x="277.46" y="-51.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Review stored audit / plan</text>
+<text xml:space="preserve" text-anchor="middle" x="277.46" y="-37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">archives; keep reports and</text>
+<text xml:space="preserve" text-anchor="middle" x="277.46" y="-22.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">local backups appropriately</text>
+</a>
+</g>
+</g>
+</g>
+</svg>

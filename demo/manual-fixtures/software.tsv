@@ -1,0 +1,4 @@
+#separator \x09
+#fields	ts	host	name	version.major	version.minor	version.minor2
+#types	time	addr	string	count	count	count
+1793772180	172.30.77.40	LAB-TSV	1	0	0

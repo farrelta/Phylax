@@ -1,0 +1,268 @@
+<svg role="img" aria-label="Topology investigation" width="741pt" height="1116pt"
+ viewBox="0.00 0.00 741.00 1116.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(25.2 1091.05)">
+<title>workflow</title>
+<polygon fill="#0b1017" stroke="none" points="-25.2,25.2 -25.2,-1091.05 716.12,-1091.05 716.12,25.2 -25.2,25.2"/>
+<!-- open&#45;&gt;filters -->
+<g id="edge1" class="edge">
+<title>open&#45;&gt;filters</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M472.46,-1029.3C472.46,-1019.15 472.46,-1005.96 472.46,-993.56"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="474.91,-993.82 472.46,-986.82 470.01,-993.82 474.91,-993.82"/>
+</g>
+<!-- filters&#45;&gt;surface -->
+<g id="edge2" class="edge">
+<title>filters&#45;&gt;surface</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M440.78,-924.41C428.08,-912.6 413.13,-898.71 399.05,-885.63"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="401.09,-884.18 394.3,-881.21 397.76,-887.77 401.09,-884.18"/>
+</g>
+<!-- surface&#45;&gt;traffic -->
+<g id="edge3" class="edge">
+<title>surface&#45;&gt;traffic</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M349.46,-796.92C349.46,-782.14 349.46,-765.2 349.46,-749.47"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="351.91,-749.54 349.46,-742.54 347.01,-749.54 351.91,-749.54"/>
+</g>
+<!-- surface&#45;&gt;all -->
+<g id="edge9" class="edge">
+<title>surface&#45;&gt;all</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M263.22,-799.35C201.94,-772.2 130.46,-740.53 130.46,-740.53 130.46,-740.53 119.11,-679.84 110.86,-635.75"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="113.31,-635.52 109.62,-629.09 108.49,-636.42 113.31,-635.52"/>
+</g>
+<!-- traffic&#45;&gt;empty -->
+<g id="edge4" class="edge">
+<title>traffic&#45;&gt;empty</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M394.03,-658.52C438.08,-623.7 505.05,-570.77 548.78,-536.2"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="550.05,-538.32 554.02,-532.06 547.01,-534.48 550.05,-538.32"/>
+<text xml:space="preserve" text-anchor="middle" x="534.04" y="-586.71" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- traffic&#45;&gt;graph -->
+<g id="edge5" class="edge">
+<title>traffic&#45;&gt;graph</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M349.46,-648.72C349.46,-612.94 349.46,-563.86 349.46,-532.45"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="351.91,-532.75 349.46,-525.75 347.01,-532.75 351.91,-532.75"/>
+<text xml:space="preserve" text-anchor="middle" x="357.33" y="-586.71" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- empty&#45;&gt;filters -->
+<g id="edge18" class="edge">
+<title>empty&#45;&gt;filters</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" stroke-dasharray="5,2" d="M589.52,-530.96C583.11,-594.75 568.46,-740.53 568.46,-740.53 568.46,-740.53 516.66,-855.64 489.16,-916.74"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="486.93,-915.72 486.29,-923.11 491.4,-917.73 486.93,-915.72"/>
+<text xml:space="preserve" text-anchor="middle" x="586.98" y="-765.78" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Widen view</text>
+</g>
+<!-- graph&#45;&gt;controls -->
+<g id="edge6" class="edge">
+<title>graph&#45;&gt;controls</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M360.79,-477.45C367.79,-463.7 375.46,-448.66 375.46,-448.66 375.46,-448.66 375.46,-435.91 375.46,-435.91 375.46,-435.91 370.21,-429.37 363.46,-420.98"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="365.41,-419.5 359.12,-415.57 361.59,-422.57 365.41,-419.5"/>
+</g>
+<!-- graph&#45;&gt;select -->
+<g id="edge8" class="edge">
+<title>graph&#45;&gt;select</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M301.25,-477.27C260.28,-458.23 201.43,-430.89 158.39,-410.89"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="159.44,-408.67 152.06,-407.94 157.37,-413.12 159.44,-408.67"/>
+</g>
+<!-- graph&#45;&gt;context -->
+<g id="edge14" class="edge">
+<title>graph&#45;&gt;context</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M377.55,-477.37C409.55,-451.95 457.46,-413.91 457.46,-413.91 457.46,-413.91 467.73,-371.22 475.1,-340.57"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="477.45,-341.28 476.71,-333.9 472.69,-340.14 477.45,-341.28"/>
+<text xml:space="preserve" text-anchor="middle" x="483.95" y="-439.16" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Confirmed process link</text>
+</g>
+<!-- controls&#45;&gt;graph -->
+<g id="edge7" class="edge">
+<title>controls&#45;&gt;graph</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" stroke-dasharray="5,2" d="M303.65,-414.28C291.76,-425.62 280.96,-435.91 280.96,-435.91 280.96,-435.91 280.96,-448.66 280.96,-448.66 280.96,-448.66 296.7,-460.38 313.09,-472.59"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="311.2,-474.24 318.28,-476.45 314.13,-470.31 311.2,-474.24"/>
+<text xml:space="preserve" text-anchor="middle" x="325.21" y="-439.16" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Local view update</text>
+</g>
+<!-- select&#45;&gt;details -->
+<g id="edge11" class="edge">
+<title>select&#45;&gt;details</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M104.41,-360.78C106.4,-338.17 109.55,-302.3 112.14,-272.95"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="114.56,-273.31 112.74,-266.12 109.68,-272.88 114.56,-273.31"/>
+</g>
+<!-- details&#45;&gt;event -->
+<g id="edge12" class="edge">
+<title>details&#45;&gt;event</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M198.12,-182.23C226.65,-168.4 257.93,-153.23 283.62,-140.78"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="284.67,-142.99 289.9,-137.73 282.53,-138.58 284.67,-142.99"/>
+</g>
+<!-- details&#45;&gt;finding -->
+<g id="edge13" class="edge">
+<title>details&#45;&gt;finding</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M116.46,-181.01C116.46,-169.25 116.46,-156.62 116.46,-145.57"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="118.91,-145.75 116.46,-138.75 114.01,-145.75 118.91,-145.75"/>
+</g>
+<!-- event&#45;&gt;triage -->
+<g id="edge15" class="edge">
+<title>event&#45;&gt;triage</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M337.46,-90.27C337.46,-79.54 337.46,-66.53 337.46,-54.87"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="339.91,-54.95 337.46,-47.95 335.01,-54.95 339.91,-54.95"/>
+</g>
+<!-- finding&#45;&gt;triage -->
+<g id="edge16" class="edge">
+<title>finding&#45;&gt;triage</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M172.23,-90.27C203.11,-77.86 241.63,-62.39 273.7,-49.5"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="274.58,-51.79 280.17,-46.91 272.76,-47.24 274.58,-51.79"/>
+</g>
+<!-- context&#45;&gt;triage -->
+<g id="edge17" class="edge">
+<title>context&#45;&gt;triage</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M479.36,-285.56C471.7,-230.07 452.46,-90.78 452.46,-90.78 452.46,-90.78 415.08,-69.04 382.94,-50.34"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="384.48,-48.4 377.19,-47 382.01,-52.64 384.48,-48.4"/>
+</g>
+<!-- all&#45;&gt;select -->
+<g id="edge10" class="edge">
+<title>all&#45;&gt;select</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M102.46,-552.37C102.46,-513.34 102.46,-452.1 102.46,-415.49"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="104.91,-415.85 102.46,-408.85 100.01,-415.85 104.91,-415.85"/>
+</g>
+<!-- open -->
+<g id="node1" class="node">
+<title>open</title>
+<g id="a_node1"><a xlink:title="Monitoring u2192 Attack surface">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M571.29,-1065.85C571.29,-1065.85 373.62,-1065.85 373.62,-1065.85 367.62,-1065.85 361.62,-1059.85 361.62,-1053.85 361.62,-1053.85 361.62,-1041.85 361.62,-1041.85 361.62,-1035.85 367.62,-1029.85 373.62,-1029.85 373.62,-1029.85 571.29,-1029.85 571.29,-1029.85 577.29,-1029.85 583.29,-1035.85 583.29,-1041.85 583.29,-1041.85 583.29,-1053.85 583.29,-1053.85 583.29,-1059.85 577.29,-1065.85 571.29,-1065.85"/>
+<text xml:space="preserve" text-anchor="middle" x="472.46" y="-1043.58" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Monitoring u2192 Attack surface</text>
+</a>
+</g>
+</g>
+<!-- filters -->
+<g id="node2" class="node">
+<title>filters</title>
+<g id="a_node2"><a xlink:title="Filter subnet, zone, criticality, management state, UTC window or endpoint">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M563.42,-984.85C563.42,-984.85 381.5,-984.85 381.5,-984.85 375.5,-984.85 369.5,-978.85 369.5,-972.85 369.5,-972.85 369.5,-936.82 369.5,-936.82 369.5,-930.82 375.5,-924.82 381.5,-924.82 381.5,-924.82 563.42,-924.82 563.42,-924.82 569.42,-924.82 575.42,-930.82 575.42,-936.82 575.42,-936.82 575.42,-972.85 575.42,-972.85 575.42,-978.85 569.42,-984.85 563.42,-984.85"/>
+<text xml:space="preserve" text-anchor="middle" x="472.46" y="-964.81" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Filter subnet, zone,</text>
+<text xml:space="preserve" text-anchor="middle" x="472.46" y="-950.56" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">criticality, management state,</text>
+<text xml:space="preserve" text-anchor="middle" x="472.46" y="-936.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">UTC window or endpoint</text>
+</a>
+</g>
+</g>
+<!-- surface -->
+<g id="node3" class="node">
+<title>surface</title>
+<g id="a_node3"><a xlink:title="Join inventory with imported operational communication; retain unknown peers">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M446.79,-872.32C446.79,-876.46 403.17,-879.82 349.46,-879.82 295.75,-879.82 252.12,-876.46 252.12,-872.32 252.12,-872.32 252.12,-804.78 252.12,-804.78 252.12,-800.64 295.75,-797.28 349.46,-797.28 403.17,-797.28 446.79,-800.64 446.79,-804.78 446.79,-804.78 446.79,-872.32 446.79,-872.32"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M446.79,-872.32C446.79,-868.18 403.17,-864.81 349.46,-864.81 295.75,-864.81 252.12,-868.18 252.12,-872.32"/>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-848.53" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Join inventory with imported</text>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-834.28" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">operational communication;</text>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-820.03" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">retain unknown peers</text>
+</a>
+</g>
+</g>
+<!-- traffic -->
+<g id="node4" class="node">
+<title>traffic</title>
+<g id="a_node4"><a xlink:title="Observed endpoints in filtered evidence?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M337.75,-737.93C337.75,-737.93 155.25,-697.36 155.25,-697.36 149.4,-696.05 149.4,-693.45 155.25,-692.15 155.25,-692.15 337.75,-651.58 337.75,-651.58 343.6,-650.27 355.32,-650.27 361.17,-651.58 361.17,-651.58 543.67,-692.15 543.67,-692.15 549.52,-693.45 549.52,-696.05 543.67,-697.36 543.67,-697.36 361.17,-737.93 361.17,-737.93 355.32,-739.23 343.6,-739.23 337.75,-737.93"/>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-697.6" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Observed endpoints in filtered</text>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-683.35" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">evidence?</text>
+</a>
+</g>
+</g>
+<!-- empty -->
+<g id="node5" class="node">
+<title>empty</title>
+<g id="a_node5"><a xlink:title="Empty graph: import logs or widen filters; inventory stays available">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M678.92,-530.69C678.92,-530.69 506,-530.69 506,-530.69 500,-530.69 494,-524.69 494,-518.69 494,-518.69 494,-482.66 494,-482.66 494,-476.66 500,-470.66 506,-470.66 506,-470.66 678.92,-470.66 678.92,-470.66 684.92,-470.66 690.92,-476.66 690.92,-482.66 690.92,-482.66 690.92,-518.69 690.92,-518.69 690.92,-524.69 684.92,-530.69 678.92,-530.69"/>
+<text xml:space="preserve" text-anchor="middle" x="592.46" y="-510.65" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Empty graph: import logs or</text>
+<text xml:space="preserve" text-anchor="middle" x="592.46" y="-496.4" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">widen filters; inventory stays</text>
+<text xml:space="preserve" text-anchor="middle" x="592.46" y="-482.15" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">available</text>
+</a>
+</g>
+</g>
+<!-- graph -->
+<g id="node6" class="node">
+<title>graph</title>
+<g id="a_node6"><a xlink:title="Zone&#45;grouped node diagram and directed observed connections">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M449.79,-523.57C449.79,-523.57 249.12,-523.57 249.12,-523.57 243.12,-523.57 237.12,-517.57 237.12,-511.57 237.12,-511.57 237.12,-489.79 237.12,-489.79 237.12,-483.79 243.12,-477.79 249.12,-477.79 249.12,-477.79 449.79,-477.79 449.79,-477.79 455.79,-477.79 461.79,-483.79 461.79,-489.79 461.79,-489.79 461.79,-511.57 461.79,-511.57 461.79,-517.57 455.79,-523.57 449.79,-523.57"/>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-503.53" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Zone&#45;grouped node diagram and</text>
+<text xml:space="preserve" text-anchor="middle" x="349.46" y="-489.28" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">directed observed connections</text>
+</a>
+</g>
+</g>
+<!-- controls -->
+<g id="node7" class="node">
+<title>controls</title>
+<g id="a_node7"><a xlink:title="Find all known assets/peers, zoom or hide confirmed process links">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M431.79,-413.91C431.79,-413.91 237.12,-413.91 237.12,-413.91 231.12,-413.91 225.12,-407.91 225.12,-401.91 225.12,-401.91 225.12,-365.88 225.12,-365.88 225.12,-359.88 231.12,-353.88 237.12,-353.88 237.12,-353.88 431.79,-353.88 431.79,-353.88 437.79,-353.88 443.79,-359.88 443.79,-365.88 443.79,-365.88 443.79,-401.91 443.79,-401.91 443.79,-407.91 437.79,-413.91 431.79,-413.91"/>
+<text xml:space="preserve" text-anchor="middle" x="334.46" y="-393.87" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Find all known assets/peers,</text>
+<text xml:space="preserve" text-anchor="middle" x="334.46" y="-379.62" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">zoom or hide confirmed process</text>
+<text xml:space="preserve" text-anchor="middle" x="334.46" y="-365.37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">links</text>
+</a>
+</g>
+</g>
+<!-- select -->
+<g id="node8" class="node">
+<title>select</title>
+<g id="a_node8"><a xlink:title="Select an observed node or inventory&#45;only asset">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M185.92,-406.79C185.92,-406.79 19,-406.79 19,-406.79 13,-406.79 7,-400.79 7,-394.79 7,-394.79 7,-373.01 7,-373.01 7,-367.01 13,-361.01 19,-361.01 19,-361.01 185.92,-361.01 185.92,-361.01 191.92,-361.01 197.92,-367.01 197.92,-373.01 197.92,-373.01 197.92,-394.79 197.92,-394.79 197.92,-400.79 191.92,-406.79 185.92,-406.79"/>
+<text xml:space="preserve" text-anchor="middle" x="102.46" y="-386.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Select an observed node or</text>
+<text xml:space="preserve" text-anchor="middle" x="102.46" y="-372.5" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">inventory&#45;only asset</text>
+</a>
+</g>
+</g>
+<!-- details -->
+<g id="node9" class="node">
+<title>details</title>
+<g id="a_node9"><a xlink:title="Read identity confidence, management, observed times and applicability counts">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M232.92,-256.6C232.92,-260.74 180.72,-264.1 116.46,-264.1 52.2,-264.1 0,-260.74 0,-256.6 0,-256.6 0,-189.06 0,-189.06 0,-184.92 52.2,-181.56 116.46,-181.56 180.72,-181.56 232.92,-184.92 232.92,-189.06 232.92,-189.06 232.92,-256.6 232.92,-256.6"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M232.92,-256.6C232.92,-252.46 180.72,-249.09 116.46,-249.09 52.2,-249.09 0,-252.46 0,-256.6"/>
+<text xml:space="preserve" text-anchor="middle" x="116.46" y="-232.81" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Read identity confidence,</text>
+<text xml:space="preserve" text-anchor="middle" x="116.46" y="-218.56" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">management, observed times and</text>
+<text xml:space="preserve" text-anchor="middle" x="116.46" y="-204.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">applicability counts</text>
+</a>
+</g>
+</g>
+<!-- event -->
+<g id="node10" class="node">
+<title>event</title>
+<g id="a_node10"><a xlink:title="Open original communication event / source record">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M426.92,-136.56C426.92,-136.56 248,-136.56 248,-136.56 242,-136.56 236,-130.56 236,-124.56 236,-124.56 236,-102.78 236,-102.78 236,-96.78 242,-90.78 248,-90.78 248,-90.78 426.92,-90.78 426.92,-90.78 432.92,-90.78 438.92,-96.78 438.92,-102.78 438.92,-102.78 438.92,-124.56 438.92,-124.56 438.92,-130.56 432.92,-136.56 426.92,-136.56"/>
+<text xml:space="preserve" text-anchor="middle" x="337.46" y="-116.52" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Open original communication</text>
+<text xml:space="preserve" text-anchor="middle" x="337.46" y="-102.27" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">event / source record</text>
+</a>
+</g>
+</g>
+<!-- finding -->
+<g id="node11" class="node">
+<title>finding</title>
+<g id="a_node11"><a xlink:title="Open focused vulnerability finding or inventory editor">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M197.29,-136.56C197.29,-136.56 35.62,-136.56 35.62,-136.56 29.62,-136.56 23.62,-130.56 23.62,-124.56 23.62,-124.56 23.62,-102.78 23.62,-102.78 23.62,-96.78 29.62,-90.78 35.62,-90.78 35.62,-90.78 197.29,-90.78 197.29,-90.78 203.29,-90.78 209.29,-96.78 209.29,-102.78 209.29,-102.78 209.29,-124.56 209.29,-124.56 209.29,-130.56 203.29,-136.56 197.29,-136.56"/>
+<text xml:space="preserve" text-anchor="middle" x="116.46" y="-116.52" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Open focused vulnerability</text>
+<text xml:space="preserve" text-anchor="middle" x="116.46" y="-102.27" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">finding or inventory editor</text>
+</a>
+</g>
+</g>
+<!-- context -->
+<g id="node12" class="node">
+<title>context</title>
+<g id="a_node12"><a xlink:title="Open operator&#45;confirmed process context">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M584.67,-331.88C584.67,-331.88 380.25,-331.88 380.25,-331.88 374.25,-331.88 368.25,-325.88 368.25,-319.88 368.25,-319.88 368.25,-298.1 368.25,-298.1 368.25,-292.1 374.25,-286.1 380.25,-286.1 380.25,-286.1 584.67,-286.1 584.67,-286.1 590.67,-286.1 596.67,-292.1 596.67,-298.1 596.67,-298.1 596.67,-319.88 596.67,-319.88 596.67,-325.88 590.67,-331.88 584.67,-331.88"/>
+<text xml:space="preserve" text-anchor="middle" x="482.46" y="-311.84" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Open operator&#45;confirmed process</text>
+<text xml:space="preserve" text-anchor="middle" x="482.46" y="-297.59" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">context</text>
+</a>
+</g>
+</g>
+<!-- all -->
+<g id="node13" class="node">
+<title>all</title>
+<g id="a_node13"><a xlink:title="Expand inventory&#45;only list / full assets; inspect communication and support tables">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M187.79,-626.97C187.79,-626.97 17.12,-626.97 17.12,-626.97 11.12,-626.97 5.12,-620.97 5.12,-614.97 5.12,-614.97 5.12,-564.69 5.12,-564.69 5.12,-558.69 11.12,-552.69 17.12,-552.69 17.12,-552.69 187.79,-552.69 187.79,-552.69 193.79,-552.69 199.79,-558.69 199.79,-564.69 199.79,-564.69 199.79,-614.97 199.79,-614.97 199.79,-620.97 193.79,-626.97 187.79,-626.97"/>
+<text xml:space="preserve" text-anchor="middle" x="102.46" y="-606.93" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Expand inventory&#45;only list /</text>
+<text xml:space="preserve" text-anchor="middle" x="102.46" y="-592.68" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">full assets; inspect</text>
+<text xml:space="preserve" text-anchor="middle" x="102.46" y="-578.43" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">communication and support</text>
+<text xml:space="preserve" text-anchor="middle" x="102.46" y="-564.18" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">tables</text>
+</a>
+</g>
+</g>
+<!-- triage -->
+<g id="node14" class="node">
+<title>triage</title>
+<g id="a_node14"><a xlink:title="Continue investigation in Triage or plan review">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M411.92,-45.78C411.92,-45.78 263,-45.78 263,-45.78 257,-45.78 251,-39.78 251,-33.78 251,-33.78 251,-12 251,-12 251,-6 257,0 263,0 263,0 411.92,0 411.92,0 417.92,0 423.92,-6 423.92,-12 423.92,-12 423.92,-33.78 423.92,-33.78 423.92,-39.78 417.92,-45.78 411.92,-45.78"/>
+<text xml:space="preserve" text-anchor="middle" x="337.46" y="-25.74" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Continue investigation in</text>
+<text xml:space="preserve" text-anchor="middle" x="337.46" y="-11.49" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Triage or plan review</text>
+</a>
+</g>
+</g>
+</g>
+</svg>

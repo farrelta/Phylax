@@ -1,0 +1,506 @@
+<svg role="img" aria-label="Software, applicability and reassessment" width="1339pt" height="2208pt"
+ viewBox="0.00 0.00 1339.00 2208.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(25.2 2183.24)">
+<title>workflow</title>
+<polygon fill="#0b1017" stroke="none" points="-25.2,25.2 -25.2,-2183.24 1314.29,-2183.24 1314.29,25.2 -25.2,25.2"/>
+<!-- identity&#45;&gt;candidates -->
+<g id="edge9" class="edge">
+<title>identity&#45;&gt;candidates</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1043.64,-1443.37C1034.13,-1431.35 1023.3,-1417.65 1013.94,-1405.81"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1015.91,-1404.36 1009.65,-1400.39 1012.07,-1407.4 1015.91,-1404.36"/>
+</g>
+<!-- component&#45;&gt;mapping -->
+<g id="edge1" class="edge">
+<title>component&#45;&gt;mapping</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M889,-2094.59C889,-2083.62 889,-2070.95 889,-2058.65"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="891.45,-2058.89 889,-2051.89 886.55,-2058.89 891.45,-2058.89"/>
+</g>
+<!-- mapping&#45;&gt;unmapped -->
+<g id="edge2" class="edge">
+<title>mapping&#45;&gt;unmapped</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M861.41,-1963.69C851.4,-1949.31 842.5,-1936.53 842.5,-1936.53 842.5,-1936.53 842.5,-1923.78 842.5,-1923.78 842.5,-1923.78 842.63,-1907.94 842.75,-1892.24"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="845.2,-1892.32 842.81,-1885.3 840.3,-1892.28 845.2,-1892.32"/>
+<text xml:space="preserve" text-anchor="middle" x="849.25" y="-1927.03" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- mapping&#45;&gt;mapped -->
+<g id="edge4" class="edge">
+<title>mapping&#45;&gt;mapped</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M940.01,-1968.55C963.82,-1952.32 987,-1936.53 987,-1936.53 987,-1936.53 1002.74,-1923.11 1020.9,-1907.63"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1022.13,-1909.8 1025.87,-1903.39 1018.95,-1906.07 1022.13,-1909.8"/>
+<text xml:space="preserve" text-anchor="middle" x="1009.63" y="-1927.03" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- unmapped&#45;&gt;mapping -->
+<g id="edge3" class="edge">
+<title>unmapped&#45;&gt;mapping</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M850.16,-1883.58C856.16,-1902.07 864.95,-1929.17 872.65,-1952.91"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="870.32,-1953.66 874.81,-1959.56 874.98,-1952.15 870.32,-1953.66"/>
+<text xml:space="preserve" text-anchor="middle" x="923.38" y="-1927.03" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Operator adds mapping</text>
+</g>
+<!-- mapped&#45;&gt;changed -->
+<g id="edge5" class="edge">
+<title>mapped&#45;&gt;changed</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1075,-1818.72C1075,-1807.45 1075,-1795.04 1075,-1783.16"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1077.45,-1783.29 1075,-1776.29 1072.55,-1783.29 1077.45,-1783.29"/>
+</g>
+<!-- changed&#45;&gt;identity -->
+<g id="edge7" class="edge">
+<title>changed&#45;&gt;identity</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1070.86,-1683.22C1068.3,-1655.86 1065.5,-1625.93 1065.5,-1625.93 1065.5,-1625.93 1065.5,-1551.65 1065.5,-1551.65 1065.5,-1551.65 1066.09,-1533.69 1066.7,-1515.29"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1069.14,-1515.61 1066.93,-1508.54 1064.25,-1515.45 1069.14,-1515.61"/>
+<text xml:space="preserve" text-anchor="middle" x="1072.25" y="-1585.66" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- changed&#45;&gt;reset -->
+<g id="edge6" class="edge">
+<title>changed&#45;&gt;reset</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1107.31,-1689.11C1122.12,-1671.54 1139.73,-1650.64 1154.96,-1632.56"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1156.75,-1634.24 1159.38,-1627.31 1153,-1631.09 1156.75,-1634.24"/>
+<text xml:space="preserve" text-anchor="middle" x="1147.82" y="-1651.18" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- reset&#45;&gt;identity -->
+<g id="edge8" class="edge">
+<title>reset&#45;&gt;identity</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1150.73,-1551.24C1137.12,-1538.89 1121.93,-1525.11 1108.31,-1512.75"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1110.24,-1511.2 1103.41,-1508.31 1106.95,-1514.83 1110.24,-1511.2"/>
+</g>
+<!-- candidates&#45;&gt;candidate -->
+<g id="edge10" class="edge">
+<title>candidates&#45;&gt;candidate</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M990.09,-1352.7C989.65,-1341.94 989.11,-1328.67 988.6,-1316.29"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="991.06,-1316.46 988.32,-1309.56 986.16,-1316.66 991.06,-1316.46"/>
+</g>
+<!-- candidate&#45;&gt;none -->
+<g id="edge11" class="edge">
+<title>candidate&#45;&gt;none</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M988.05,-1244.72C988.82,-1222.03 989.88,-1191 990.71,-1166.8"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="993.16,-1166.96 990.95,-1159.88 988.26,-1166.79 993.16,-1166.96"/>
+<text xml:space="preserve" text-anchor="middle" x="995.95" y="-1213.36" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- candidate&#45;&gt;conditions -->
+<g id="edge12" class="edge">
+<title>candidate&#45;&gt;conditions</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M944.18,-1255.81C895.67,-1233.63 815.36,-1196.91 753.63,-1168.69"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="754.72,-1166.49 747.34,-1165.81 752.68,-1170.95 754.72,-1166.49"/>
+<text xml:space="preserve" text-anchor="middle" x="872.95" y="-1213.36" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- none&#45;&gt;recheck -->
+<g id="edge34" class="edge">
+<title>none&#45;&gt;recheck</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" stroke-dasharray="5,2" d="M991.82,-1097.83C991.68,-1074.62 991.5,-1046.05 991.5,-1046.05 991.5,-1046.05 991.5,-1033.3 991.5,-1033.3 991.5,-1033.3 1003.88,-1024.91 1018.75,-1014.83"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1019.92,-1017 1024.34,-1011.04 1017.17,-1012.94 1019.92,-1017"/>
+<text xml:space="preserve" text-anchor="middle" x="1058.25" y="-1036.55" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Operator supplies evidence</text>
+</g>
+<!-- conditions&#45;&gt;review -->
+<g id="edge13" class="edge">
+<title>conditions&#45;&gt;review</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M721.11,-1083.58C774.76,-1040.45 849,-980.77 849,-980.77 849,-980.77 849,-980.77 849,-548.09 849,-548.09 816.9,-486.8 798.17,-451.03"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="800.36,-449.93 794.94,-444.87 796.02,-452.21 800.36,-449.93"/>
+<text xml:space="preserve" text-anchor="middle" x="877.88" y="-768.43" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No / conflict</text>
+</g>
+<!-- conditions&#45;&gt;version -->
+<g id="edge14" class="edge">
+<title>conditions&#45;&gt;version</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M642.48,-1075.08C633.41,-1055.85 623.33,-1034.49 615.07,-1016.96"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="617.32,-1015.99 612.12,-1010.71 612.89,-1018.08 617.32,-1015.99"/>
+<text xml:space="preserve" text-anchor="middle" x="636.24" y="-1036.55" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- review&#45;&gt;aggregate -->
+<g id="edge25" class="edge">
+<title>review&#45;&gt;aggregate</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M732.22,-406.43C691.18,-392.86 632.22,-373.36 577.61,-355.3"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="578.59,-353.04 571.17,-353.17 577.05,-357.69 578.59,-353.04"/>
+</g>
+<!-- version&#45;&gt;semantics -->
+<g id="edge16" class="edge">
+<title>version&#45;&gt;semantics</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M598,-947.81C598,-933.66 598,-916.47 598,-900.32"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="600.45,-900.66 598,-893.66 595.55,-900.66 600.45,-900.66"/>
+<text xml:space="preserve" text-anchor="middle" x="605.88" y="-916.74" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- version&#45;&gt;potential -->
+<g id="edge15" class="edge">
+<title>version&#45;&gt;potential</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M521.05,-961.78C359.54,-926.11 0,-846.71 0,-846.71 0,-846.71 0,-846.71 0,-548.09 0,-548.09 27,-503.31 27,-503.31 27,-503.31 292,-446.56 292,-446.56 292,-446.56 293.61,-446.16 296.38,-445.48"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="296.93,-447.87 303.14,-443.82 295.76,-443.11 296.93,-447.87"/>
+<text xml:space="preserve" text-anchor="middle" x="6.75" y="-694.27" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- semantics&#45;&gt;review -->
+<g id="edge17" class="edge">
+<title>semantics&#45;&gt;review</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M650.72,-811.47C697.67,-781.85 759,-743.18 759,-743.18 759,-743.18 776.65,-527.78 782.87,-451.93"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="785.3,-452.23 783.43,-445.05 780.42,-451.83 785.3,-452.23"/>
+<text xml:space="preserve" text-anchor="middle" x="776.07" y="-620.12" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- semantics&#45;&gt;affected -->
+<g id="edge18" class="edge">
+<title>semantics&#45;&gt;affected</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M593.2,-800.81C591.47,-785.04 589.51,-767.1 587.72,-750.69"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="590.17,-750.61 586.98,-743.92 585.3,-751.15 590.17,-750.61"/>
+<text xml:space="preserve" text-anchor="middle" x="598.35" y="-768.43" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- verify_match&#45;&gt;potential -->
+<g id="edge22" class="edge">
+<title>verify_match&#45;&gt;potential</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M256.38,-515.02C284.82,-493.83 320.97,-466.89 346.05,-448.2"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="347.33,-450.3 351.48,-444.16 344.4,-446.37 347.33,-450.3"/>
+<text xml:space="preserve" text-anchor="middle" x="325.02" y="-471.81" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- verify_match&#45;&gt;confirmed -->
+<g id="edge21" class="edge">
+<title>verify_match&#45;&gt;confirmed</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M209.45,-503.62C208.45,-486.17 207.34,-466.75 206.48,-451.69"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="208.94,-451.88 206.1,-445.03 204.05,-452.16 208.94,-451.88"/>
+<text xml:space="preserve" text-anchor="middle" x="215.96" y="-471.81" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- verify_exclusion&#45;&gt;review -->
+<g id="edge24" class="edge">
+<title>verify_exclusion&#45;&gt;review</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M634.01,-516.78C669.9,-495.17 716.72,-466.99 748.65,-447.77"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="749.86,-449.89 754.6,-444.19 747.34,-445.7 749.86,-449.89"/>
+<text xml:space="preserve" text-anchor="middle" x="720.29" y="-471.81" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">No</text>
+</g>
+<!-- verify_exclusion&#45;&gt;excluded -->
+<g id="edge23" class="edge">
+<title>verify_exclusion&#45;&gt;excluded</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M582,-502.93C582,-487.05 582,-469.63 582,-455.38"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="584.45,-455.62 582,-448.62 579.55,-455.62 584.45,-455.62"/>
+<text xml:space="preserve" text-anchor="middle" x="589.88" y="-471.81" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Yes</text>
+</g>
+<!-- potential&#45;&gt;aggregate -->
+<g id="edge26" class="edge">
+<title>potential&#45;&gt;aggregate</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M384.83,-406.56C390.36,-395.71 397.84,-381.04 405.33,-366.34"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="407.49,-367.51 408.48,-360.16 403.12,-365.28 407.49,-367.51"/>
+</g>
+<!-- affected&#45;&gt;verify_match -->
+<g id="edge19" class="edge">
+<title>affected&#45;&gt;verify_match</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M515,-669.9C451.16,-644.66 355.15,-606.7 288.38,-580.29"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="289.34,-578.04 281.93,-577.74 287.54,-582.6 289.34,-578.04"/>
+<text xml:space="preserve" text-anchor="middle" x="428.34" y="-620.12" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Affected</text>
+</g>
+<!-- affected&#45;&gt;verify_exclusion -->
+<g id="edge20" class="edge">
+<title>affected&#45;&gt;verify_exclusion</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M582,-651.31C582,-636.29 582,-619.41 582,-603.8"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="584.45,-603.95 582,-596.95 579.55,-603.95 584.45,-603.95"/>
+<text xml:space="preserve" text-anchor="middle" x="640.88" y="-620.12" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Outside / explicitly fixed</text>
+</g>
+<!-- confirmed&#45;&gt;aggregate -->
+<g id="edge27" class="edge">
+<title>confirmed&#45;&gt;aggregate</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M239.43,-406.56C263.72,-394.33 297.65,-377.26 330.44,-360.76"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="331.22,-363.11 336.37,-357.77 329.02,-358.73 331.22,-363.11"/>
+</g>
+<!-- excluded&#45;&gt;aggregate -->
+<g id="edge28" class="edge">
+<title>excluded&#45;&gt;aggregate</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M555.38,-402.92C541.31,-391.84 523.29,-377.66 505.52,-363.66"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="507.31,-361.96 500.29,-359.55 504.28,-365.81 507.31,-361.96"/>
+</g>
+<!-- aggregate&#45;&gt;priority -->
+<g id="edge29" class="edge">
+<title>aggregate&#45;&gt;priority</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M391.06,-255.56C376.73,-239.06 361.12,-221.1 347.95,-205.93"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="350,-204.55 343.56,-200.87 346.3,-207.77 350,-204.55"/>
+</g>
+<!-- aggregate&#45;&gt;planchange -->
+<g id="edge32" class="edge">
+<title>aggregate&#45;&gt;planchange</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M478.57,-255.56C492.78,-239.06 508.25,-221.1 521.31,-205.93"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="522.95,-207.78 525.67,-200.88 519.24,-204.58 522.95,-207.78"/>
+<text xml:space="preserve" text-anchor="middle" x="579.42" y="-224.57" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Supporting evidence changed</text>
+</g>
+<!-- priority&#45;&gt;alert -->
+<g id="edge30" class="edge">
+<title>priority&#45;&gt;alert</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M290.74,-138.76C274.59,-120.58 253.79,-97.18 236.73,-77.97"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="238.68,-76.48 232.2,-72.88 235.02,-79.74 238.68,-76.48"/>
+<text xml:space="preserve" text-anchor="middle" x="322.41" y="-107.79" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Confirmed / potential</text>
+</g>
+<!-- priority&#45;&gt;noalert -->
+<g id="edge31" class="edge">
+<title>priority&#45;&gt;noalert</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M353.28,-138.93C367.29,-127.59 380,-117.29 380,-117.29 380,-117.29 388.23,-104.69 397.95,-89.81"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="399.81,-91.45 401.58,-84.25 395.7,-88.77 399.81,-91.45"/>
+<text xml:space="preserve" text-anchor="middle" x="432.84" y="-107.79" font-family="DejaVu Sans" font-size="10.00" fill="#c2cbd8">Review / excluded</text>
+</g>
+<!-- recheck&#45;&gt;identity -->
+<g id="edge33" class="edge">
+<title>recheck&#45;&gt;identity</title>
+<path fill="none" stroke="#8392a5" stroke-width="1.1" d="M1101.39,-1010.11C1114.68,-1022.14 1127,-1033.3 1127,-1033.3 1127,-1033.3 1145,-1127.08 1145,-1127.08 1145,-1376.81 1145,-1376.81 1145,-1376.81 1145,-1376.81 1119.22,-1409.41 1097.49,-1436.88"/>
+<polygon fill="#8392a5" stroke="#8392a5" stroke-width="1.1" points="1095.82,-1435.05 1093.4,-1442.06 1099.66,-1438.09 1095.82,-1435.05"/>
+</g>
+<!-- identity -->
+<g id="node1" class="node">
+<title>identity</title>
+<g id="a_node1"><a xlink:title="Hardware / firmware inventory plus active software components">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M1179.21,-1500.92C1179.21,-1504.08 1129.36,-1506.65 1068,-1506.65 1006.64,-1506.65 956.79,-1504.08 956.79,-1500.92 956.79,-1500.92 956.79,-1449.42 956.79,-1449.42 956.79,-1446.26 1006.64,-1443.7 1068,-1443.7 1129.36,-1443.7 1179.21,-1446.26 1179.21,-1449.42 1179.21,-1449.42 1179.21,-1500.92 1179.21,-1500.92"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M1179.21,-1500.92C1179.21,-1497.77 1129.36,-1495.2 1068,-1495.2 1006.64,-1495.2 956.79,-1497.77 956.79,-1500.92"/>
+<text xml:space="preserve" text-anchor="middle" x="1068" y="-1478.02" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Hardware / firmware inventory</text>
+<text xml:space="preserve" text-anchor="middle" x="1068" y="-1463.77" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">plus active software components</text>
+</a>
+</g>
+</g>
+<!-- component -->
+<g id="node2" class="node">
+<title>component</title>
+<g id="a_node2"><a xlink:title="Software observation: raw name, version, source and time">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M1001.34,-2152.31C1001.34,-2155.47 950.98,-2158.04 889,-2158.04 827.02,-2158.04 776.66,-2155.47 776.66,-2152.31 776.66,-2152.31 776.66,-2100.81 776.66,-2100.81 776.66,-2097.65 827.02,-2095.09 889,-2095.09 950.98,-2095.09 1001.34,-2097.65 1001.34,-2100.81 1001.34,-2100.81 1001.34,-2152.31 1001.34,-2152.31"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M1001.34,-2152.31C1001.34,-2149.16 950.98,-2146.59 889,-2146.59 827.02,-2146.59 776.66,-2149.16 776.66,-2152.31"/>
+<text xml:space="preserve" text-anchor="middle" x="889" y="-2129.41" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Software observation: raw name,</text>
+<text xml:space="preserve" text-anchor="middle" x="889" y="-2115.16" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">version, source and time</text>
+</a>
+</g>
+</g>
+<!-- mapping -->
+<g id="node3" class="node">
+<title>mapping</title>
+<g id="a_node3"><a xlink:title="Exact operator&#45;managed product mapping exists?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M877.24,-2047.7C877.24,-2047.7 675.34,-2006.7 675.34,-2006.7 669.46,-2005.5 669.46,-2003.11 675.34,-2001.92 675.34,-2001.92 877.24,-1960.92 877.24,-1960.92 883.12,-1959.72 894.88,-1959.72 900.76,-1960.92 900.76,-1960.92 1102.66,-2001.92 1102.66,-2001.92 1108.54,-2003.11 1108.54,-2005.5 1102.66,-2006.7 1102.66,-2006.7 900.76,-2047.7 900.76,-2047.7 894.88,-2048.89 883.12,-2048.89 877.24,-2047.7"/>
+<text xml:space="preserve" text-anchor="middle" x="889" y="-2007.16" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Exact operator&#45;managed product</text>
+<text xml:space="preserve" text-anchor="middle" x="889" y="-1992.91" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">mapping exists?</text>
+</a>
+</g>
+</g>
+<!-- unmapped -->
+<g id="node4" class="node">
+<title>unmapped</title>
+<g id="a_node4"><a xlink:title="Retain unmapped component for operator mapping / review">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M943.34,-1883.4C943.34,-1883.4 742.66,-1883.4 742.66,-1883.4 736.66,-1883.4 730.66,-1877.4 730.66,-1871.4 730.66,-1871.4 730.66,-1849.62 730.66,-1849.62 730.66,-1843.62 736.66,-1837.62 742.66,-1837.62 742.66,-1837.62 943.34,-1837.62 943.34,-1837.62 949.34,-1837.62 955.34,-1843.62 955.34,-1849.62 955.34,-1849.62 955.34,-1871.4 955.34,-1871.4 955.34,-1877.4 949.34,-1883.4 943.34,-1883.4"/>
+<text xml:space="preserve" text-anchor="middle" x="843" y="-1863.36" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Retain unmapped component for</text>
+<text xml:space="preserve" text-anchor="middle" x="843" y="-1849.11" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">operator mapping / review</text>
+</a>
+</g>
+</g>
+<!-- mapped -->
+<g id="node5" class="node">
+<title>mapped</title>
+<g id="a_node5"><a xlink:title="Normalize vendor/product; retain raw values and verification state">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M1167.46,-1894.28C1167.46,-1898.42 1126.02,-1901.78 1075,-1901.78 1023.98,-1901.78 982.54,-1898.42 982.54,-1894.28 982.54,-1894.28 982.54,-1826.74 982.54,-1826.74 982.54,-1822.6 1023.98,-1819.24 1075,-1819.24 1126.02,-1819.24 1167.46,-1822.6 1167.46,-1826.74 1167.46,-1826.74 1167.46,-1894.28 1167.46,-1894.28"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M1167.46,-1894.28C1167.46,-1890.13 1126.02,-1886.77 1075,-1886.77 1023.98,-1886.77 982.54,-1890.13 982.54,-1894.28"/>
+<text xml:space="preserve" text-anchor="middle" x="1075" y="-1870.48" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Normalize vendor/product;</text>
+<text xml:space="preserve" text-anchor="middle" x="1075" y="-1856.23" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">retain raw values and</text>
+<text xml:space="preserve" text-anchor="middle" x="1075" y="-1841.98" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">verification state</text>
+</a>
+</g>
+</g>
+<!-- changed -->
+<g id="node6" class="node">
+<title>changed</title>
+<g id="a_node6"><a xlink:title="Different / competing observed version?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M1063.27,-1771.7C1063.27,-1771.7 874.81,-1730.99 874.81,-1730.99 868.94,-1729.72 868.94,-1727.19 874.81,-1725.92 874.81,-1725.92 1063.27,-1685.21 1063.27,-1685.21 1069.14,-1683.94 1080.86,-1683.94 1086.73,-1685.21 1086.73,-1685.21 1275.19,-1725.92 1275.19,-1725.92 1281.06,-1727.19 1281.06,-1729.72 1275.19,-1730.99 1275.19,-1730.99 1086.73,-1771.7 1086.73,-1771.7 1080.86,-1772.97 1069.14,-1772.97 1063.27,-1771.7"/>
+<text xml:space="preserve" text-anchor="middle" x="1075" y="-1731.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Different / competing observed</text>
+<text xml:space="preserve" text-anchor="middle" x="1075" y="-1717.06" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">version?</text>
+</a>
+</g>
+</g>
+<!-- reset -->
+<g id="node7" class="node">
+<title>reset</title>
+<g id="a_node7"><a xlink:title="Invalidate prior component verification; record changes; conflicting active versions need review">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1277.09,-1625.93C1277.09,-1625.93 1104.91,-1625.93 1104.91,-1625.93 1098.91,-1625.93 1092.91,-1619.93 1092.91,-1613.93 1092.91,-1613.93 1092.91,-1563.65 1092.91,-1563.65 1092.91,-1557.65 1098.91,-1551.65 1104.91,-1551.65 1104.91,-1551.65 1277.09,-1551.65 1277.09,-1551.65 1283.09,-1551.65 1289.09,-1557.65 1289.09,-1563.65 1289.09,-1563.65 1289.09,-1613.93 1289.09,-1613.93 1289.09,-1619.93 1283.09,-1625.93 1277.09,-1625.93"/>
+<text xml:space="preserve" text-anchor="middle" x="1191" y="-1605.89" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Invalidate prior component</text>
+<text xml:space="preserve" text-anchor="middle" x="1191" y="-1591.64" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">verification; record changes;</text>
+<text xml:space="preserve" text-anchor="middle" x="1191" y="-1577.39" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">conflicting active versions</text>
+<text xml:space="preserve" text-anchor="middle" x="1191" y="-1563.14" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">need review</text>
+</a>
+</g>
+</g>
+<!-- candidates -->
+<g id="node8" class="node">
+<title>candidates</title>
+<g id="a_node8"><a xlink:title="Exact normalized vendor/product candidates">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M1090.96,-1398.7C1090.96,-1398.7 891.04,-1398.7 891.04,-1398.7 885.04,-1398.7 879.04,-1392.7 879.04,-1386.7 879.04,-1386.7 879.04,-1364.92 879.04,-1364.92 879.04,-1358.92 885.04,-1352.92 891.04,-1352.92 891.04,-1352.92 1090.96,-1352.92 1090.96,-1352.92 1096.96,-1352.92 1102.96,-1358.92 1102.96,-1364.92 1102.96,-1364.92 1102.96,-1386.7 1102.96,-1386.7 1102.96,-1392.7 1096.96,-1398.7 1090.96,-1398.7"/>
+<text xml:space="preserve" text-anchor="middle" x="991" y="-1378.66" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Exact normalized vendor/product</text>
+<text xml:space="preserve" text-anchor="middle" x="991" y="-1364.41" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">candidates</text>
+</a>
+</g>
+</g>
+<!-- candidate -->
+<g id="node9" class="node">
+<title>candidate</title>
+<g id="a_node9"><a xlink:title="Any candidate?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M975.41,-1304.81C975.41,-1304.81 881.17,-1279.5 881.17,-1279.5 875.37,-1277.95 875.37,-1274.83 881.17,-1273.28 881.17,-1273.28 975.41,-1247.97 975.41,-1247.97 981.21,-1246.42 992.79,-1246.42 998.59,-1247.97 998.59,-1247.97 1092.83,-1273.28 1092.83,-1273.28 1098.63,-1274.83 1098.63,-1277.95 1092.83,-1279.5 1092.83,-1279.5 998.59,-1304.81 998.59,-1304.81 992.79,-1306.36 981.21,-1306.36 975.41,-1304.81"/>
+<text xml:space="preserve" text-anchor="middle" x="987" y="-1272.11" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Any candidate?</text>
+</a>
+</g>
+</g>
+<!-- none -->
+<g id="node10" class="node">
+<title>none</title>
+<g id="a_node10"><a xlink:title="No applicability finding for unrelated products; missing identity stays reviewable">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M1075.46,-1158.09C1075.46,-1158.09 908.54,-1158.09 908.54,-1158.09 902.54,-1158.09 896.54,-1152.09 896.54,-1146.09 896.54,-1146.09 896.54,-1110.06 896.54,-1110.06 896.54,-1104.06 902.54,-1098.06 908.54,-1098.06 908.54,-1098.06 1075.46,-1098.06 1075.46,-1098.06 1081.46,-1098.06 1087.46,-1104.06 1087.46,-1110.06 1087.46,-1110.06 1087.46,-1146.09 1087.46,-1146.09 1087.46,-1152.09 1081.46,-1158.09 1075.46,-1158.09"/>
+<text xml:space="preserve" text-anchor="middle" x="992" y="-1138.05" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">No applicability finding for</text>
+<text xml:space="preserve" text-anchor="middle" x="992" y="-1123.8" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">unrelated products; missing</text>
+<text xml:space="preserve" text-anchor="middle" x="992" y="-1109.55" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">identity stays reviewable</text>
+</a>
+</g>
+</g>
+<!-- conditions -->
+<g id="node11" class="node">
+<title>conditions</title>
+<g id="a_node11"><a xlink:title="Identity confidence sufficient; prerequisites supported and sources consistent?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M655.5,-1184.69C655.5,-1184.69 476.33,-1131.5 476.33,-1131.5 470.58,-1129.79 470.58,-1126.37 476.33,-1124.66 476.33,-1124.66 655.5,-1071.47 655.5,-1071.47 661.25,-1069.76 672.75,-1069.76 678.5,-1071.47 678.5,-1071.47 857.67,-1124.66 857.67,-1124.66 863.42,-1126.37 863.42,-1129.79 857.67,-1131.5 857.67,-1131.5 678.5,-1184.69 678.5,-1184.69 672.75,-1186.4 661.25,-1186.4 655.5,-1184.69"/>
+<text xml:space="preserve" text-anchor="middle" x="667" y="-1138.05" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Identity confidence sufficient;</text>
+<text xml:space="preserve" text-anchor="middle" x="667" y="-1123.8" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">prerequisites supported and</text>
+<text xml:space="preserve" text-anchor="middle" x="667" y="-1109.55" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">sources consistent?</text>
+</a>
+</g>
+</g>
+<!-- review -->
+<g id="node12" class="node">
+<title>review</title>
+<g id="a_node12"><a xlink:title="NEEDS_REVIEW">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M832.84,-442.88C832.84,-442.88 737.16,-442.88 737.16,-442.88 731.16,-442.88 725.16,-436.88 725.16,-430.88 725.16,-430.88 725.16,-418.88 725.16,-418.88 725.16,-412.88 731.16,-406.88 737.16,-406.88 737.16,-406.88 832.84,-406.88 832.84,-406.88 838.84,-406.88 844.84,-412.88 844.84,-418.88 844.84,-418.88 844.84,-430.88 844.84,-430.88 844.84,-436.88 838.84,-442.88 832.84,-442.88"/>
+<text xml:space="preserve" text-anchor="middle" x="785" y="-420.61" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">NEEDS_REVIEW</text>
+</a>
+</g>
+</g>
+<!-- version -->
+<g id="node13" class="node">
+<title>version</title>
+<g id="a_node13"><a xlink:title="Installed version known?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M586.2,-1009.14C586.2,-1009.14 437.63,-981.93 437.63,-981.93 431.73,-980.85 431.73,-978.69 437.63,-977.61 437.63,-977.61 586.2,-950.4 586.2,-950.4 592.1,-949.32 603.9,-949.32 609.8,-950.4 609.8,-950.4 758.37,-977.61 758.37,-977.61 764.27,-978.69 764.27,-980.85 758.37,-981.93 758.37,-981.93 609.8,-1009.14 609.8,-1009.14 603.9,-1010.22 592.1,-1010.22 586.2,-1009.14"/>
+<text xml:space="preserve" text-anchor="middle" x="598" y="-975.49" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Installed version known?</text>
+</a>
+</g>
+</g>
+<!-- semantics -->
+<g id="node14" class="node">
+<title>semantics</title>
+<g id="a_node14"><a xlink:title="Can source version conditions be compared safely?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M586.29,-888.87C586.29,-888.87 405.29,-848.33 405.29,-848.33 399.43,-847.02 399.43,-844.4 405.29,-843.09 405.29,-843.09 586.29,-802.55 586.29,-802.55 592.15,-801.24 603.85,-801.24 609.71,-802.55 609.71,-802.55 790.71,-843.09 790.71,-843.09 796.57,-844.4 796.57,-847.02 790.71,-848.33 790.71,-848.33 609.71,-888.87 609.71,-888.87 603.85,-890.18 592.15,-890.18 586.29,-888.87"/>
+<text xml:space="preserve" text-anchor="middle" x="598" y="-848.56" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Can source version conditions</text>
+<text xml:space="preserve" text-anchor="middle" x="598" y="-834.31" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">be compared safely?</text>
+</a>
+</g>
+</g>
+<!-- verify_match -->
+<g id="node15" class="node">
+<title>verify_match</title>
+<g id="a_node15"><a xlink:title="Verified high&#45;confidence identity?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M200.41,-591.77C200.41,-591.77 52.17,-552.19 52.17,-552.19 46.38,-550.64 46.38,-547.54 52.17,-545.99 52.17,-545.99 200.41,-506.41 200.41,-506.41 206.2,-504.86 217.8,-504.86 223.59,-506.41 223.59,-506.41 371.83,-545.99 371.83,-545.99 377.62,-547.54 377.62,-550.64 371.83,-552.19 371.83,-552.19 223.59,-591.77 223.59,-591.77 217.8,-593.32 206.2,-593.32 200.41,-591.77"/>
+<text xml:space="preserve" text-anchor="middle" x="212" y="-551.94" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Verified high&#45;confidence</text>
+<text xml:space="preserve" text-anchor="middle" x="212" y="-537.69" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">identity?</text>
+</a>
+</g>
+</g>
+<!-- verify_exclusion -->
+<g id="node16" class="node">
+<title>verify_exclusion</title>
+<g id="a_node16"><a xlink:title="Verified high&#45;confidence identity?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M570.41,-591.77C570.41,-591.77 422.17,-552.19 422.17,-552.19 416.38,-550.64 416.38,-547.54 422.17,-545.99 422.17,-545.99 570.41,-506.41 570.41,-506.41 576.2,-504.86 587.8,-504.86 593.59,-506.41 593.59,-506.41 741.83,-545.99 741.83,-545.99 747.62,-547.54 747.62,-550.64 741.83,-552.19 741.83,-552.19 593.59,-591.77 593.59,-591.77 587.8,-593.32 576.2,-593.32 570.41,-591.77"/>
+<text xml:space="preserve" text-anchor="middle" x="582" y="-551.94" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Verified high&#45;confidence</text>
+<text xml:space="preserve" text-anchor="middle" x="582" y="-537.69" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">identity?</text>
+</a>
+</g>
+</g>
+<!-- potential -->
+<g id="node17" class="node">
+<title>potential</title>
+<g id="a_node17"><a xlink:title="POTENTIAL_MATCH">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M434.71,-442.88C434.71,-442.88 317.29,-442.88 317.29,-442.88 311.29,-442.88 305.29,-436.88 305.29,-430.88 305.29,-430.88 305.29,-418.88 305.29,-418.88 305.29,-412.88 311.29,-406.88 317.29,-406.88 317.29,-406.88 434.71,-406.88 434.71,-406.88 440.71,-406.88 446.71,-412.88 446.71,-418.88 446.71,-418.88 446.71,-430.88 446.71,-430.88 446.71,-436.88 440.71,-442.88 434.71,-442.88"/>
+<text xml:space="preserve" text-anchor="middle" x="376" y="-420.61" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">POTENTIAL_MATCH</text>
+</a>
+</g>
+</g>
+<!-- affected -->
+<g id="node18" class="node">
+<title>affected</title>
+<g id="a_node18"><a xlink:title="Source&#45;defined version affected?">
+<path fill="#292419" stroke="#b39461" stroke-width="1.1" d="M570.44,-739.95C570.44,-739.95 429.64,-700.63 429.64,-700.63 423.86,-699.01 423.86,-695.79 429.64,-694.17 429.64,-694.17 570.44,-654.85 570.44,-654.85 576.22,-653.23 587.78,-653.23 593.56,-654.85 593.56,-654.85 734.36,-694.17 734.36,-694.17 740.14,-695.79 740.14,-699.01 734.36,-700.63 734.36,-700.63 593.56,-739.95 593.56,-739.95 587.78,-741.57 576.22,-741.57 570.44,-739.95"/>
+<text xml:space="preserve" text-anchor="middle" x="582" y="-700.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Source&#45;defined version</text>
+<text xml:space="preserve" text-anchor="middle" x="582" y="-686" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">affected?</text>
+</a>
+</g>
+</g>
+<!-- confirmed -->
+<g id="node19" class="node">
+<title>confirmed</title>
+<g id="a_node19"><a xlink:title="CONFIRMED_MATCH">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M266.33,-442.88C266.33,-442.88 143.67,-442.88 143.67,-442.88 137.67,-442.88 131.67,-436.88 131.67,-430.88 131.67,-430.88 131.67,-418.88 131.67,-418.88 131.67,-412.88 137.67,-406.88 143.67,-406.88 143.67,-406.88 266.33,-406.88 266.33,-406.88 272.33,-406.88 278.33,-412.88 278.33,-418.88 278.33,-418.88 278.33,-430.88 278.33,-430.88 278.33,-436.88 272.33,-442.88 266.33,-442.88"/>
+<text xml:space="preserve" text-anchor="middle" x="205" y="-420.61" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">CONFIRMED_MATCH</text>
+</a>
+</g>
+</g>
+<!-- excluded -->
+<g id="node20" class="node">
+<title>excluded</title>
+<g id="a_node20"><a xlink:title="NO_MATCH_TO_THIS_ADVISORY">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M690.59,-442.62C690.59,-444.79 641.92,-446.56 582,-446.56 522.08,-446.56 473.42,-444.79 473.42,-442.62 473.42,-442.62 473.42,-407.15 473.42,-407.15 473.42,-404.97 522.08,-403.21 582,-403.21 641.92,-403.21 690.59,-404.97 690.59,-407.15 690.59,-407.15 690.59,-442.62 690.59,-442.62"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M690.59,-442.62C690.59,-440.44 641.92,-438.68 582,-438.68 522.08,-438.68 473.42,-440.44 473.42,-442.62"/>
+<text xml:space="preserve" text-anchor="middle" x="582" y="-420.61" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">NO_MATCH_TO_THIS_ADVISORY</text>
+</a>
+</g>
+</g>
+<!-- aggregate -->
+<g id="node21" class="node">
+<title>aggregate</title>
+<g id="a_node21"><a xlink:title="One stable asset/CVE finding with component evidence; confirmed u2192 potential u2192 review u2192 exclusion">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M569.09,-348.92C569.09,-354.04 508.99,-358.21 435,-358.21 361.01,-358.21 300.91,-354.04 300.91,-348.92 300.91,-348.92 300.91,-265.36 300.91,-265.36 300.91,-260.23 361.01,-256.07 435,-256.07 508.99,-256.07 569.09,-260.23 569.09,-265.36 569.09,-265.36 569.09,-348.92 569.09,-348.92"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M569.09,-348.92C569.09,-343.8 508.99,-339.64 435,-339.64 361.01,-339.64 300.91,-343.8 300.91,-348.92"/>
+<text xml:space="preserve" text-anchor="middle" x="435" y="-324.24" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">One stable asset/CVE finding</text>
+<text xml:space="preserve" text-anchor="middle" x="435" y="-309.99" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">with component evidence;</text>
+<text xml:space="preserve" text-anchor="middle" x="435" y="-295.74" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">confirmed u2192 potential u2192 review</text>
+<text xml:space="preserve" text-anchor="middle" x="435" y="-281.49" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">u2192 exclusion</text>
+</a>
+</g>
+</g>
+<!-- priority -->
+<g id="node22" class="node">
+<title>priority</title>
+<g id="a_node22"><a xlink:title="Vulnerability urgency rule v2; score only confirmed / potential">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M404.96,-199.32C404.96,-199.32 229.04,-199.32 229.04,-199.32 223.04,-199.32 217.04,-193.32 217.04,-187.32 217.04,-187.32 217.04,-151.29 217.04,-151.29 217.04,-145.29 223.04,-139.29 229.04,-139.29 229.04,-139.29 404.96,-139.29 404.96,-139.29 410.96,-139.29 416.96,-145.29 416.96,-151.29 416.96,-151.29 416.96,-187.32 416.96,-187.32 416.96,-193.32 410.96,-199.32 404.96,-199.32"/>
+<text xml:space="preserve" text-anchor="middle" x="317" y="-179.28" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Vulnerability urgency rule v2;</text>
+<text xml:space="preserve" text-anchor="middle" x="317" y="-165.03" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">score only confirmed /</text>
+<text xml:space="preserve" text-anchor="middle" x="317" y="-150.78" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">potential</text>
+</a>
+</g>
+</g>
+<!-- alert -->
+<g id="node23" class="node">
+<title>alert</title>
+<g id="a_node23"><a xlink:title="Create/update deduplicated exposure alert; preserve acknowledgement on update">
+<path fill="#15271f" stroke="#7eaa90" stroke-width="1.1" d="M293.33,-71.29C293.33,-71.29 116.67,-71.29 116.67,-71.29 110.67,-71.29 104.67,-65.29 104.67,-59.29 104.67,-59.29 104.67,-23.26 104.67,-23.26 104.67,-17.26 110.67,-11.26 116.67,-11.26 116.67,-11.26 293.33,-11.26 293.33,-11.26 299.33,-11.26 305.33,-17.26 305.33,-23.26 305.33,-23.26 305.33,-59.29 305.33,-59.29 305.33,-65.29 299.33,-71.29 293.33,-71.29"/>
+<text xml:space="preserve" text-anchor="middle" x="205" y="-51.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Create/update deduplicated</text>
+<text xml:space="preserve" text-anchor="middle" x="205" y="-37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">exposure alert; preserve</text>
+<text xml:space="preserve" text-anchor="middle" x="205" y="-22.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">acknowledgement on update</text>
+</a>
+</g>
+</g>
+<!-- noalert -->
+<g id="node24" class="node">
+<title>noalert</title>
+<g id="a_node24"><a xlink:title="No active exposure alert for review / excluded; retain assessment evidence">
+<path fill="#17202a" stroke="#738397" stroke-width="1.1" d="M525.59,-75.04C525.59,-79.18 482.29,-82.54 429,-82.54 375.71,-82.54 332.42,-79.18 332.42,-75.04 332.42,-75.04 332.42,-7.5 332.42,-7.5 332.42,-3.36 375.71,0 429,0 482.29,0 525.59,-3.36 525.59,-7.5 525.59,-7.5 525.59,-75.04 525.59,-75.04"/>
+<path fill="none" stroke="#738397" stroke-width="1.1" d="M525.59,-75.04C525.59,-70.9 482.29,-67.53 429,-67.53 375.71,-67.53 332.42,-70.9 332.42,-75.04"/>
+<text xml:space="preserve" text-anchor="middle" x="429" y="-51.25" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">No active exposure alert for</text>
+<text xml:space="preserve" text-anchor="middle" x="429" y="-37" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">review / excluded; retain</text>
+<text xml:space="preserve" text-anchor="middle" x="429" y="-22.75" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">assessment evidence</text>
+</a>
+</g>
+</g>
+<!-- planchange -->
+<g id="node25" class="node">
+<title>planchange</title>
+<g id="a_node25"><a xlink:title="Changed supporting finding evidence / priority: archive plan and require more evidence">
+<path fill="#292217" stroke="#c4a071" stroke-width="1.1" d="M648.21,-199.32C648.21,-199.32 455.79,-199.32 455.79,-199.32 449.79,-199.32 443.79,-193.32 443.79,-187.32 443.79,-187.32 443.79,-151.29 443.79,-151.29 443.79,-145.29 449.79,-139.29 455.79,-139.29 455.79,-139.29 648.21,-139.29 648.21,-139.29 654.21,-139.29 660.21,-145.29 660.21,-151.29 660.21,-151.29 660.21,-187.32 660.21,-187.32 660.21,-193.32 654.21,-199.32 648.21,-199.32"/>
+<text xml:space="preserve" text-anchor="middle" x="552" y="-179.28" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Changed supporting finding</text>
+<text xml:space="preserve" text-anchor="middle" x="552" y="-165.03" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">evidence / priority: archive</text>
+<text xml:space="preserve" text-anchor="middle" x="552" y="-150.78" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">plan and require more evidence</text>
+</a>
+</g>
+</g>
+<!-- recheck -->
+<g id="node26" class="node">
+<title>recheck</title>
+<g id="a_node26"><a xlink:title="Inventory, mapping, component review or source change retriggers assessment">
+<path fill="#14202f" stroke="#7197bd" stroke-width="1.1" d="M1166.34,-1009.78C1166.34,-1009.78 971.66,-1009.78 971.66,-1009.78 965.66,-1009.78 959.66,-1003.78 959.66,-997.78 959.66,-997.78 959.66,-961.75 959.66,-961.75 959.66,-955.75 965.66,-949.75 971.66,-949.75 971.66,-949.75 1166.34,-949.75 1166.34,-949.75 1172.34,-949.75 1178.34,-955.75 1178.34,-961.75 1178.34,-961.75 1178.34,-997.78 1178.34,-997.78 1178.34,-1003.78 1172.34,-1009.78 1166.34,-1009.78"/>
+<text xml:space="preserve" text-anchor="middle" x="1069" y="-989.74" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">Inventory, mapping, component</text>
+<text xml:space="preserve" text-anchor="middle" x="1069" y="-975.49" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">review or source change</text>
+<text xml:space="preserve" text-anchor="middle" x="1069" y="-961.24" font-family="DejaVu Sans" font-size="12.00" fill="#e6e8ec">retriggers assessment</text>
+</a>
+</g>
+</g>
+</g>
+</svg>

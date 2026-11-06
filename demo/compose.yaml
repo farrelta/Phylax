@@ -1,0 +1,66 @@
+name: phylax-support-lab
+x-lab: &lab
+  image: phylax-support-lab:local
+  build:
+    context: ..
+    dockerfile: demo/Dockerfile
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 64
+  mem_limit: 256m
+  cpus: 0.5
+services:
+  plc:
+    <<: *lab
+    command: [plc]
+    cap_add: [NET_BIND_SERVICE]
+    networks:
+      isolated:
+        ipv4_address: 172.30.77.10
+  it:
+    <<: *lab
+    command: [it]
+    ports: ["127.0.0.1:8080:8080"]
+    networks:
+      isolated:
+        ipv4_address: 172.30.77.40
+  reader:
+    <<: *lab
+    command: [reader]
+    depends_on: [plc]
+    networks:
+      isolated:
+        ipv4_address: 172.30.77.30
+  rogue:
+    <<: *lab
+    command: [rogue]
+    profiles: [exercise]
+    depends_on: [plc]
+    networks:
+      isolated:
+        ipv4_address: 172.30.77.99
+  sensor:
+    image: zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0
+    network_mode: service:plc
+    depends_on: [plc]
+    entrypoint: [zeek]
+    command: [-C, -i, eth0, /opt/lab/live.zeek]
+    working_dir: /logs/current
+    volumes:
+      - ./runtime/logs:/logs
+      - ./live.zeek:/opt/lab/live.zeek:ro
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]
+    group_add: ["${PHYLAX_LAB_GID:-1000}"]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1
+networks:
+  isolated:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24
