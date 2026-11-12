@@ -1,7 +1,7 @@
 """Contextual management and software review actions bound to their records."""
 import json
 from urllib.parse import urlencode
-from .ui import e,field,select,hidden,form,actor_fields,table,raw_record
+from .ui import verbatim, e,field,select,hidden,form,actor_fields,table,raw_record
 from .configuration_pages import asset_label
 
 
@@ -47,7 +47,7 @@ def software_page(store,query,offset,submitted=None):
         row=store.connection.execute('SELECT s.*,a.hostname,a.ip_address FROM software_components s JOIN assets a USING(asset_id) WHERE component_id=?',(cid,)).fetchone()
         if not row:raise ValueError('Software component not found. Choose an existing evidence row.')
         row=dict(row)
-        body+='<section class="editor" id="review-component"><h2>Review '+e(row['raw_name'])+' '+e(row['version'] or 'unknown version')+'</h2><p>'+e(asset_label(row))+'</p>'
+        body+='<section class="editor" id="review-component"><h2>Review '+verbatim(row['raw_name'])+' '+(verbatim(row['version']) if row['version'] else e('unknown version'))+'</h2><p>'+verbatim(asset_label(row))+'</p>'
         body+='<p>First observed '+e(row['first_seen'])+' · last observed '+e(row['last_seen'])+'</p>'
         fields=hidden('component_id',cid)+select('verified','Identity and version verified',[('false','Unverified'),('true','Verified')],values.get('verified','true' if row['verified'] else 'false'))
         fields+=select('active','Evidence state',[('true','Active evidence'),('false','Retired evidence')],values.get('active','true' if row['active'] else 'false'))+actor_fields(values)

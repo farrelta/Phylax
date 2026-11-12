@@ -1,6 +1,6 @@
 """Decision evidence first; original records remain inspectable separately."""
 from urllib.parse import urlencode
-from .ui import e,field,select,form,hidden,raw_record,evidence_lines,evidence_url
+from .ui import verbatim, e,field,select,form,hidden,raw_record,evidence_lines,evidence_url
 from .triage import triage
 from .theme import PLAIN_STATUS
 
@@ -48,12 +48,12 @@ def triage_page(store,query,offset):
         cue=(str(missing)+' missing evidence item'+('' if missing==1 else 's') if missing else 'No missing evidence recorded') if row['category']=='exposure' else ('Observed policy event' if row['category']=='network' else 'Identity evidence needs review')
         body+='<details class="triage-case" id="alert-'+e(row['alert_id'])+'"'+(' open' if query.get('case',[''])[0]==row['alert_id'] else '')+'><summary>'
         address=' <span class="mono">'+e(row['ip'])+'</span>' if name!=row['ip'] else ''
-        body+='<span class="case-title">'+e(name)+address+'</span><span class="case-subject">'+e(title)+'</span>'
+        body+='<span class="case-title">'+verbatim(name)+address+'</span><span class="case-subject">'+e(title)+'</span>'
         body+='<span class="case-state">'+e(priority)+' urgency · '+e(category)+' · '+e(review)+'</span><span class="case-meta">'+e(row['timestamp'])+' UTC · '+e(cue)+'</span><span class="case-inspect">Inspect alert</span></summary><div class="case-detail triage-record">'
         back_values={k:v for k,v in filters.items() if v}
         back_values.update(page=query.get('page',['1'])[0],case=row['alert_id'])
         return_to='/triage?'+urlencode(back_values)+'#alert-'+row['alert_id']
-        body+='<p class="muted">Owner: '+e(ctx.get('owner') or 'Unknown')+' · Supports: '+e(', '.join(p['name'] for p in asset.get('processes',[])) or 'No confirmed process relationships')+'</p>'
+        body+='<p class="muted">Owner: '+(verbatim(ctx['owner']) if ctx.get('owner') else e('Unknown'))+' · Supports: '+(verbatim(', '.join(p['name'] for p in asset['processes'])) if asset.get('processes') else e('No confirmed process relationships'))+'</p>'
         body+='<p>'+e(row['explanation'])+'</p>'
         body+=details_list([('Address',row['ip']),('Event / update time UTC',row['timestamp']),('Severity',row['severity']),('Applicability',applicability),('Evidence confidence',row['evidence_confidence']),('Review state','Acknowledged' if row['acknowledged'] else 'Unacknowledged')])
         body+='<h3>Observed evidence</h3>'

@@ -659,9 +659,9 @@ class Store:
         self.connection.commit()
         return cur.rowcount == 1 or network_cur.rowcount == 1
 
-    def report(self, format: str = 'json') -> str:
+    def report(self, format: str = 'json', *, language: str = 'en') -> str:
         from .reports import export_report
-        return export_report(self,format)
+        return export_report(self,format,language=language)
 
 
 def read_json_limited(raw: bytes, max_bytes: int = 5_000_000) -> dict[str, Any]:

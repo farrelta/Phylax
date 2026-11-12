@@ -8,6 +8,11 @@ def e(value):
     return html.escape(str(value),quote=True)
 
 
+def verbatim(value):
+    """Keep operator input, source text and identity data in their original language."""
+    return '<span translate="no">'+e(value)+'</span>'
+
+
 def hidden(name,value):
     return f'<input type="hidden" name="{e(name)}" value="{e(value)}">'
 
@@ -27,7 +32,8 @@ def field(name,label,value='',required=False,kind='text',*,maxlength=4000,contro
 
 def select(name,label,choices,selected=None):
     return f'<label>{e(label)}<select name="{e(name)}">'+''.join(
-        f'<option value="{e(value)}"'+(' selected' if str(value)==str(selected) else '')+f'>{e(text)}</option>'
+        f'<option value="{e(value)}"'+(' selected' if str(value)==str(selected) else '')
+        +(' translate="no"' if name in {'asset_id','target_id','subnet_id','component_id'} else '')+f'>{e(text)}</option>'
         for value,text in choices)+'</select></label>'
 
 
@@ -49,10 +55,18 @@ def error_summary(message,links=()):
 
 
 def table(rows,columns,actions=None,empty='No records yet.'):
+    translated_fields={'status','kind','decision','severity','priority','lifecycle','permission_state',
+                       'management_status','identity_confidence','criticality','zone','visibility',
+                       'relationship_type','state','interval','message','explanation','diagnostics','enabled',
+                       'decision_label','mac_label','verification'}
     body=''
+    def cell(row,key):
+        value=row.get(key,'')
+        localized=key in translated_fields or (key=='identity' and value in ('Any IP matching MAC','Unmapped identity'))
+        text=json.dumps(value,ensure_ascii=False) if isinstance(value,(list,dict)) else value
+        return '<td>'+(e(text) if localized else verbatim(text))+'</td>'
     for row in rows:
-        cells=''.join('<td>'+e(json.dumps(row.get(key),ensure_ascii=False) if isinstance(row.get(key),(list,dict))
-                            else row.get(key,''))+'</td>' for key,label in columns)
+        cells=''.join(cell(row,key) for key,label in columns)
         if actions:cells+='<td>'+actions(row)+'</td>'
         body+='<tr>'+cells+'</tr>'
     headings=''.join('<th scope="col">'+e(label)+'</th>' for key,label in columns)

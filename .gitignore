@@ -11,6 +11,7 @@ skills-lock.json
 
 # Generated lab state and local verification artifacts.
 demo/runtime/
+docs/demo-video.md
 verification/
 
 # Local product briefs and development release history.

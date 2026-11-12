@@ -11,6 +11,10 @@ These guides describe the current implementation. Run all commands from the repo
 5. [Architecture and security](architecture.md): understand data flow, hosted-data boundaries, and coverage limits.
 6. [Testing and demonstration](testing.md): run deterministic checks and rehearse the fictional support-site scenario.
 
+## Record a demonstration
+
+Use the [ten-minute video script](demo-video.md) for the screen sequence, narration, expected evidence, and offline fallback.
+
 ## Visual reference
 
 The [workflow atlas](workflows/index.html) contains 14 offline diagrams. Its [Mermaid version](workflows/WORKFLOWS.md) is readable on GitHub. The [atlas guide](workflows/README.md) explains rebuilding with Graphviz; Graphviz is not an application dependency.

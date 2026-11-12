@@ -1,7 +1,7 @@
 """Focused assessment view shared by narrow and wide browser layouts."""
 import json
 from urllib.parse import urlencode
-from .ui import e,evidence_lines,reference_links
+from .ui import verbatim, e,evidence_lines,reference_links
 from .theme import layout,status_marker
 from .prioritization import prioritize
 
@@ -11,10 +11,10 @@ def finding_case(store,finding,kev_label,notice=''):
     plan=store.get_remediation_plan(fid)
     body=('<p class="notice" role="status">'+e(notice)+'</p>') if notice else ''
     body+='<p><a href="/">Return to overview</a> · <a href="/triage?'+e(urlencode({'q':f['cve_id']}))+'">Related alerts in triage</a></p>'
-    body+='<article class="finding-case" id="finding-'+e(fid)+'"><h2>'+e(f['cve_id'])+' · '+e(f['hostname'] or f['ip_address'])+'</h2>'
+    body+='<article class="finding-case" id="finding-'+e(fid)+'"><h2>'+e(f['cve_id'])+' · '+verbatim(f['hostname'] or f['ip_address'])+'</h2>'
     body+='<p>'+status_marker(f['status'])+' · '+e(f['severity'] or 'Unknown')+' severity · '+e(score['priority'].replace('_',' '))+' urgency</p>'
     if f['synthetic']:body+='<p class="notice">Synthetic demonstration fixture; not a public CVE or real incident.</p>'
-    body+='<p>'+e(f['summary'])+'</p><div class="record-actions">'
+    body+='<p>'+verbatim(f['summary'])+'</p><div class="record-actions">'
     if plan:
         body+='<span>Plan status: '+e(plan['status'])+'</span><a class="btn primary" href="/remediation?'+e(urlencode({'finding_id':fid}))+'">Review plan</a>'
     else:body+='<form method="post" action="/remediation/create"><input type="hidden" name="finding_id" value="'+e(fid)+'"><button class="primary">Generate remediation plan</button></form>'
@@ -28,7 +28,7 @@ def finding_case(store,finding,kev_label,notice=''):
     body+='<details class="score-details"><summary>Why this urgency'+(' · '+str(score['score'])+' of 12' if score['score'] is not None else '')+'</summary><ul>'
     body+=''.join('<li>'+e(v['input'])+': '+e(v['value'])+' · +'+e(v['points'])+'</li>' for v in score['factors'])
     body+='</ul>'+''.join('<p>'+e(v)+'</p>' for v in score.get('uncertainty',[]))+'</details><p>'+e(kev_label)+'</p>'
-    body+='<h3>Stored mitigation guidance</h3><p>'+e(f['mitigation'] or 'No verified vendor guidance supplied.')+'</p>'
+    body+='<h3>Stored mitigation guidance</h3><p>'+(verbatim(f['mitigation']) if f['mitigation'] else e('No verified vendor guidance supplied.'))+'</p>'
     refs=json.loads(f['references_json'])
     body+='<details><summary>Source provenance and references</summary><p>'+e(f['source'])+' · published '+e(f['published'] or 'Unknown')+' · modified '+e(f['modified'] or 'Unknown')+'</p><p>'+(reference_links(refs) or 'No references supplied.')+'</p></details>'
     body+='</article><footer>Applicability and urgency are deterministic assessments. A vulnerability match does not establish compromise. No infrastructure changes are performed here.</footer>'

@@ -39,7 +39,7 @@ def advisory_summary(value,limit=320):
     if len(preview)>limit:
         cut=preview[:limit].rsplit(' ',1)[0]
         preview=(cut or preview[:limit]).rstrip()+'…'
-    body='<p class="advisory-preview">'+e(preview)+'</p>'
+    body='<p translate="no" class="advisory-preview">'+e(preview)+'</p>'
     if full!=preview:
         body+='<details class="advisory-content"><summary>Read full advisory text</summary><div class="advisory-text" tabindex="0" role="region" aria-label="Full advisory text">'+e(full)+'</div></details>'
     return body

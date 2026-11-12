@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 from .remediation_views import lifecycle_form
 from .theme import PLAIN_STATUS
-from .ui import e, hidden, reference_links
+from .ui import e, hidden, reference_links, verbatim
 
 
 def _text(value) -> str:
@@ -29,8 +29,10 @@ def _items(value) -> list:
     return list(value) if isinstance(value, (list, tuple)) else [value]
 
 
-def _content(value) -> str:
+def _content(value, *, source=False) -> str:
     """Keep stored structured values readable and escaped, including legacy data."""
+    if source:
+        return verbatim(value if isinstance(value,str) else json.dumps(value,ensure_ascii=False))
     if isinstance(value, dict):
         return '<dl class="facts">' + "".join(
             '<div><dt>' + e(str(key).replace('_', ' ').capitalize())
@@ -42,16 +44,16 @@ def _content(value) -> str:
     return e(_text(value))
 
 
-def _list(values, empty="None recorded.", *, ordered=False) -> str:
+def _list(values, empty="None recorded.", *, ordered=False, source=False) -> str:
     values = _items(values)
     if not values:
         return '<p class="muted">' + e(empty) + '</p>'
     tag = 'ol' if ordered else 'ul'
-    return '<' + tag + '>' + ''.join('<li>' + _content(v) + '</li>' for v in values) + '</' + tag + '>'
+    return '<' + tag + '>' + ''.join('<li>' + _content(v,source=source) + '</li>' for v in values) + '</' + tag + '>'
 
 
-def _paragraph(label, value) -> str:
-    return '<p><b>' + e(label) + ':</b> ' + _content(value if value not in (None, '') else 'Not recorded') + '</p>'
+def _paragraph(label, value, *, source=False) -> str:
+    return '<p><b>' + e(label) + ':</b> ' + _content(value if value not in (None, '') else 'Not recorded',source=source and value not in (None,'')) + '</p>'
 
 
 def _section(label, body, *, opened=False, css='', section_id='') -> str:
@@ -121,9 +123,9 @@ def _history(items) -> str:
     for item in items or []:
         rows.append('<li><b>' + e(item.get('old_status', 'Not recorded')) + ' → '
                     + e(item.get('new_status', 'Not recorded')) + '</b> · '
-                    + e(item.get('actor') or 'system') + ' · '
+                    + (verbatim(item['actor']) if item.get('actor') else e('system')) + ' · '
                     + e(item.get('created_at', 'Not recorded'))
-                    + ('<p>' + e(item['notes']) + '</p>' if item.get('notes') else '') + '</li>')
+                    + ('<p>' + (e(item['notes']) if item.get('actor')=='system' else verbatim(item['notes'])) + '</p>' if item.get('notes') else '') + '</li>')
     return '<ol>' + ''.join(rows) + '</ol>' if rows else '<p>No lifecycle changes recorded.</p>'
 
 
@@ -142,7 +144,7 @@ def plan_card(item, submitted=None, error='') -> str:
              ('Current priority', _text(priority).replace('_', ' ').capitalize()),
              ('Current identity confidence', item.get('current_identity_confidence') or 'Unknown'),
              ('Human approval required:', plan.get('human_approval_required', True))]
-    body = '<article class="panel plan" id="' + e(prefix) + '"><header class="plan-header"><h2>' + e(item.get('cve_id', 'Finding')) + ' · ' + e(asset) + '</h2><p><a class="btn" href="#' + e(prefix) + '-review">Review plan</a></p></header>'
+    body = '<article class="panel plan" id="' + e(prefix) + '"><header class="plan-header"><h2>' + e(item.get('cve_id', 'Finding')) + ' · ' + verbatim(asset) + '</h2><p><a class="btn" href="#' + e(prefix) + '-review">Review plan</a></p></header>'
     body += '<div class="plan-summary"><dl class="facts">' + ''.join(
         '<div><dt>' + e(label) + '</dt><dd>' + _content(value) + '</dd></div>'
         for label, value in facts) + '</dl>'
@@ -153,15 +155,15 @@ def plan_card(item, submitted=None, error='') -> str:
         finding_url = '/?' + urlencode({'finding_id': item['finding_id']}) + '#finding-' + str(item['finding_id'])
         body += '<div class="notice"><p><b>Evidence review required.</b> ' + e(warning)
         body += ' The guidance and assessment snapshot below describe the plan at generation; they may be outdated.</p><p><a href="' + e(finding_url) + '">Review current finding</a></p></div>'
-    body += _paragraph('Recommended action', plan.get('preferred_remediation'))
+    body += _paragraph('Recommended action', plan.get('preferred_remediation'),source=str(plan.get('vendor_guidance_status','')).startswith('source-provided'))
     body += _paragraph('Operational impact', plan.get('operational_impact'))
     body += '<h3>Current missing evidence</h3>' + _list(item.get('current_missing_evidence'), 'No missing evidence is recorded for the current finding.')
     body += '</div>'
 
     matching = submitted and submitted.get('finding_id') == item['finding_id']
-    review = (_paragraph('Recorded reviewer', item.get('reviewer') or 'Not recorded')
-              + _paragraph('Recorded change notes', item.get('change_notes') or 'None')
-              + _paragraph('Recorded verification evidence', item.get('verification_evidence') or 'Not recorded')
+    review = (_paragraph('Recorded reviewer', item.get('reviewer') or 'Not recorded',source=bool(item.get('reviewer')))
+              + _paragraph('Recorded change notes', item.get('change_notes') or 'None',source=bool(item.get('change_notes')))
+              + _paragraph('Recorded verification evidence', item.get('verification_evidence') or 'Not recorded',source=bool(item.get('verification_evidence')))
               + lifecycle_form(item, submitted if matching else None, error if matching else ''))
     body += _section('Review plan · ' + str(item.get('status', 'Unknown')), review,
                      opened=bool(matching and error), css='plan-review', section_id=prefix+'-review')
@@ -169,13 +171,13 @@ def plan_card(item, submitted=None, error='') -> str:
     guidance = _paragraph('Vendor guidance status', plan.get('vendor_guidance_status'))
     guidance += '<h3>Alternative controls</h3>' + _list(plan.get('alternative_controls'))
     if plan.get('cisa_required_action'):
-        guidance += _paragraph('CISA required action', plan['cisa_required_action'])
+        guidance += _paragraph('CISA required action', plan['cisa_required_action'],source=True)
     if plan.get('ai_summary'):
         guidance += '<section class="notice plan-ai"><h3>AI-generated, unverified supplement</h3>'
-        guidance += _paragraph('Model', plan.get('returned_model') or item.get('model') or 'Not recorded')
+        guidance += _paragraph('Model', plan.get('returned_model') or item.get('model') or 'Not recorded',source=True)
         guidance += _paragraph('Plan created UTC', item.get('created_at', 'Not recorded'))
-        guidance += '<p>' + _content(plan['ai_summary']) + '</p>' + _list(plan.get('ai_steps'), ordered=True)
-        guidance += _paragraph('Suggested validation', plan.get('ai_validation'))
+        guidance += '<p>' + _content(plan['ai_summary'],source=True) + '</p>' + _list(plan.get('ai_steps'), ordered=True,source=True)
+        guidance += _paragraph('Suggested validation', plan.get('ai_validation'),source=True)
         guidance += '<h4>Validated source references</h4>' + _references(plan.get('ai_source_references'))
         guidance += '<p>Only eligible public advisory data was sent to the hosted model. Local asset identities, inventory, network events, policies and operational context were not sent. This supplement does not change applicability, priority, approvals or recorded outcomes.</p></section>'
     label = 'Guidance and alternative controls' + (' · includes unverified AI supplement' if plan.get('ai_summary') else '')
@@ -194,19 +196,24 @@ def plan_card(item, submitted=None, error='') -> str:
     extra_confidence = {k: v for k, v in confidence.items() if k not in ('applicability', 'identity_confidence', 'unresolved')}
     if extra_confidence:
         evidence += '<h3>Other confidence details at generation</h3>' + _content(extra_confidence)
-    evidence += _paragraph('Finding summary at generation', plan.get('finding_summary'))
+    summary=plan.get('finding_summary')
+    prefix, separator, source_summary=str(summary or '').partition(': ')
+    if separator and any(code in prefix for code in PLAIN_STATUS):
+        evidence += '<p><b>Finding summary at generation:</b> '+e(_text(prefix))+': '+verbatim(source_summary)+'</p>'
+    else:
+        evidence += _paragraph('Finding summary at generation', summary,source=True)
     if plan.get('evidence'):
         evidence += '<h3>Supporting evidence at generation</h3>' + _list(plan['evidence'])
     evidence += '<h3>Priority factors at generation</h3>' + _score(plan)
     body += _section('Assessment snapshot and priority factors at generation', evidence)
 
     source = _paragraph('Plan source', plan.get('provider_note') or item.get('provider') or 'Not recorded')
-    source += _paragraph('Provider identifier', item.get('provider', 'Not recorded'))
+    source += _paragraph('Provider identifier', item.get('provider', 'Not recorded'),source=True)
     source += _paragraph('Created UTC', item.get('created_at', 'Not recorded'))
     for key, label in (('model', 'Recorded model'), ('requested_model', 'Requested model'), ('returned_model', 'Returned model')):
         value = item.get(key) if key == 'model' else plan.get(key)
         if value:
-            source += _paragraph(label, value)
+            source += _paragraph(label, value,source=True)
     source += '<h3>Source references</h3>' + _references(plan.get('source_references'))
     body += _section('Provenance and source references', source)
     body += _section('Lifecycle history', _history(item.get('history')))

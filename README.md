@@ -14,6 +14,8 @@ python3 -m phylax --db data/phylax.db serve
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The dashboard accepts loopback connections only. Stop with Ctrl+C.
 
+The dashboard supports **English** and **Bahasa Indonesia**. Choose a language at the top of any page and apply it; your preference carries across pages and workflows. See [interface languages](docs/localization.md) for coverage and export behavior.
+
 **Zeek, Docker, and Nmap are optional.** Zeek or a locally installed Zeek Docker image is needed to analyze PCAPs. Existing Zeek logs can be imported without them. Nmap is required only for explicitly permitted IT discovery.
 
 ## What you can do

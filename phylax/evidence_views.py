@@ -1,6 +1,6 @@
 """Orient original event records without changing their underlying evidence."""
 import json
-from .ui import e,raw_record,local_return
+from .ui import verbatim,e,raw_record,local_return
 
 
 def facts(pairs):
@@ -28,7 +28,7 @@ def event_page(store,query):
             body+='<h2>Policy conclusions associated with this event</h2><ul>'+''.join('<li><b>'+e(r['rule_id'].replace('_',' ').title())+'</b> · '+e(r['severity'])+' · '+('Active conclusion' if r['lifecycle']=='active' else 'Historical conclusion · '+e(r['lifecycle']))+'<p>'+e(r['explanation'])+'</p><small>Stored policy: '+e(r['policy_id'] or 'Not recorded')+'</small></li>' for r in alerts)+'</ul><p><a href="/policy">Review configured network policy</a></p>'
     else:
         body+='<h2>Observed endpoint evidence</h2>'+facts([('Addresses',', '.join(dict.fromkeys(r['ip'] for r in observations))),('Observed UTC',observations[0]['observed_at']),('Imported source',observations[0]['source_file'])])
-    body+='<p class="muted">Event reference: <span class="mono">'+e(ref)+'</span></p><p>'+str(len(events)+len(observations))+' stored record(s). Normalized records and original payloads are available below.</p>'
+    body+='<p class="muted">Event reference: <span class="mono">'+verbatim(ref)+'</span></p><p>'+str(len(events)+len(observations))+' stored record(s). Normalized records and original payloads are available below.</p>'
     for event in events:
         body+=raw_record(event,'Network event · '+event['event_type']+' · '+event['source_ip']+' → '+event['destination_ip'])
         body+=raw_record(json.loads(event['raw_json']),'Original imported network payload · '+event['source_file'])

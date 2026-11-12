@@ -34,6 +34,7 @@ STATUS_CLASS = {
 }
 
 CSS = """
+.language-control{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin:0 0 18px}.language-control label{margin:0}.language-control select{width:auto;max-width:100%}
 :root{color-scheme:dark;--bg:#0a0d12;--surface:#0f141c;--raised:#141a24;--line:#222b38;--text:#e6e8ec;--muted:#a6b0be;--accent:#e5252b;--link:#8fb2e6;--action:#b82029;--action-hover:#a51a23;--control-line:#65758b;--placeholder:#a6b0be;--control-hover:#2a2e33;
 --graph-edge:#7b8797;--graph-node:#1a1c1f;--graph-process:#16202a;--zone-it:#58a272;--zone-ot:#d98a2b;--zone-dmz:#7ba3d9;--zone-unknown:#868d96;
 --crit:#ff4d4d;--high:#e8923a;--info:#6aa3e8;--none:#6b727b;--ok:#58a272;

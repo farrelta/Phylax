@@ -10,6 +10,8 @@ python3 -m unittest discover -s tests -v
 
 No internet, Docker daemon, real device, or hosted model is needed. Feed/provider responses and external process execution are mocked. Coverage includes CSV validation, migration preservation, applicability and source conflicts, software evidence, approvals, scanning boundaries/recovery, Zeek parsing, policy rules, watcher checkpoints, AI privacy/citations, reports, request protections, and topology visibility/search.
 
+For a narrated submission, follow the [start-to-finish video script](demo-video.md).
+
 ## Smallest isolated demonstration
 
 Run from the repository root, using a new directory:

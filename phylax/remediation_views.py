@@ -1,5 +1,5 @@
 """One labeled review form for overview and remediation workflows."""
-from .ui import e,field,hidden,error_summary
+from .ui import verbatim, e,field,hidden,error_summary
 from .remediation_lifecycle import TRANSITIONS
 
 
@@ -11,7 +11,7 @@ def lifecycle_form(item,submitted=None,error=''):
     choices=([(selected,selected+' (unavailable; choose a valid next status)')] if selected and selected not in options else [])+[(s,s) for s in options]
     problem='reviewer' if 'Reviewer is required' in error else 'verification_evidence' if 'Verification evidence is required' in error else 'status'
     body=error_summary(error,[(prefix+'-'+problem,'Review '+problem.replace('_',' '))]) if error else ''
-    body+='<form method="post" action="/remediation/update" class="lifecycle-form"><fieldset><legend>Review plan for '+e(item.get('cve_id',''))+' · '+e(item.get('hostname') or item.get('ip_address',''))+'</legend>'
+    body+='<form method="post" action="/remediation/update" class="lifecycle-form"><fieldset><legend>Review plan for '+e(item.get('cve_id',''))+' · '+verbatim(item.get('hostname') or item.get('ip_address',''))+'</legend>'
     body+=hidden('finding_id',item['finding_id'])
     body+='<p class="muted">Current status: '+e(item['status'])+'. Only valid next statuses are offered. Typed reviewer names record attribution; they are not authenticated identities.</p><div class="form-grid">'
     body+='<label><span id="'+e(prefix+'-status-label')+'">Next plan status</span><select name="status" id="'+e(prefix+'-status')+'" aria-labelledby="'+e(prefix+'-status-label')+'"'+(' aria-invalid="true" aria-describedby="'+e(prefix+'-status-error')+'"' if error and problem=='status' else '')+'>'

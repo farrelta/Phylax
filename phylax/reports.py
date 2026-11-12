@@ -7,6 +7,7 @@ from io import StringIO
 from typing import TYPE_CHECKING, Any
 from .prioritization import prioritize
 from .validation import csv_value
+from .i18n import translate_text
 if TYPE_CHECKING:
     from .core import Store
 
@@ -63,28 +64,29 @@ def report_data(store: Store) -> dict[str, Any]:
             'archived_plans':[dict(r) | {'snapshot':json.loads(r['snapshot_json'])} for r in store.connection.execute('SELECT * FROM archived_plans ORDER BY created_at DESC')]}
 
 
-def export_report(store: Store, format: str) -> str:
+def export_report(store: Store, format: str, *, language: str = 'en') -> str:
     payload=report_data(store)
     if format=='json':return json.dumps(payload,indent=2)
     if format=='markdown':
-        lines=['# Phylax investigation report',f"Generated: {payload['generated_at']}",payload['dataset_label'],'', '## Vulnerability assessments']
+        def t(value):return translate_text(value, language)
+        lines=[t('# Phylax investigation report'),t(f"Generated: {payload['generated_at']}"),payload['dataset_label'],'', t('## Vulnerability assessments')]
         for row in payload['findings']:
             lines.extend([f"### {html.escape(row['cve_id'])} · {html.escape(row['asset_id'])}",
-                f"Applicability: {row['status']} · severity: {row['severity'] or 'unknown'} · priority: {row['priority']} · identity confidence: {row['identity_confidence']}",
-                html.escape(row['summary']), 'Evidence: '+html.escape('; '.join(row['evidence'])),
-                'Missing evidence: '+html.escape('; '.join(row['missing_evidence']) or 'None recorded'),
-                'References: '+html.escape('; '.join(row['references'])),
-                'Next steps: '+html.escape(row['recommended_next_steps']),''])
-        lines.append('## Network findings')
+                t(f"Applicability: {row['status']} · severity: {row['severity'] or 'unknown'} · priority: {row['priority']} · identity confidence: {row['identity_confidence']}"),
+                html.escape(row['summary']), t('Evidence:')+' '+html.escape('; '.join(t(v) for v in row['evidence'])),
+                t('Missing evidence:')+' '+html.escape('; '.join(t(v) for v in row['missing_evidence']) or t('None recorded')),
+                t('References:')+' '+html.escape('; '.join(row['references'])),
+                t('Next steps:')+' '+html.escape(row['mitigation'] or t(row['recommended_next_steps'])),''])
+        lines.append(t('## Network findings'))
         for row in payload['network_alerts']:
-            lines.extend([f"- {row['rule_id']} · {row['lifecycle_state']} · {row['event_timestamp']} · event {html.escape(row['event_ref'])}",
-                          '  '+html.escape(row['explanation']), '  Next steps: '+row['recommended_next_steps']])
-        lines.extend(['','## Asset intelligence and operational context'])
+            lines.extend([f"- {row['rule_id']} · {t(row['lifecycle_state'])} · {row['event_timestamp']} · {t('Event')} {html.escape(row['event_ref'])}",
+                          '  '+html.escape(t(row['explanation'])), '  '+t('Next steps:')+' '+t(row['recommended_next_steps'])])
+        lines.extend(['',t('## Asset intelligence and operational context')])
         extension=payload['asset_intelligence']
         for category in ('management','asset_context','processes','process_links','asset_changes','software_components','scan_runs','triage','collectors'):
-            lines.append('### '+category.replace('_',' ').title())
+            lines.append('### '+t(category.replace('_',' ').title()))
             for row in extension[category]:lines.append('- '+html.escape(json.dumps(row,ensure_ascii=False)))
-        lines.extend(['','## Known limitations']+['- '+text for text in LIMITATIONS])
+        lines.extend(['',t('## Known limitations')]+['- '+t(text) for text in LIMITATIONS])
         return '\n'.join(lines)+'\n'
     if format!='csv':raise ValueError('format must be json, csv, or markdown')
     out=StringIO()

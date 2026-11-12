@@ -150,6 +150,8 @@ same training exercise. Completed PCAPs themselves are deduplicated by digest.
 
 ## Ten-minute presentation
 
+Follow the [complete video script](../docs/demo-video.md) for timed screen actions, narration, dataset switches, and expected evidence.
+
 | Minute | Workflow |
 |---|---|
 | 0–1 | Fictional facility, operator purpose, collection/permission boundaries |

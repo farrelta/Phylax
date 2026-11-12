@@ -2,7 +2,7 @@
 import json
 from datetime import datetime,timezone
 from urllib.parse import urlencode
-from .ui import e,field,select,hidden,form,actor_fields,table,raw_record
+from .ui import verbatim, e,field,select,hidden,form,actor_fields,table,raw_record
 from .asset_intelligence import context_revision,collectors
 from .discovery import eligible,eligible_inventory,target
 
@@ -26,7 +26,7 @@ def context_page(store,query,offset,submitted=None):
     if submitted:values.update(submitted)
     body='<p>Record ownership and confirmed process support. These relationships do not automatically change criticality or establish disruption.</p>'
     body+='<form method="get" class="controls">'+select('asset_id','Asset to review',choices,aid)+'<button>Load asset context</button></form>'
-    body+='<section class="editor"><h2>Context for '+e(asset_label(asset))+'</h2>'
+    body+='<section class="editor"><h2>Context for '+verbatim(asset_label(asset))+'</h2>'
     body+='<p class="muted">'+('Last saved '+e(current['updated_at']) if current else 'No operational context saved for this asset.')+'</p>'
     body+='<p>Existing values are loaded below. An empty value clears that field. Inventory identity and criticality are edited separately.</p>'
     revision=(submitted or {}).get('context_revision',context_revision(store,aid))
@@ -46,7 +46,7 @@ def context_page(store,query,offset,submitted=None):
     links=[dict(r) for r in store.connection.execute('SELECT l.*,p.name,p.description,a.hostname,a.ip_address FROM process_links l JOIN processes p USING(process_id) JOIN assets a USING(asset_id) ORDER BY a.ip_address,p.name LIMIT 50 OFFSET ?',(offset,))]
     for row in links:row['asset']=asset_label(row)
     def remove(row):
-        return '<details><summary>Remove relationship</summary><p>'+e(row['asset'])+' supports '+e(row['name'])+'</p>'+form('/processes/unlink',
+        return '<details><summary>Remove relationship</summary><p>'+verbatim(row['asset'])+' supports '+verbatim(row['name'])+'</p>'+form('/processes/unlink',
             hidden('asset_id',row['asset_id'])+hidden('process_id',row['process_id'])+actor_fields(),'Remove this relationship')+'</details>'
     body+='<h2>Confirmed process support</h2>'+table(links,[('asset','Asset'),('name','Process'),('actor','Confirmed by'),('note','Evidence')],actions=remove)
     total=max(store.connection.execute('SELECT COUNT(*) FROM asset_context').fetchone()[0],store.connection.execute('SELECT COUNT(*) FROM process_links').fetchone()[0])
@@ -95,7 +95,7 @@ def discovery_page(store,query,offset,submitted=None):
                     'permission':'true' if current.get('permission') else 'false','identify':'true' if json.loads(current.get('identification_json','{}')) else 'false',
                     'actor':'','note':''}
             if submitted:values.update(submitted)
-            body+='<section class="editor"><h3>'+e(asset_label(asset))+'</h3><p>Device management approval and inventory verification do not grant scan permission. Saving changes invalidates pending requests for this target.</p>'
+            body+='<section class="editor"><h3>'+verbatim(asset_label(asset))+'</h3><p>Device management approval and inventory verification do not grant scan permission. Saving changes invalidates pending requests for this target.</p>'
             fields=hidden('asset_id',aid)+hidden('target_revision',(submitted or {}).get('target_revision',current.get('revision',0)))
             fields+='<div class="form-grid">'+field('ports','Selected TCP ports (comma separated, maximum 32)',values['ports'],True)
             fields+=select('permission','Scan permission',[('false','Disabled'),('true','Explicitly permitted')],values['permission'])
@@ -113,7 +113,7 @@ def discovery_page(store,query,offset,submitted=None):
     def actions(row):
         markup='<a href="/discovery?'+e(urlencode({'asset_id':row['asset_id']}))+'">Edit permission</a>'
         if row['permission']:
-            markup+='<details><summary>Revoke scan permission</summary><p>'+e(row['asset'])+'</p>'+form('/discovery/revoke',hidden('target_id',row['target_id'])+actor_fields(),'Revoke this permission')+'</details>'
+            markup+='<details><summary>Revoke scan permission</summary><p>'+verbatim(row['asset'])+'</p>'+form('/discovery/revoke',hidden('target_id',row['target_id'])+actor_fields(),'Revoke this permission')+'</details>'
         return markup+raw_record(row,'Permission evidence and identifiers')
     body+=table(targets,[('asset','Target'),('ports','TCP ports'),('permission_state','Scan permission'),('actor','Last changed by')],actions=actions,empty='No targets configured. Save an eligible target permission above.')
     body+='<h2>Run approved discovery</h2><p>Requests enter the local queue. Start the separate discovery worker to execute them; no scan starts merely by viewing this page.</p>'

@@ -3,7 +3,7 @@ from collections import defaultdict
 from unicodedata import east_asian_width
 from urllib.parse import urlencode
 
-from .ui import e, hidden, field, select, evidence_url
+from .ui import verbatim, e, hidden, field, select, evidence_url
 
 NODE_LIMIT = 24
 LINK_LIMIT = 60
@@ -95,7 +95,7 @@ def diagram(data, query):
                           f'<title>{e(node["identity"])} · {e(ip)} · {e(node["asset_type"])} · {e(state)}</title>'
                           f'<g transform="translate({nx} {ny})"><rect class="topology-plate" width="264" height="96" rx="4"/>'
                           f'<svg x="14" y="15" width="24" height="24" viewBox="0 0 24 24" class="topology-icon" aria-hidden="true">{icon(node["asset_type"])}</svg>'
-                          f'<text class="topology-name" x="48" y="31">{e(short(node["identity"],24))}</text>'
+                          f'<text translate="no" class="topology-name" x="48" y="31">{e(short(node["identity"],24))}</text>'
                           f'<text class="topology-ip" x="48" y="51">{e(ip)}</text>'
                           f'<text class="topology-state" x="15" y="79">{e(short(state,34))}</text></g></a>')
     pairs=defaultdict(list)
@@ -139,7 +139,7 @@ def diagram(data, query):
         process_rows=defaultdict(int)
         for index,(pid,process) in enumerate(list(processes.items())[:PROCESS_LIMIT]):
             x=position[process['ip_address']][0];y=bottom+78+process_rows[x]*84;process_rows[x]+=1;shown_processes[pid]=(x,y)
-            process_shapes.append(f'<a class="topology-process" href="/processes?{e(urlencode({"asset_id":process["asset_id"]}))}" aria-label="{e("Review confirmed process support: "+process["name"])}"><title>{e(process["name"])}</title><rect x="{x}" y="{y}" width="264" height="56" rx="3"/><text x="{x+14}" y="{y+23}">{e(short(process["name"],31))}</text><text class="topology-meta" x="{x+14}" y="{y+42}">Operator-confirmed process</text></a>')
+            process_shapes.append(f'<a class="topology-process" href="/processes?{e(urlencode({"asset_id":process["asset_id"]}))}" aria-label="{e("Review confirmed process support: "+process["name"])}"><title translate="no">{e(process["name"])}</title><rect x="{x}" y="{y}" width="264" height="56" rx="3"/><text translate="no" x="{x+14}" y="{y+23}">{e(short(process["name"],31))}</text><text class="topology-meta" x="{x+14}" y="{y+42}">Operator-confirmed process</text></a>')
         for index,link in enumerate(process_links):
             if link['process_id'] not in shown_processes:continue
             sx,sy=position[link['ip_address']];dx,dy=shown_processes[link['process_id']]
@@ -175,7 +175,7 @@ def asset_details(store,data,selected,query):
     last=node.get('last_observed') or max((r['last_seen'] for r in records),default='Not available in this view')
     facts=[('Type',node['asset_type']),('Zone',node['zone']),('Criticality',node['criticality']),
            ('Management',MANAGEMENT.get(node['management_status'],'Unknown')),('Identity confidence',node['identity_confidence'])]
-    body=f'<section id="surface-details" class="topology-detail" aria-label="Selected asset details"><h3>{e(node["identity"])}</h3><p class="mono">{e(selected)}</p><p class="muted">'+('Verified inventory identity' if node['verified'] else 'Identity unverified')+'</p>'
+    body=f'<section id="surface-details" class="topology-detail" aria-label="Selected asset details"><div translate="no"><h3>{e(node["identity"])}</h3></div><p class="mono">{e(selected)}</p><p class="muted">'+('Verified inventory identity' if node['verified'] else 'Identity unverified')+'</p>'
     body+='<dl>'+''.join('<div><dt>'+e(k)+'</dt><dd>'+e(v)+'</dd></div>' for k,v in facts)+'</dl>'
     body+='<h4>Observed evidence</h4><p>'+e(node['visibility'])+'</p><dl class="topology-times"><div><dt>First communication</dt><dd>'+observed_time(first)+'</dd></div><div><dt>Last communication</dt><dd>'+observed_time(last)+'</dd></div></dl>'
     if records:
@@ -218,7 +218,7 @@ def render_topology(store,data,query):
     status=(f'<p class="topology-caption" role="status">{stats["matches"]} known assets or peers match '+e(params['q'])+'.</p>') if stats['matches'] is not None else ''
     if params['q']:
         results=[n for n in data['nodes'] if params['q'].strip().casefold() in (n['identity']+' '+n['ip_address']).casefold()]
-        status+='<ul class="topology-results">'+''.join('<li><a href="'+e(url(params,selected=n['ip_address']))+'">'+e(n['identity']+' · '+n['ip_address'])+'</a> · '+e(n['visibility'])+'</li>' for n in results[:20])+'</ul>' if results else '<p>No known assets or peers match this search. Refine the name or IP, or clear Find.</p>'
+        status+='<ul class="topology-results">'+''.join('<li><a href="'+e(url(params,selected=n['ip_address']))+'">'+verbatim(n['identity']+' · '+n['ip_address'])+'</a> · '+e(n['visibility'])+'</li>' for n in results[:20])+'</ul>' if results else '<p>No known assets or peers match this search. Refine the name or IP, or clear Find.</p>'
         if len(results)>20:status+='<p>Showing 20 results; refine Find to locate another endpoint.</p>'
         status+='<p><a href="'+e(url(params,q=None,selected=None))+'">Clear Find</a></p>'
     toolbar+='<p class="muted">Find searches all known inventory and imported peers within the asset filters. The graph retains observed communication as context.</p>'
