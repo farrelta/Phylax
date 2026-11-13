@@ -225,33 +225,28 @@ class HTTPAndGuidanceRegressionTests(unittest.TestCase):
         self.assertIn(b'name="csrf_token"',h.wfile.getvalue())
         self.assertIn("frame-ancestors 'none'",h.response_headers['Content-Security-Policy'])
 
-    def test_current_http_plan_flow_stores_model_and_keeps_authority(self):
-        from phylax.ai import generate_guidance
-        from phylax.remediation import HostedModelProvider
-        config=AIConfig('https://provider.example/v1','router/free','fake','openrouter')
-        class Response:
-            def __enter__(self):return self
-            def __exit__(self,*args):pass
-            def read(self,n):return json.dumps({'model':'actual/provider-model','choices':[{'message':{'content':json.dumps({'summary':'Review sources','steps':['Check vendor guidance'],'validation':'Verify with vendor','source_urls':['https://vendor.example/advisory']})}}]}).encode()
-        sent=[]
-        def opener(req,timeout):sent.append(json.loads(req.data));return Response()
+    def test_multipart_parser_preserves_file_payload(self):
+        from phylax.web_security import multipart_fields
+
+        payload = b'\x00\xff embedded --PhylaxBoundary text\r\n'
+        body = (b'--PhylaxBoundary\r\nContent-Disposition: form-data; name="file"; filename="asset.log"\r\n'
+                b'Content-Type: application/octet-stream\r\n\r\n' + payload + b'\r\n--PhylaxBoundary--\r\n')
+        part = multipart_fields(body, 'multipart/form-data; boundary="PhylaxBoundary"')['file']
+        self.assertEqual(part.get_filename(), 'asset.log')
+        self.assertEqual(part.get_payload(decode=True), payload)
+
+    def test_existing_plan_post_saves_builtin_without_contacting_provider(self):
         before=dict(self.store.connection.execute('SELECT status,priority FROM findings').fetchone())
-        with patch('phylax.remediation_service.AIConfig.from_env',return_value=config),patch('phylax.remediation.generate_guidance',side_effect=lambda r,c:generate_guidance(r,c,opener=opener)):
+        with patch('phylax.assistant_web.complete') as provider:
             h=self.handler('/remediation/create','csrf_token='+self.Handler.csrf_token+'&finding_id='+self.fid);h.do_POST()
+            provider.assert_not_called()
         self.assertEqual(h.response_status,303)
         self.assertEqual(h.response_headers['Location'],'/jobs/testjob')
-        self.assertNotIn('private-inventory-host',json.dumps(sent))
-        self.assertNotIn('192.0.2.1',json.dumps(sent))
         saved=self.store.get_remediation_plan(self.fid)
-        self.assertEqual(saved['model'],'actual/provider-model')
-        self.assertEqual(saved['plan']['requested_model'],'router/free')
+        self.assertEqual(saved['provider'],'template-fallback')
         self.assertEqual(before,dict(self.store.connection.execute('SELECT status,priority FROM findings').fetchone()))
-        with patch('phylax.remediation_service.AIConfig.from_env',return_value=config),patch.object(HostedModelProvider,'generate',side_effect=RuntimeError('timeout')):
-            h=self.handler('/remediation/create','csrf_token='+self.Handler.csrf_token+'&finding_id='+self.fid);h.do_POST()
-        self.assertIn('previous hosted plan was kept',self.jobs.message)
-        self.assertEqual(saved,self.store.get_remediation_plan(self.fid))
         report=json.loads(self.store.report('json'))
-        self.assertEqual(report['remediation_plans'][0]['model'],'actual/provider-model')
+        self.assertEqual(report['remediation_plans'][0]['provider'],'template-fallback')
         self.assertIsInstance(report['findings'][0]['evidence'],list)
 
     def test_csv_contains_context_and_neutralizes_formulas(self):
@@ -324,19 +319,19 @@ class PersistenceAndExtensionRegressionTests(unittest.TestCase):
         self.assertEqual(len(s.assets()),1);self.assertEqual(s.assets()[0]['asset_id'],'manual')
         self.assertEqual(s.assets()[0]['last_seen'],'2026-10-31T00:00:00.000000Z');s.close()
 
-    def test_new_adapter_needs_no_correlation_change(self):
-        from phylax.adapters import IntelligenceBatch
+    def test_new_loader_needs_no_correlation_change(self):
         from phylax.feeds import sync_store,KEV_URL,ICS_RSS_URL
-        class Adapter:
-            name='review-adapter';trusted_public=False
-            def collect(self,fetcher,retrieved_at):
-                return IntelligenceBatch(vulnerabilities=[{'cve_id':'CVE-2024-55555','summary':'TEST ONLY extension','source':self.name,'synthetic':True,'affected_products':[]}])
+        source = 'review-source'
+        def load_extra(store, fetcher, retrieved_at):
+            return store.ingest_normalized([{'cve_id':'CVE-2024-55555','summary':'TEST ONLY extension',
+                                            'source':source,'synthetic':True,'affected_products':[],
+                                            'retrieved_at':retrieved_at}])
         def fetcher(url):
             if url==KEV_URL:return b'{"vulnerabilities":[]}'
             if url==ICS_RSS_URL:return b'<rss><channel/></rss>'
             return b'{"vulnerabilities":[],"totalResults":0}'
-        s=Store(':memory:');result=sync_store(s,fetcher=fetcher,additional_adapters=(Adapter(),))
-        self.assertTrue(result['review-adapter']['ok'])
+        s=Store(':memory:');result=sync_store(s,fetcher=fetcher,additional_loaders=((source, load_extra),))
+        self.assertEqual(result[source], {'ok':True,'records':1})
         self.assertEqual(s.connection.execute('SELECT COUNT(*) FROM synchronization_runs').fetchone()[0],4)
         s.close()
 

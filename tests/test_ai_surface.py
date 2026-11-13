@@ -153,8 +153,17 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         alert = self.store.connection.execute("SELECT alert_id,acknowledged FROM alerts WHERE finding_id=?", (finding_id,)).fetchone()
         self.assertIsNotNone(alert)
         guidance = {"summary": "Review the vendor advisory.", "steps": ["Confirm affected version."], "validation": "Check release notes.", "source_urls": ["https://vendor.example/advisory"], "vendor_guidance": "source-provided"}
-        self.store.save_ai_remediation(finding_id, "test-model", guidance, guidance["source_urls"])
-        self.assertEqual(self.store.get_ai_remediation(finding_id)["guidance"], guidance)
+        finding = self.store.finding(finding_id)
+        for key in ('evidence', 'missing_evidence'):
+            finding[key] = json.loads(finding[key])
+        hosted = {"model": "test-model", "guidance": guidance, "source_urls": guidance["source_urls"]}
+        plan = compose_plan(finding, self.store.public_vulnerability_for_finding(finding_id), hosted)
+        self.store.create_remediation_plan(finding_id, "test-provider", "test-model", plan, guidance["source_urls"])
+        stored = self.store.get_remediation_plan(finding_id)
+        self.assertEqual(stored["plan"]["ai_summary"], guidance["summary"])
+        self.assertEqual(stored["plan"]["ai_steps"], guidance["steps"])
+        self.assertEqual(stored["source_urls"], guidance["source_urls"])
+        self.assertEqual(stored["model"], "test-model")
         after = dict(self.store.connection.execute("SELECT status,priority FROM findings WHERE finding_id=?", (finding_id,)).fetchone())
         alert_after = self.store.connection.execute("SELECT alert_id,acknowledged FROM alerts WHERE finding_id=?", (finding_id,)).fetchone()
         self.assertEqual(before, after)

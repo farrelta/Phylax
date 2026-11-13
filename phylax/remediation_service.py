@@ -1,44 +1,38 @@
-"""One tested operation for operator-triggered hosted guidance and local plans."""
-from __future__ import annotations
+"""Persist an explicitly reviewed plan against the evidence that produced it."""
 import json
-from .ai import AIConfig
-from .core import Store
-from .remediation import HostedModelProvider,TemplateFallbackProvider,compose_plan
+
+from .assistant_workflows import fingerprint
+from .remediation import compose_plan
 
 
-def generate_plan(store: Store, finding_id: str) -> str:
-    finding=store.finding(finding_id)
-    public_record=store.public_vulnerability_for_finding(finding_id)
-    if finding is None or public_record is None:raise ValueError('Finding not found')
-    for key in ('evidence','missing_evidence'):finding[key]=json.loads(finding[key])
-    finding['references']=json.loads(finding['references_json'])
-    config=AIConfig.from_env()
-    hosted=None;reason='';selected=TemplateFallbackProvider()
-    if finding['synthetic']:
-        reason='Synthetic fixture: generated a local plan; hosted AI was intentionally skipped.'
-    elif not config:
-        reason='Hosted AI is not configured; generated a local plan.'
-    elif not public_record.get('public_trusted'):
-        reason='Hosted AI skipped: no trusted public feed snapshot is stored. Refresh this CVE from its official source.'
-    else:
-        selected=HostedModelProvider(config)
-        # Provider call happens outside an open write transaction.
-        try:hosted=selected.generate(public_record)
-        except (RuntimeError,ValueError) as exc:
-            reason=f'Hosted guidance unavailable or invalid ({exc}).'
-            selected=TemplateFallbackProvider()
-    # Input may change while a remote request is running. Never attach output to
-    # a different assessment or clear approvals against changed evidence.
-    current=store.finding(finding_id)
-    if current is None or any(current[k] != finding[k] for k in ('status','priority','updated_at')):
-        raise ValueError('Finding changed during generation; review the current assessment and retry')
-    existing=store.get_remediation_plan(finding_id)
-    if reason and existing and existing['provider']!=TemplateFallbackProvider.name:
-        store.audit('guidance_failed',finding_id,{'reason':reason,'previous_plan_kept':True})
-        store.connection.commit()
-        return reason+' The previous hosted plan was kept.'
-    plan=compose_plan(finding,public_record,hosted)
-    store.create_remediation_plan(finding_id,selected.name,selected.model,plan,plan['source_references'])
-    store.audit('plan_generated',finding_id,{'provider':selected.name,'model':selected.model,'hosted':bool(hosted)})
-    store.connection.commit()
-    return reason or ('Generated an AI-assisted plan with local evidence retained on this host.' if hosted else 'Generated a local remediation plan.')
+def remediation_version(store, finding_id):
+    return fingerprint(store.finding(finding_id), store.public_vulnerability_for_finding(finding_id),
+                       store.get_remediation_plan(finding_id))
+
+
+def generate_plan(store, finding_id, *, expected_version=None, result=None):
+    provider, model = 'template-fallback', ''
+    with store.atomic('reviewed_plan'):
+        store.connection.execute('UPDATE findings SET updated_at=updated_at WHERE finding_id=?', (finding_id,))
+        if expected_version is not None and remediation_version(store, finding_id) != expected_version:
+            raise ValueError('Finding or plan changed. Review the current evidence and draft again.')
+        finding = store.finding(finding_id)
+        public = store.public_vulnerability_for_finding(finding_id)
+        if finding is None or public is None:
+            raise ValueError('Finding not found')
+        for key in ('evidence', 'missing_evidence'):
+            finding[key] = json.loads(finding[key])
+        finding['references'] = json.loads(finding['references_json'])
+        supplement = None
+        if result:
+            provider, model = result['provider'], result['model']
+            draft = result['draft']
+            supplement = {'model': model, 'requested_model': result['requested_model'], 'source_urls': [],
+                          'guidance': {'summary': draft['summary'], 'steps': [draft['next_step']],
+                                       'validation': draft['reason'], 'source_urls': []}}
+        plan = compose_plan(finding, public, supplement)
+        if supplement:
+            plan['provider_note'] = 'AI-generated guidance. Review the saved evidence and vendor advisory before approving a change.'
+        store.create_remediation_plan(finding_id, provider, model, plan, plan['source_references'], commit=False)
+        store.audit('plan_generated', finding_id, {'provider': provider, 'model': model, 'hosted': bool(result and result['mode'] == 'hosted')})
+    return 'Saved remediation draft for operator review.'

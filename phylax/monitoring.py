@@ -107,8 +107,8 @@ def normalize_row(row: dict[str, Any], *, kind: str, source_file: str = "") -> N
     return NetworkEvent(timestamp, source, source_port, destination, destination_port, _clean(row.get("proto") or row.get("protocol") or row.get("service")).casefold(), operation, event_type, event_ref, source_file, row)
 
 
-def parse_zeek(stream: TextIO, *, kind: str = "conn", source_file: str = "") -> Iterable[NetworkEvent]:
-    """Stream JSON Lines or Zeek tab-separated logs; silently skip metadata lines."""
+def zeek_rows(stream: TextIO, *, max_line_length: int | None = None) -> Iterable[tuple[int, dict[str, Any]]]:
+    """Read Zeek JSON Lines or tab-separated records with their source line numbers."""
     fields: list[str] | None = None
     for line_number, line in enumerate(stream, start=1):
         line = line.rstrip("\r\n")
@@ -120,6 +120,8 @@ def parse_zeek(stream: TextIO, *, kind: str = "conn", source_file: str = "") -> 
         if line.startswith("#"):
             continue
         try:
+            if max_line_length is not None and len(line) > max_line_length:
+                raise ValueError("Record exceeds 1 MB")
             if line.startswith("{"):
                 row = json.loads(line)
             else:
@@ -129,9 +131,18 @@ def parse_zeek(stream: TextIO, *, kind: str = "conn", source_file: str = "") -> 
                 if len(values) != len(fields):
                     raise ValueError(f"Expected {len(fields)} tab-separated fields, got {len(values)}")
                 row = dict(zip(fields, values))
-            yield normalize_row(row, kind=kind, source_file=source_file)
         except (ValueError, TypeError, OverflowError, RecursionError) as exc:
             raise ValueError(f"Malformed Zeek row {line_number}: {exc}") from exc
+        yield line_number, row
+
+
+def parse_zeek(stream: TextIO, *, kind: str = "conn", source_file: str = "") -> Iterable[NetworkEvent]:
+    for line_number, row in zeek_rows(stream):
+        try:
+            event = normalize_row(row, kind=kind, source_file=source_file)
+        except (ValueError, TypeError, OverflowError, OSError, RecursionError) as exc:
+            raise ValueError(f"Malformed Zeek row {line_number}: {exc}") from exc
+        yield event
 
 
 def is_modbus_write(event: NetworkEvent) -> bool | None:
@@ -144,6 +155,14 @@ def is_modbus_write(event: NetworkEvent) -> bool | None:
     except ValueError:
         normalized = re.sub(r'[^a-z0-9]+','_',value).strip('_')
         return True if normalized in WRITE_WORDS else False if normalized in READ_WORDS else None
+
+
+def infer_zeek_kind(filename: str) -> str:
+    from .fingerprints import KIND, LOG_NAME
+    name = filename.casefold()
+    if LOG_NAME in name or KIND in name:
+        return KIND
+    return next((kind for kind in ('modbus', 'dhcp', 'software') if kind in name), 'conn')
 
 
 def validate_policy(policy: dict[str, Any]) -> dict[str, Any]:
@@ -193,7 +212,52 @@ def validate_policy(policy: dict[str, Any]) -> dict[str, Any]:
             value = str(window.get(name, ""))
             if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
                 raise ValueError(f"maintenance_windows_utc[{index}].{name} must use HH:MM in UTC")
-    return json.loads(json.dumps(policy))
+    if 'zone_subnets' in policy or 'denied_zone_pairs' in policy:
+        zones = policy.get('zone_subnets', {})
+        pairs = policy.get('denied_zone_pairs', [])
+        allowed_zones = {'IT', 'DMZ', 'OT'}
+        if not isinstance(zones, dict) or zones.keys() - allowed_zones or not isinstance(pairs, list) or len(pairs) > 6:
+            raise ValueError('Zone policy requires IT, DMZ or OT subnets and a list of denied zone pairs')
+        networks = []
+        for zone, cidrs in zones.items():
+            if not isinstance(cidrs, list) or len(cidrs) > 100:
+                raise ValueError('Each zone requires an array of up to 100 CIDRs')
+            for index, cidr in enumerate(cidrs):
+                if not isinstance(cidr, str) or '/' not in cidr:
+                    raise ValueError('Each zone subnet must be a CIDR')
+                network = ipaddress.ip_network(cidr)
+                if any(network.version == prior.version and network.overlaps(prior) for prior in networks):
+                    raise ValueError('Zone subnets must not overlap')
+                networks.append(network)
+                cidrs[index] = str(network)
+        for pair in pairs:
+            if (not isinstance(pair, list) or len(pair) != 2 or
+                    any(not isinstance(zone, str) or not zones.get(zone) for zone in pair) or pair[0] == pair[1]):
+                raise ValueError('Each denied zone pair requires two different configured zones')
+    return policy
+
+
+def _zone_detection(event, policy):
+    pairs = policy.get('denied_zone_pairs', [])
+    if not pairs or event.protocol != 'tcp':
+        return None, None
+    if (event.raw or {}).get('conn_state') not in ('SF', 'S1', 'S2', 'S3'):
+        return None, 'zone_policy: TCP establishment is not recorded'
+    zones = policy['zone_subnets']
+
+    def locate(ip):
+        return next((zone for zone, cidrs in zones.items()
+                     if ip and any(ipaddress.ip_address(ip) in ipaddress.ip_network(cidr) for cidr in cidrs)), None)
+
+    source_zone, destination_zone = locate(event.source_ip), locate(event.destination_ip)
+    if not source_zone or not destination_zone:
+        return None, 'zone_policy: source or destination zone is unknown'
+    if [source_zone, destination_zone] not in pairs:
+        return None, None
+    evidence = {'source_zone': source_zone, 'destination_zone': destination_zone,
+                'source_ip': event.source_ip, 'destination_ip': event.destination_ip,
+                'destination_port': event.destination_port, 'conn_state': event.raw['conn_state']}
+    return Detection('zone_policy_violation', 'high', 'Observed connection violates the configured zone policy.', evidence), None
 
 
 def _is_maintenance(timestamp: str, windows: list[dict[str, Any]]) -> bool | None:
@@ -228,6 +292,11 @@ def evaluate(event: NetworkEvent, policy: dict[str, Any]) -> tuple[list[Detectio
     diagnostics: list[str] = []
     protected = set(policy.get("protected_assets", []))
     if event.event_type == "connection":
+        detection, diagnostic = _zone_detection(event, policy)
+        if detection:
+            detections.append(detection)
+        if diagnostic:
+            diagnostics.append(diagnostic)
         allowed = policy.get("allowed_communications", [])
         matching_rules = [rule for rule in allowed if rule.get("destination_ip") == event.destination_ip]
         if event.destination_ip in protected:
@@ -310,13 +379,53 @@ def evaluate_stored_event(store: Store, event_id: str, event: NetworkEvent, poli
     return created,notes
 
 
-def reevaluate_events(store: Store, policy: dict[str, Any]) -> dict[str, Any]:
+def policy_version(store: Store) -> str:
+    row = store.connection.execute("SELECT value FROM schema_meta WHERE key='active_policy'").fetchone()
+    return row[0] if row else ''
+
+
+def _stored_event(row):
+    return NetworkEvent(row['timestamp'], row['source_ip'], row['source_port'], row['destination_ip'],
+                        row['destination_port'], row['protocol'], row['operation'], row['event_type'],
+                        row['event_ref'], row['source_file'], json.loads(row['raw_json']))
+
+
+def preview_policy(store: Store, policy: dict[str, Any], expected_version: str) -> dict:
+    policy = validate_policy(policy)
+    counts = dict(added=0, retained=0, resolved=0, events=0)
+    examples = {key: [] for key in ('added', 'retained', 'resolved')}
+    with store.atomic('policy_preview'):
+        if policy_version(store) != expected_version:
+            raise ValueError('The saved policy changed. Start a new preview.')
+        rows = store.connection.execute('''SELECT e.*, json_group_array(a.rule_id) FILTER (WHERE a.rule_id IS NOT NULL
+            AND COALESCE(l.state,'active')='active') AS active_rules
+            FROM network_events e LEFT JOIN network_alerts a USING(event_id)
+            LEFT JOIN network_alert_lifecycle l USING(alert_id) GROUP BY e.event_id''')
+        for row in rows:
+            event = _stored_event(row)
+            detections, _ = evaluate(event, policy)
+            prior = set(json.loads(row['active_rules']))
+            proposed = {d.rule_id for d in detections}
+            counts['events'] += 1
+            for key, rules in (('added', proposed - prior), ('retained', proposed & prior), ('resolved', prior - proposed)):
+                counts[key] += len(rules)
+                for rule in sorted(rules)[:max(0, 3 - len(examples[key]))]:
+                    examples[key].append((rule, event.event_ref))
+    return counts | {'examples': examples}
+
+
+def reevaluate_events(store: Store, policy: dict[str, Any], *, expected_version: str | None = None) -> dict[str, Any]:
     count = alerts = diagnostic_count = 0
     with store.atomic('policy_review'):
+        if expected_version is not None:
+            # Take the SQLite write lock before testing the version.
+            store.connection.execute("UPDATE schema_meta SET value=value WHERE key='active_policy'")
+            if policy_version(store) != expected_version:
+                raise ValueError('The saved policy changed. Start a new preview.')
         policy_id = register_policy(store,policy)
         # Cursor iteration keeps event processing bounded in memory.
         for row in store.connection.execute('SELECT * FROM network_events'):
-            event = NetworkEvent(row['timestamp'],row['source_ip'],row['source_port'],row['destination_ip'],row['destination_port'],row['protocol'],row['operation'],row['event_type'],row['event_ref'],row['source_file'],json.loads(row['raw_json']))
+            event = _stored_event(row)
             created,notes = evaluate_stored_event(store,row['event_id'],event,policy,policy_id)
             count += 1; alerts += created; diagnostic_count += len(notes)
         store.audit('policy_change',policy_id,{'events_evaluated':count})
@@ -328,7 +437,13 @@ def ingest_file(store: Store, path: str | Path, *, kind: str | None = None, poli
     path = Path(path)
     if path.stat().st_size > 500_000_000:
         raise ValueError('Zeek log exceeds 500 MB limit')
-    kind = kind or ('modbus' if 'modbus' in path.name.casefold() else 'conn')
+    kind = kind or infer_zeek_kind(path.name)
+    if kind == 'modbus-identity':
+        from .fingerprints import ingest
+        return ingest(store, path, source_file=source_file, commit=commit)
+    if kind in {'dhcp','software'}:
+        from .observations import ingest_observations
+        return ingest_observations(store,path,kind=kind,source_file=source_file,commit=commit)
     source_file = source_file or path.name
     policy = validate_policy(policy) if policy is not None else active_policy(store)
     inserted = duplicate = alert_count = diagnostic_count = 0
@@ -342,8 +457,8 @@ def ingest_file(store: Store, path: str | Path, *, kind: str | None = None, poli
                     (event_id,event.event_ref,event.timestamp,event.source_ip,event.source_port,event.destination_ip,event.destination_port,event.protocol,event.operation,event.event_type,event.source_file,json.dumps(event.raw,sort_keys=True)))
                 if cursor.rowcount:
                     inserted += 1
-                    store.observe_ip(event.source_ip,event.timestamp)
-                    store.observe_ip(event.destination_ip,event.timestamp)
+                    from .observations import observe_connection
+                    observe_connection(store,event)
                 else:
                     duplicate += 1
                 # Deduplicating storage never skips policy evaluation.

@@ -22,3 +22,13 @@ def prioritize(asset: dict[str, Any], vulnerability: dict[str, Any], status: str
     if zone == 'unknown': missing.append('Network zone is unknown.')
     missing.append('No verified vendor fix state is stored. Observed communication does not prove reachability or exploitation.')
     return {'priority':priority,'score':score,'factors':factors,'uncertainty':missing,'rule_version':'2'}
+
+
+def network_priority(severity: str, criticality: str = 'unknown', protected: bool = False) -> dict[str,Any]:
+    points={'low':0,'medium':1,'high':2,'critical':3}
+    factors=[{'input':'Rule severity','value':severity,'points':points.get(severity.casefold(),0)},
+             {'input':'Relevant asset criticality','value':criticality,'points':points.get(criticality,0)},
+             {'input':'Explicitly protected destination','value':protected,'points':int(protected)}]
+    score=sum(f['points'] for f in factors)
+    return {'score':score,'priority':'critical' if score>=6 else 'high' if score>=4 else 'medium' if score>=2 else 'low',
+            'factors':factors,'rule_version':'network-1','uncertainty':['Asset criticality is unknown'] if criticality=='unknown' else []}

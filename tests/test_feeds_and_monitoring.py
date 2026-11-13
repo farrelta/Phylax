@@ -79,8 +79,9 @@ class FeedTests(unittest.TestCase):
             offset = int(url.split("startIndex=")[1].split("&")[0])
             row = {"cve": {**NVD_ROW["cve"], "id": f"CVE-2024-{12345 + offset}"}}
             return json.dumps({"vulnerabilities": [row] if offset < 2 else [], "totalResults": 2}).encode()
-        items = list(nvd_pages(page_size=1, fetcher=fetcher))
-        self.assertEqual(len(items), 2)
+        pages = list(nvd_pages(page_size=1, fetcher=fetcher))
+        self.assertEqual([page[:3] for page in pages], [(1, 2, 1), (2, 2, 2)])
+        self.assertEqual([records[0]['cve_id'] for _, _, _, records in pages], ['CVE-2024-12345', 'CVE-2024-12346'])
         self.assertEqual(len(calls), 2)
 
     def test_kev_and_ics_keep_source_limits_explicit(self) -> None:
@@ -159,6 +160,21 @@ class FeedTests(unittest.TestCase):
             self.assertEqual(success, first_end)
             self.assertEqual(first_start, checkpoint["window_start"])
             store.close()
+
+    def test_nvd_empty_first_page_keeps_checkpoint_for_retry(self) -> None:
+        def fetcher(url: str) -> bytes:
+            if url == KEV_URL:
+                return b'{"vulnerabilities": []}'
+            if url == ICS_RSS_URL:
+                return b'<rss><channel/></rss>'
+            return b'{"vulnerabilities": [], "totalResults": 1}'
+
+        store = Store(':memory:')
+        self.addCleanup(store.close)
+        result = sync_store(store, fetcher=fetcher, nvd_page_size=1)['NVD API 2.0']
+        self.assertFalse(result['ok'])
+        self.assertIn('empty page at offset 0', result['error'])
+        self.assertEqual(store.sync_checkpoint('NVD API 2.0')['next_start_index'], 0)
 
     def test_source_health_marks_old_success_stale_without_erasing_timestamp(self) -> None:
         from datetime import datetime, timedelta, timezone
