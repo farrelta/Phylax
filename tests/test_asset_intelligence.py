@@ -10,7 +10,6 @@ from phylax.core import Store
 from phylax.asset_intelligence import add_subnet,endpoint_decision,revoke_decision,management_status,save_context,save_process
 from phylax.monitoring import ingest_file
 from phylax.observations import review_component,map_software
-from phylax.discovery import save_target,enqueue,worker_once,schedule,cancel,parse_result,Cancelled
 from phylax.watcher import LogWatcher
 
 
@@ -31,9 +30,6 @@ class ReleaseTests(unittest.TestCase):
 
     def vuln(self):
         self.s.ingest_fixture({'vulnerabilities':[{'cve_id':'CVE-2024-12345','summary':'Synthetic software acceptance','synthetic':True,'affected_products':[{'vendor':'apache','product':'http_server','versions':['2.4.41']}]}]})
-
-    def xml(self,ip='192.0.2.10'):
-        return f'<?xml version="1.0"?><!DOCTYPE nmaprun><nmaprun><host><address addr="{ip}" addrtype="ipv4"/><ports><port protocol="tcp" portid="80"><state state="open" reason="syn-ack"/></port></ports></host></nmaprun>'.encode()
 
     def runner(self,args,**kwargs):
         self.commands.append(args)
@@ -137,93 +133,16 @@ class ReleaseTests(unittest.TestCase):
         watcher.poll();self.assertEqual(watcher.poll()['imported'],1)
         with patch('phylax.watcher.os.open',side_effect=AssertionError('Unchanged file rehashed')):watcher.poll()
 
-    def test_release_demo_has_four_states_and_explicit_disabled_scan_permission(self):
+    def test_release_demo_has_four_applicability_states(self):
         from scripts.prepare_release_demo import prepare
         result=prepare(self.root/'fixture')
         self.assertEqual(set(result['applicability']),{'CONFIRMED_MATCH','POTENTIAL_MATCH','NO_MATCH_TO_THIS_ADVISORY','NEEDS_REVIEW'})
-        self.assertFalse(result['scan_permission'])
         with self.assertRaises(FileExistsError):prepare(self.root/'fixture')
-
-    def test_active_target_boundaries(self):
-        with self.assertRaises(ValueError):save_target(self.s,'plc',[502],permission=True,actor='operator',note='rejected')
-        for ports,identify in ((list(range(1,34)),{}),([80],{'80':'ssh'}),([True],{}),([9100],{'9100':'http'})):
-            with self.assertRaises(ValueError):save_target(self.s,'server',ports,identify=identify,permission=True,actor='operator',note='test')
-        tid=save_target(self.s,'server',[80],actor='operator',note='configuration only')
-        with self.assertRaises(ValueError):enqueue(self.s,tid)
-
-    def test_fixed_scan_args_evidence_and_unverified_software(self):
-        self.commands=[];self.vuln()
-        tid=save_target(self.s,'server',[80],identify={'80':'http'},permission=True,actor='operator',note='isolated lab')
-        rid=enqueue(self.s,tid);self.assertEqual(enqueue(self.s,tid),rid)
-        with patch('phylax.discovery.shutil.which',return_value='/usr/bin/nmap'):
-            result=worker_once(self.s,runner=self.runner,identifier_fn=lambda *args:{'server':'Apache/2.4.41'})
-        self.assertEqual(result['status'],'success')
-        self.assertEqual(result['result']['reachability'],'responded')
-        command=self.commands[-1]
-        self.assertIn('--unprivileged',command);self.assertIn('-sT',command);self.assertIn('-Pn',command);self.assertIn('-n',command)
-        self.assertNotIn('-sV',command);self.assertNotIn('--script',command)
-        self.assertEqual(self.s.dashboard()['findings'][0]['status'],'POTENTIAL_MATCH')
-        self.assertEqual(self.s.connection.execute('SELECT COUNT(*) FROM network_events').fetchone()[0],0)
-        self.assertEqual(self.s.connection.execute('SELECT kind FROM observations').fetchone()[0],'active_probe')
-
-    def test_revocation_cancels_queue_and_schedule_bounds(self):
-        tid=save_target(self.s,'server',[80],permission=True,actor='operator',note='lab')
-        rid=enqueue(self.s,tid)
-        with self.assertRaises(ValueError):schedule(self.s,tid,14)
-        schedule(self.s,tid,15)
-        save_target(self.s,'server',[80],permission=False,actor='operator',note='revoked')
-        self.assertEqual(self.s.connection.execute('SELECT status FROM scan_runs WHERE run_id=?',(rid,)).fetchone()[0],'cancelled')
-
-    def test_worker_lease_expiry_cancel_timeout_and_bad_xml(self):
-        tid=save_target(self.s,'server',[80],permission=True,actor='operator',note='lab')
-        rid=enqueue(self.s,tid);cancel(self.s,rid)
-        self.assertEqual(self.s.connection.execute('SELECT status FROM scan_runs WHERE run_id=?',(rid,)).fetchone()[0],'cancelled')
-        self.s.connection.execute("INSERT INTO worker_lease VALUES('scanner','other',?)",(time.time()+300,));self.s.connection.commit()
-        self.assertTrue(worker_once(self.s)['busy'])
-        self.s.connection.execute('DELETE FROM worker_lease');self.s.connection.commit();enqueue(self.s,tid)
-        with patch('phylax.discovery.shutil.which',return_value='/usr/bin/nmap'):
-            result=worker_once(self.s,runner=lambda *a,**kw:(_ for _ in ()).throw(TimeoutError('test')))
-        self.assertEqual(result['status'],'failed')
-        for body in (b'<bad',self.xml('192.0.2.99'),b'<!DOCTYPE x [<!ENTITY a "b">]><x/>'):
-            with self.assertRaises(ValueError):parse_result(body,'192.0.2.10',[80])
-        collapsed=b'<nmaprun><host><address addr="192.0.2.10" addrtype="ipv4"/><ports><extraports state="closed" count="1"><extrareasons reason="conn-refused" count="1"/></extraports></ports></host></nmaprun>'
-        result=parse_result(collapsed,'192.0.2.10',[80])
-        self.assertEqual(result['ports'][0]['state'],'closed');self.assertEqual(result['reachability'],'responded')
 
     def test_process_context_does_not_change_criticality(self):
         save_context(self.s,'server',owner='Lab operator',tags=['logistics'],criticality_rationale='fictional support service')
         save_process(self.s,'Cooling','Simulated utility support','plc','operator','confirmed lab dependency')
         self.assertEqual(self.s.connection.execute("SELECT criticality FROM assets WHERE asset_id='plc'").fetchone()[0],'critical')
-
-    def test_schedule_skips_missed_intervals_and_recovers_expired_run(self):
-        tid=save_target(self.s,'server',[80],permission=True,actor='operator',note='lab')
-        schedule(self.s,tid,15);now=time.time()
-        self.s.connection.execute('UPDATE scan_schedules SET next_due=?',(now-9000,));self.s.connection.commit()
-        self.commands=[]
-        with patch('phylax.discovery.shutil.which',return_value='/usr/bin/nmap'):
-            result=worker_once(self.s,runner=self.runner,now=now)
-        self.assertEqual(result['status'],'success')
-        self.assertEqual(self.s.connection.execute('SELECT COUNT(*) FROM scan_runs').fetchone()[0],1)
-        self.assertEqual(self.s.connection.execute('SELECT next_due FROM scan_schedules').fetchone()[0],now+900)
-        rid=enqueue(self.s,tid)
-        self.s.connection.execute("UPDATE scan_runs SET status='running' WHERE run_id=?",(rid,));self.s.connection.commit()
-        self.assertTrue(worker_once(self.s)['idle'])
-        self.assertEqual(self.s.connection.execute('SELECT status FROM scan_runs WHERE run_id=?',(rid,)).fetchone()[0],'interrupted')
-
-    def test_permission_revoked_during_run_and_stale_inventory_rejected(self):
-        tid=save_target(self.s,'server',[80],permission=True,actor='operator',note='lab');rid=enqueue(self.s,tid)
-        def runner(args,**kw):
-            self.s.connection.execute('UPDATE scan_targets SET permission=0,revision=revision+1');self.s.connection.commit()
-            if kw['cancelled']():raise Cancelled('revoked')
-            return self.xml()
-        with patch('phylax.discovery.shutil.which',return_value='/usr/bin/nmap'):
-            result=worker_once(self.s,runner=runner)
-        self.assertEqual(result['status'],'cancelled')
-        self.assertEqual(self.s.connection.execute('SELECT COUNT(*) FROM observations').fetchone()[0],0)
-        save_target(self.s,'server',[80],permission=True,actor='operator',note='new consent')
-        self.s.connection.execute("UPDATE assets SET asset_type='HMI' WHERE asset_id='server'");self.s.connection.commit()
-        with self.assertRaises(ValueError):enqueue(self.s,tid)
-        save_target(self.s,'server',[80],permission=False,actor='operator',note='revoke after recategorization')
 
     def test_csaf_exact_fixed_status_cache_and_conflicts(self):
         from phylax.csaf import configure,sync_csaf,normalize,official_url

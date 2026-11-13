@@ -60,16 +60,6 @@ class CritiqueFixTests(unittest.TestCase):
         # The review banner is global even beyond its inventory-list offset.
         self.assertIn('identity_review=yes',page(self.store,page_number=2))
 
-    def test_discovery_error_never_rebinds_failed_permission_to_another_asset(self):
-        from phylax.release_web import error_page
-        self.store.import_csv(io.StringIO('asset_id,ip_address,hostname,asset_type,zone,identity_confidence,verified\nstale-a,192.0.2.220,Old target,PLC,OT,high,true\nsafe-b,192.0.2.221,Other server,server,IT,high,true\n'))
-        values={k:[v] for k,v in {'asset_id':'stale-a','ports':'443','permission':'true','target_revision':'0','actor':'fixture','note':'Only old target'}.items()}
-        text=error_page(self.store,'/discovery/save',values,'This target is no longer eligible.')
-        self.assertNotIn('action="/discovery/save"',text)
-        valid=operator_page(self.store,'/discovery',{'asset_id':['safe-b']})
-        self.assertIn('action="/discovery/save"',valid)
-        self.assertIn('name="asset_id" value="safe-b"',valid)
-
     def test_inventory_groups_keep_labels_and_record_context(self):
         finding=self.store.finding(self.fid)
         text=inventory_form(self.store,finding['asset_id'])

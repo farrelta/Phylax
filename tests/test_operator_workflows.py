@@ -8,7 +8,6 @@ from html.parser import HTMLParser
 from scripts.prepare_release_demo import prepare
 from phylax.core import Store
 from phylax.asset_intelligence import save_context,context_revision
-from phylax.discovery import save_target,enqueue,schedule
 from phylax.monitoring import ingest_file
 from phylax.release_web import page,post
 from phylax.triage import triage,acknowledge
@@ -91,41 +90,6 @@ class OperatorWorkflowTests(unittest.TestCase):
             bad=helper.handler('/processes/context',urlencode({**values,'csrf_token':'bad'}));bad.do_POST()
             self.assertEqual(bad.response_status,403)
         finally:helper.tearDown()
-
-    def test_discovery_only_offers_eligible_assets_and_permitted_execution(self):
-        html=page(self.store,'/discovery',{})
-        fields=Forms(html).fields('/discovery/save')
-        self.assertEqual(fields['asset_id'],'lab-it');self.assertEqual(fields['ports'],'8080')
-        self.assertIn('No currently permitted targets',html)
-        self.assertNotIn('action="/discovery/run"',html)
-        self.assertNotIn('<option value="lab-plc"',html);self.assertNotIn('<option value="lab-reader"',html)
-        self.assertIn('value="true" selected>Enabled for selected supported ports',html)
-        save_target(self.store,'lab-it',[8080],permission=True,actor='tester',note='Isolated fixture only')
-        html=page(self.store,'/discovery',{})
-        self.assertIn('action="/discovery/run"',html);self.assertIn('Currently permitted target',html)
-
-    def test_target_revision_stale_save_cannot_regrant_revoked_permission(self):
-        current=self.store.connection.execute('SELECT revision FROM scan_targets').fetchone()[0]
-        save_target(self.store,'lab-it',[8080],permission=False,actor='tester',note='revoked')
-        with self.assertRaises(ValueError):save_target(self.store,'lab-it',[8080],permission=True,actor='tester',note='stale',expected_revision=current)
-        self.assertFalse(self.store.connection.execute('SELECT permission FROM scan_targets').fetchone()[0])
-
-    def test_disabled_schedule_can_be_stopped_and_no_regrant_occurs(self):
-        tid=save_target(self.store,'lab-it',[8080],permission=True,actor='tester',note='fixture')
-        schedule(self.store,tid,15,True)
-        rid=enqueue(self.store,tid)
-        post(self.store,'/discovery/revoke',form_values({'target_id':tid,'actor':'tester','note':'revoke'}))
-        self.assertEqual(self.store.connection.execute('SELECT status FROM scan_runs WHERE run_id=?',(rid,)).fetchone()[0],'cancelled')
-        schedule(self.store,tid,15,False)
-        self.assertFalse(self.store.connection.execute('SELECT enabled FROM scan_schedules').fetchone()[0])
-        save_target(self.store,'lab-it',[8080],permission=True,actor='tester',note='fixture')
-        self.store.connection.execute("UPDATE assets SET asset_type='PLC' WHERE asset_id='lab-it'")
-        self.store.connection.commit()
-        html=page(self.store,'/discovery',{})
-        self.assertIn('No eligible supporting IT assets',html)
-        self.assertIn('Revoke this permission',html)
-        post(self.store,'/discovery/revoke',form_values({'target_id':tid,'actor':'tester','note':'Recategorized control endpoint'}))
-        self.assertFalse(self.store.connection.execute('SELECT permission FROM scan_targets').fetchone()[0])
 
     def test_triage_exposes_context_and_policy_before_raw_record(self):
         self.observe()

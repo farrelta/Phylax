@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .core import Store
 
 LIMITATIONS = [
-    'Active IT discovery requires explicit per-target permission. Control endpoints remain passive-only; Phylax performs no device control.',
+    'Network evidence comes from imported records. Phylax performs no active scans or device control.',
     'Version matching uses exact source versions and numeric dotted ranges only; unsupported CPE/version conditions require review.',
     'Incomplete or unverified identities are not treated as safe.',
     'Imported observations define the visible surface; unseen traffic is not evidence of absence.',
@@ -38,6 +38,9 @@ def report_data(store: Store) -> dict[str, Any]:
         row['priority_uncertainty']=assessment['uncertainty']
         row['priority_rule_version']=assessment['rule_version']
         row['source_provenance']=store.vulnerability_provenance(row['cve_id'])
+        row['component_sources']=[dict(component) for component in store.connection.execute(
+            '''SELECT s.component_id,s.source_file,s.event_ref FROM component_assessments c
+               JOIN software_components s USING(component_id) WHERE c.finding_id=?''', (row['finding_id'],))]
         for source in row['source_provenance']:
             source.pop('record_json',None)
         row['recommended_next_steps']=row['mitigation'] or 'Verify asset/version and source conditions with the asset owner; consult the vendor advisory before proposing a change.'
@@ -56,6 +59,12 @@ def report_data(store: Store) -> dict[str, Any]:
     for item in diagnostics:item['diagnostics']=json.loads(item.pop('diagnostics_json'))
     from .triage import release_data
     extension=release_data(store)
+    extension['sensor_evidence']=[dict(row) for row in store.connection.execute('''
+        SELECT kind,ip,observed_at,source_file,event_ref FROM observations
+        WHERE kind IN ('modbus-identity','wazuh_inventory')
+        UNION ALL SELECT event_type,source_ip,timestamp,source_file,event_ref
+        FROM network_events WHERE event_type='suricata_flow'
+        ORDER BY observed_at,event_ref''')]
     label=store.connection.execute("SELECT value FROM schema_meta WHERE key='dataset_label'").fetchone()
     return {'dataset_label':label[0] if label else '', 'asset_intelligence':extension,'generated_at':utc_now(),'scope':'local inventory and locally stored intelligence','known_limitations':LIMITATIONS,
             'findings':findings,'asset_identity_reviews':data['identity_review_assets'],'network_alerts':network,
@@ -83,7 +92,7 @@ def export_report(store: Store, format: str, *, language: str = 'en') -> str:
                           '  '+html.escape(t(row['explanation'])), '  '+t('Next steps:')+' '+t(row['recommended_next_steps'])])
         lines.extend(['',t('## Asset intelligence and operational context')])
         extension=payload['asset_intelligence']
-        for category in ('management','asset_context','processes','process_links','asset_changes','software_components','scan_runs','triage','collectors'):
+        for category in ('management','asset_context','processes','process_links','asset_changes','software_components','sensor_evidence','scan_runs','triage','collectors'):
             lines.append('### '+t(category.replace('_',' ').title()))
             for row in extension[category]:lines.append('- '+html.escape(json.dumps(row,ensure_ascii=False)))
         lines.extend(['',t('## Known limitations')]+['- '+t(text) for text in LIMITATIONS])
@@ -96,7 +105,7 @@ def export_report(store: Store, format: str, *, language: str = 'en') -> str:
         fields={'generated_at':payload['generated_at'],'known_limitations':'; '.join(LIMITATIONS),**row}
         writer.writerow({key:csv_value(json.dumps(value,ensure_ascii=False) if isinstance(value,(list,dict)) else value) for key,value in fields.items()})
     write({'record_type':'report_metadata','summary':payload['dataset_label']+' Local evidence export; absence of findings does not establish safety.'})
-    for row in payload['findings']:write({**row,'record_type':'vulnerability_finding'})
+    for row in payload['findings']:write({**row,'record_type':'vulnerability_finding','record_data':row['component_sources']})
     for row in payload['asset_identity_reviews']:
         write({**row,'record_type':'asset_identity_review','status':'NEEDS_REVIEW','summary':'Asset identity needs review. No CVE conclusion was made.', 'missing_evidence':[k for k in ('vendor','product') if not row[k]],'recommended_next_steps':'Verify inventory identity with its owner.'})
     for row in payload['network_alerts']:write({**row,'record_type':'network_alert','timestamp':row['event_timestamp'],'summary':row['explanation']})
@@ -104,5 +113,6 @@ def export_report(store: Store, format: str, *, language: str = 'en') -> str:
     for category,rows in payload['asset_intelligence'].items():
         for row in rows:
             write({'record_type':category,'asset_id':row.get('asset_id',''),'ip_address':row.get('ip',''),'status':row.get('status',''),
-                   'observed_at':row.get('observed_at',''),'ingested_at':row.get('ingested_at',''),'record_data':row})
+                   'observed_at':row.get('observed_at',''),'ingested_at':row.get('ingested_at',''),
+                   'event_ref':row.get('event_ref',''),'source':row.get('source_file',''),'record_data':row})
     return out.getvalue()

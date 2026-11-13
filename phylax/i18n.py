@@ -210,7 +210,7 @@ def language_control(destination: str, language: str) -> str:
                     '/remediation/update':'/remediation'}
     if path in action_views:
         destination = action_views[path]
-    elif path.count('/') > 1 and path.split('/')[1] in {'processes','discovery','approvals','software','triage','sources'}:
+    elif path.count('/') > 1 and path.split('/')[1] in {'processes','approvals','software','triage','sources'}:
         destination = '/settings' if path.startswith('/sources/') else '/'+path.split('/')[1]
     options = ''.join('<option value="'+code+'"'+(' selected' if code == language else '')+'>'+label+'</option>'
                       for code, label in LANGUAGES.items())

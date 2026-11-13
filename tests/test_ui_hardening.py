@@ -164,22 +164,4 @@ class UIHardeningTests(unittest.TestCase):
         self.assertEqual(context(self.store,'192.0.2.1')['criticality'],'unknown')
         self.assertEqual(context(self.store,'192.0.2.250')['identity_confidence'],'unknown')
 
-    def test_discovery_selector_is_paginated_searchable_and_preserves_target_boundaries(self):
-        from phylax.discovery import eligible_inventory,eligible
-        from phylax.configuration_pages import discovery_page
-        self.store.import_csv(io.StringIO('asset_id,ip_address,hostname,asset_type,zone\n'+''.join(
-            f's-{i},10.25.0.{i+1},SYNTHETIC server {i},server,IT\n' for i in range(120))))
-        self.store.import_csv(io.StringIO('asset_id,ip_address,hostname,asset_type,zone\nv6,2001:db8::1,IPv6 server,server,IT\not,192.0.2.11,OT server,server,OT\n'))
-        rows,total=eligible_inventory(self.store);self.assertEqual(total,120);self.assertEqual(len(rows),50)
-        next_rows,_=eligible_inventory(self.store,offset=50);self.assertFalse({r['asset_id'] for r in rows}&{r['asset_id'] for r in next_rows})
-        self.assertEqual(eligible_inventory(self.store,'%_')[1],0)
-        for aid in ('v6','ot'):
-            row=self.store.connection.execute('SELECT ip_address FROM assets WHERE asset_id=?',(aid,)).fetchone()
-            with self.assertRaises(ValueError):eligible(self.store,aid,row[0])
-        html,_=discovery_page(self.store,{'asset_id':['s-119']},0)
-        self.assertIn('value="s-119" selected',html);self.assertIn('Next assets',html)
-        self.assertNotIn('<option value="v6"',html);self.assertNotIn('<option value="ot"',html)
-        self.assertNotIn('action="/discovery/run"',html)
-
-
 if __name__=='__main__':unittest.main()

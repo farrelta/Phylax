@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from phylax.core import Store
 from phylax.asset_intelligence import add_subnet,endpoint_decision,save_context,save_process
-from phylax.discovery import save_target
 from phylax.monitoring import reevaluate_events
 from scripts.generate_passive_demo import generate
 
@@ -32,7 +31,6 @@ def prepare(directory):
             endpoint_decision(store,sid,ip=ip,actor='Lab fixture operator',note='Explicit management approval for isolated synthetic demonstration')
         save_context(store,'lab-plc',owner='Fictional facility maintainer',site='SIMULATED support site',location='Simulated cooling room',lifecycle='commissioned',tags=['SYNTHETIC','utility-support'],criticality_rationale='Operator-assigned lab criticality for a simulated supporting process')
         save_process(store,'Simulated facility cooling','Fictional operational-support process; no real mission or equipment','lab-plc','Lab fixture operator','Explicit synthetic relationship for demonstrating context')
-        tid=save_target(store,'lab-it',[8080],identify={'8080':'http'},permission=False,actor='Lab fixture operator',note='Disabled initially; grant only after verifying the Compose lab is running')
         policy={'protected_assets':['172.30.77.10'],'authorized_writers':{'172.30.77.10':['172.30.77.30']},
                 'allowed_communications':[{'source_ip':'172.30.77.30','destination_ip':'172.30.77.10','destination_port':502,'protocol':'tcp'}],
                 'maintenance_windows_utc':[]}
@@ -44,9 +42,9 @@ def prepare(directory):
         store.ingest_fixture(fixture)
         (directory/'synthetic-advisory.json').write_text(json.dumps(fixture,indent=2))
         (directory/'policy.json').write_text(json.dumps(policy,indent=2))
-        (directory/'README.txt').write_text('SYNTHETIC FICTIONAL TNI AD SUPPORT FACILITY. No real TNI assets, topology, incidents, or endorsement. Active scan permission is initially disabled. Public AI guidance requires a separately refreshed real advisory.\n')
+        (directory/'README.txt').write_text('SYNTHETIC FICTIONAL TNI AD SUPPORT FACILITY. No real TNI assets, topology, incidents, or endorsement. Public AI guidance requires a separately refreshed real advisory.\n')
         generate(directory/'replay-captures',controller='172.30.77.10',reader='172.30.77.30',writer='172.30.77.99')
-        return {'database':str(directory/'phylax-demo.db'),'scan_target_id':tid,'scan_permission':False,'synthetic':True,'applicability':store.correlate()}
+        return {'database':str(directory/'phylax-demo.db'),'synthetic':True,'applicability':store.correlate()}
     finally:store.close()
 
 

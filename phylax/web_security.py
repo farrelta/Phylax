@@ -2,7 +2,10 @@
 from __future__ import annotations
 import hmac
 import re
-from urllib.parse import urlsplit, parse_qs
+from email.message import Message
+from email.parser import BytesParser
+from email.policy import HTTP
+from urllib.parse import urlsplit
 
 CSP = "default-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
@@ -40,11 +43,20 @@ def protect_forms(body: str, token: str) -> str:
     return re.sub(r'(<form\b[^>]*\bmethod=["\']post["\'][^>]*>)',lambda m:m[0]+f'<input type="hidden" name="csrf_token" value="{token}">',body,flags=re.I)
 
 
-def form_token(raw: bytes, content_type: str) -> str:
-    if content_type.startswith('multipart/form-data'):
-        match=re.search(br'name="csrf_token"\r\n\r\n([A-Za-z0-9_-]{20,100})\r\n',raw)
-        return match[1].decode() if match else ''
-    return parse_qs(raw.decode('utf-8','replace')).get('csrf_token',[''])[0]
+def multipart_fields(raw: bytes, content_type: str) -> dict[str, Message]:
+    if '\r' in content_type or '\n' in content_type:
+        return {}
+    headers = f'Content-Type: {content_type}\r\n\r\n'.encode('latin-1')
+    message = BytesParser(policy=HTTP).parsebytes(headers + raw)
+    if message.get_content_type() != 'multipart/form-data' or message.defects or not message.is_multipart():
+        return {}
+    fields = {}
+    for part in message.iter_parts():
+        if part.get_content_disposition() == 'form-data' and not part.is_multipart():
+            name = part.get_param('name', header='Content-Disposition')
+            if name:
+                fields.setdefault(name, part)
+    return fields
 
 
 def valid_token(actual: str, expected: str) -> bool:

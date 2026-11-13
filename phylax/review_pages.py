@@ -1,7 +1,7 @@
 """Contextual management and software review actions bound to their records."""
 import json
 from urllib.parse import urlencode
-from .ui import verbatim, e,field,select,hidden,form,actor_fields,table,raw_record
+from .ui import verbatim, e,field,select,hidden,form,actor_fields,table,raw_record,evidence_url,assist_link
 from .configuration_pages import asset_label
 
 
@@ -41,7 +41,7 @@ def software_page(store,query,offset,submitted=None):
         row['verification']='Verified' if row['verified'] else 'Unverified';row['state']='Active evidence' if row['active'] else 'Retired evidence'
     body='<p>Observed versions remain unverified until reviewed. Multiple active versions require review; retire obsolete evidence only after checking installation scope.</p>'
     body+=table(rows,[('asset','Asset'),('raw_name','Software'),('version','Version'),('identity','Exact mapping'),('verification','Verification'),('state','Evidence state')],
-        actions=lambda r:'<a href="/software?'+e(urlencode({'component_id':r['component_id']}))+'#review-component">Review evidence</a>',empty='No software evidence imported. Import a Zeek software log or review an approved IT identification result.')
+        actions=lambda r:'<a href="/software?'+e(urlencode({'component_id':r['component_id']}))+'#review-component">Review evidence</a>',empty='No software evidence imported. Import a Zeek software log or a Wazuh inventory export.')
     cid=values.get('component_id',query.get('component_id',[''])[0])
     if cid:
         row=store.connection.execute('SELECT s.*,a.hostname,a.ip_address FROM software_components s JOIN assets a USING(asset_id) WHERE component_id=?',(cid,)).fetchone()
@@ -49,9 +49,24 @@ def software_page(store,query,offset,submitted=None):
         row=dict(row)
         body+='<section class="editor" id="review-component"><h2>Review '+verbatim(row['raw_name'])+' '+(verbatim(row['version']) if row['version'] else e('unknown version'))+'</h2><p>'+verbatim(asset_label(row))+'</p>'
         body+='<p>First observed '+e(row['first_seen'])+' · last observed '+e(row['last_seen'])+'</p>'
+        body+='<p>'+assist_link('identity', 'Explain identity evidence', cid)+'</p>'
+        if store.connection.execute('SELECT 1 FROM observations WHERE event_ref=? LIMIT 1',(row['event_ref'],)).fetchone():
+            body+='<p>'+verbatim(row['source_file'])+' · <a href="'+e(evidence_url(row['event_ref'],'/software'))+'">Original event</a></p>'
         fields=hidden('component_id',cid)+select('verified','Identity and version verified',[('false','Unverified'),('true','Verified')],values.get('verified','true' if row['verified'] else 'false'))
         fields+=select('active','Evidence state',[('true','Active evidence'),('false','Retired evidence')],values.get('active','true' if row['active'] else 'false'))+actor_fields(values)
         body+=form('/software/review',fields,'Save review for this component')+raw_record(row,'Original software evidence and identifiers')+'</section>'
     body+='<details class="workflow"><summary>Manage an exact product mapping</summary><p>Use a source product identifier supported by verified mapping evidence. Similar names alone do not establish a match.</p>'+form('/software/map',
         field('raw_name','Exact observed software name',values.get('raw_name',''),True)+field('vendor','Source product vendor identifier',values.get('vendor',''),True)+field('product','Source product identifier',values.get('product',''),True)+actor_fields(values),'Save exact mapping')+'</details>'
+    body+='<details class="workflow"><summary>Map a Modbus device identity</summary>'+form('/software/modbus-map',
+        field('observed_vendor','Captured vendor name',values.get('observed_vendor',''),True)+
+        field('product_code','Captured product code',values.get('product_code',''),True)+
+        field('vendor','Source product vendor identifier',values.get('vendor',''),True)+
+        field('product','Source product identifier',values.get('product',''),True)+
+        select('role','Suggested device role',[('unknown','Unknown'),('PLC','PLC')],values.get('role','unknown'))+
+        select('firmware','Meaning of reported revision',[('false','Unverified revision meaning'),('true','Firmware version')],values.get('firmware','false'))+
+        actor_fields(values),'Save Modbus mapping')+'</details>'
+    body+='<details class="workflow"><summary>Import Wazuh inventory</summary><form method="post" action="/software/wazuh" enctype="multipart/form-data">'
+    body+=field('manager','Wazuh manager name','',True)+field('agent_id','Wazuh agent ID','',True)+field('asset_id','Existing IT asset ID','',True)
+    body+=select('kind','Syscollector export type',[('packages','Packages'),('os','Operating system')],'packages')
+    body+='<label>Wazuh inventory file<input required name="file" type="file" accept=".json,application/json"></label><button>Import Wazuh inventory</button></form></details>'
     return body,store.connection.execute('SELECT COUNT(*) FROM software_components').fetchone()[0]

@@ -16,7 +16,7 @@ NAV = (
 # Keep bookmarked routes available within their operator task.
 SECONDARY_NAV = {
     "/assets": ("Asset tools", (("/assets", "Inventory"), ("/approvals", "Approvals"),
-        ("/discovery", "IT discovery"), ("/software", "Software"),
+        ("/software", "Software"),
         ("/changes", "Changes"), ("/processes", "Operational context"))),
     "/network": ("Monitoring views", (("/network", "Events"), ("/attack-surface", "Attack surface"))),
     "/intelligence": ("Intelligence views", (("/intelligence", "CVEs"), ("/intelligence/ics", "CISA ICS advisories"))),
@@ -65,7 +65,7 @@ h2{font:500 12px var(--mono);text-transform:uppercase;letter-spacing:.08em;margi
 h2::before{content:"// ";color:var(--accent)}
 .lead,.muted,small{color:var(--muted)}.lead{margin:0 0 18px;max-width:78ch}
 small{font-size:13px}
-.nw{white-space:nowrap}.mono,td code{font-family:var(--mono);font-size:12px}
+.nw{white-space:nowrap}.asset-inventory td{overflow-wrap:anywhere}.asset-address small{display:block;margin:3px 0}.mono,td code{font-family:var(--mono);font-size:12px}
 .stats{display:flex;flex-wrap:wrap;margin:0 0 20px;padding:0;border:1px solid var(--line);background:var(--surface);box-shadow:0 8px 24px #00000040}
 .stats div{padding:10px 18px;border-right:1px solid var(--line);min-width:120px}
 .stats div:last-child{border-right:0}
@@ -77,6 +77,11 @@ small{font-size:13px}
 .steps li{flex:1 1 260px;border:1px solid var(--line);background:var(--surface);padding:10px 12px}
 .steps b{display:block;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}
 .steps form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 6px}
+form.overview-import{display:grid;gap:12px;align-items:start;justify-items:start}
+.steps .overview-import + .overview-import{margin-top:14px}
+.overview-import>div{min-width:0;max-width:100%}
+.overview-import label{margin:0 0 4px}.overview-import small{display:block;margin-top:4px}
+.assistance-request{white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto;padding:12px;border:1px solid var(--line)}
 button,.btn{font:inherit;background:var(--raised);color:var(--text);border:1px solid var(--control-line);border-radius:2px;padding:4px 10px;cursor:pointer;text-decoration:none;display:inline-block}
 button:hover,.btn:hover{background:var(--control-hover);text-decoration:none}
 button.primary,.btn.primary{background:var(--action);color:#fff;border-color:var(--action);font-weight:600}
@@ -146,6 +151,11 @@ footer{color:var(--muted);font-size:12px;margin-top:28px;max-width:100ch}
 .topology-edge path{fill:none;stroke:var(--graph-edge);stroke-width:1.5}.topology-edge:hover path,.topology-edge:focus path{stroke:var(--link);stroke-width:2}.topology-edge text{font-size:11px;fill:var(--muted)}#topology-arrow path{fill:none;stroke:var(--graph-edge);stroke-width:1}
 .topology-support{fill:none;stroke:var(--zone-ot);stroke-width:1.2;stroke-dasharray:4 5}.topology-process rect{fill:var(--raised);stroke:var(--zone-ot)}.topology-process text{font-size:12px}.topology-process:hover rect,.topology-process:focus rect{stroke:var(--link);stroke-width:2}
 .topology-caption{padding:12px 18px;margin:0;color:var(--muted);font-size:12px}.topology-legend{display:flex;flex-wrap:wrap;gap:12px 24px;padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.topology-legend span::before{content:"";display:inline-block;width:24px;margin-right:8px;vertical-align:middle;border-top:1px solid var(--graph-edge)}.topology-legend .support-key::before{border-top:1px dashed var(--zone-ot)}
+.alert-topology{display:grid;grid-template-columns:minmax(0,1fr) minmax(108px,auto) minmax(0,1fr);align-items:center;gap:12px;padding:16px;background:var(--surface);border:1px solid var(--line)}
+.alert-topology-endpoint{display:grid;gap:4px;min-width:0;padding:12px 16px;background:var(--raised);border:1px solid var(--control-line);border-radius:4px;overflow-wrap:anywhere}
+.alert-topology-endpoint>span{color:var(--muted)}.alert-topology-edge{display:grid;gap:2px;justify-items:center;min-height:44px;padding:6px 10px;border:1px solid var(--crit);border-radius:4px;text-align:center;color:var(--text);font-weight:600}
+.alert-topology-edge:hover{background:var(--raised)}.alert-topology-arrow::before{content:"→";color:var(--crit);font-size:32px;line-height:1}
+@media(max-width:620px){.alert-topology{grid-template-columns:minmax(0,1fr);gap:8px}.alert-topology-edge{justify-self:center;min-width:108px}.alert-topology-arrow::before{content:"↓"}}
 .topology-detail{grid-column:2;grid-row:1;min-width:0;border-left:1px solid var(--line);padding:20px;font-size:13px;overflow-wrap:anywhere}.topology-detail h3{margin:0;font-size:18px}.topology-detail h4{margin:22px 0 8px;padding-top:18px;border-top:1px solid var(--line);font-size:13px}.topology-detail p{margin:6px 0 14px}.topology-detail dl{margin:20px 0}.topology-detail dl>div{display:flex;justify-content:space-between;gap:16px;margin:10px 0}.topology-detail dt{color:var(--muted)}.topology-detail dd{margin:0;text-align:right}.topology-detail .topology-times>div{display:block}.topology-times dd{text-align:left;margin-top:3px}.topology-detail ul{padding-left:18px}.topology-detail li{margin-bottom:8px}.topology-empty{padding:30px 24px;min-height:220px}
 @media(max-width:1150px){.topology-workspace{grid-template-columns:minmax(0,1fr)}.topology-detail{grid-column:1;grid-row:1;border-left:0;border-bottom:1px solid var(--line)}.topology-canvas{grid-column:1;grid-row:2}.topology-detail dl{max-width:500px}.topology-detail dd{text-align:left}.topology-detail dl>div{justify-content:flex-start}.topology-detail dt{flex:0 0 140px}}
 .split>div,.record-actions>*{min-width:0}
@@ -192,7 +202,7 @@ GLOSSARY = {
     "CVE": "A public ID for one known security flaw, for example CVE-2024-1234.",
     "KEV": "CISA's catalog of vulnerabilities with documented exploitation. Membership raises urgency; it does not establish an attack on this device.",
     "Modbus": "A common industrial protocol that lets controllers read from and write to equipment. Unexpected writes can change how a machine behaves.",
-    "Zeek": "A passive network-monitoring tool. Phylax imports its logs; separately approved active IT discovery uses its own bounded probes.",
+    "Zeek": "A passive network-monitoring tool. Phylax imports its logs.",
     "Urgency score": "A 0 to 12 score built from visible rules: known exploitation, flaw severity, how important the device is, whether the match is confirmed, and its network zone. Every point is listed under 'Why this score'.",
     "Confirmed affected": "The device's vendor, product and version match the flaw's affected list, and the device's identity was verified.",
     "Possibly affected": "Vendor and product match, but the version or the device's identity is not certain. Someone should check.",
@@ -238,7 +248,7 @@ def layout(title: str, body: str, active: str = "", lead: str = "", heading: str
     if parent in SECONDARY_NAV:
         label, items = SECONDARY_NAV[parent]
         def destination(href):
-            if asset_id and href in {'/assets','/processes','/discovery'}:
+            if asset_id and href in {'/assets','/processes'}:
                 return ('/assets/edit' if href=='/assets' else href)+'?'+urlencode({'asset_id':asset_id})
             return href
         secondary = f'<nav class="secondary-navigation" aria-label="{html.escape(label)}">' + "".join(

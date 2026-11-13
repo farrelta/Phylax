@@ -130,7 +130,7 @@ class UnifiedFetchTests(unittest.TestCase):
                 raise HTTPError(request.full_url,429,'Rate limited',{'Retry-After':'60'},io.BytesIO())
             return io.BytesIO(b'{"vulnerabilities":[],"totalResults":0}')
         with patch('phylax.feeds.urllib.request.urlopen',side_effect=opener), patch('phylax.feeds.time.sleep') as sleep:
-            self.assertEqual(list(nvd_pages(api_key='TEST-KEY')),[])
+            self.assertEqual(list(nvd_pages(api_key='TEST-KEY')),[(1, 0, 0, [])])
         self.assertEqual(len(requests),2)
         self.assertTrue(all(req.get_header('Apikey')=='TEST-KEY' for req,_ in requests))
         self.assertTrue(all(kwargs['timeout']==20 for _,kwargs in requests))

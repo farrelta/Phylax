@@ -137,7 +137,7 @@ class LocalizedHTTPTests(unittest.TestCase):
             '/intelligence/ics':'Advisori CISA ICS','/triage':'Triase keamanan terpadu',
             '/reports':'Laporan','/settings':'Pengaturan dan sumber data','/policy':'Kebijakan jaringan pasif',
             '/glossary':'Glosarium','/remediation':'Rencana remediasi','/approvals':'Persetujuan pengelolaan perangkat',
-            '/changes':'Linimasa perubahan aset','/discovery':'Penemuan TI yang disetujui',
+            '/changes':'Linimasa perubahan aset',
             '/software':'Bukti dan verifikasi perangkat lunak','/processes':'Konteks operasional dan proses',
             '/evidence?event_ref=missing':'Bukti peristiwa asli','/?finding_id='+self.fid:'Temuan kerentanan'}
         for route,title in routes.items():
@@ -156,7 +156,7 @@ class LocalizedHTTPTests(unittest.TestCase):
         self.store.close();self.store=Store(':memory:')
         for path,expected in [('/','Mulai dengan inventaris aset Anda'),('/assets','Aset tidak ditemukan.'),
                 ('/triage','Tidak ada peringatan aktif'),('/software','Belum ada bukti perangkat lunak'),
-                ('/remediation','Belum ada rencana remediasi'),('/discovery','Tidak ada aset TI pendukung'),
+                ('/remediation','Belum ada rencana remediasi'),
                 ('/intelligence','Catatan intelijen tidak ditemukan')]:
             with self.subTest(path=path):
                 handler,body=self.get(path);self.assertEqual(handler.response_status,200);self.assertIn(expected,body)
@@ -209,13 +209,6 @@ class LocalizedHTTPTests(unittest.TestCase):
         self.assertEqual(tuple(saved),('Indonesian operator','maintenance'))
         _,body=self.get(handler.response_headers['Location']);self.assertIn('Konteks aset disimpan.',body)
         self.assertIn('value="maintenance" selected',body)
-
-    def test_discovery_error_does_not_grant_permission(self):
-        handler=self.handler('/discovery/save',{'asset_id':'lab-it','ports':'bad','permission':'true','actor':'operator','note':'draft'})
-        handler.do_POST();body=handler.wfile.getvalue().decode()
-        self.assertEqual(handler.response_status,400);self.assertIn('Port harus berupa bilangan bulat',body)
-        self.assertFalse(self.store.connection.execute('SELECT permission FROM scan_targets').fetchone()[0])
-        self.assertIn('name="ports" value="bad"',body)
 
     def test_remediation_rejects_invalid_transition_in_indonesian(self):
         before=self.store.get_remediation_plan(self.fid)

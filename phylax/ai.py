@@ -19,6 +19,7 @@ from typing import Any, Callable
 _DOTENV_KEYS = {
     "PHYLAX_AI_PROVIDER", "PHYLAX_AI_MODEL", "PHYLAX_AI_BASE_URL", "PHYLAX_AI_API_KEY",
     "GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "PHYLAX_AI_TIMEOUT_SECONDS",
+    "PHYLAX_LOCAL_AI_MODEL",
 }
 
 
@@ -92,6 +93,24 @@ class AIConfig:
         return cls(base_url, model, api_key, provider, timeout_seconds)
 
 
+def local_config() -> AIConfig | None:
+    _load_ai_dotenv()
+    model = os.environ.get('PHYLAX_LOCAL_AI_MODEL', '').strip()
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_./:-]{0,199}', model) or model.casefold().endswith((':cloud', '-cloud')):
+        return None
+    return AIConfig('http://127.0.0.1:11434/v1', model, '', 'ollama', 90)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def _opener(local=False):
+    handlers = [urllib.request.ProxyHandler({})] if local else []
+    return urllib.request.build_opener(*handlers, _NoRedirect()).open
+
+
 def _endpoint(base_url: str) -> str:
     parsed = urllib.parse.urlsplit(base_url)
     if parsed.scheme not in {"https", "http"} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
@@ -115,6 +134,9 @@ def public_vulnerability_payload(record: dict[str, Any]) -> dict[str, Any]:
             continue
         item = {key: product[key][:500] for key in ("vendor", "product", "cpe") if isinstance(product.get(key), str)}
         item["versions"] = [value[:200] for value in product.get("versions", [])[:100] if isinstance(value, str)]
+        item["excluded_versions"] = [value[:200] for value in product.get("excluded_versions", [])[:100] if isinstance(value, str)]
+        for key in ('conditions_unresolved', 'version_semantics_unknown'):
+            item[key] = product.get(key) is True
         ranges = []
         for version_range in product.get("version_ranges", [])[:100]:
             if isinstance(version_range, dict):
@@ -133,7 +155,7 @@ def public_vulnerability_payload(record: dict[str, Any]) -> dict[str, Any]:
     return public
 
 
-def generate_guidance(record: dict[str, Any], config: AIConfig, *, opener: Callable[..., Any] = urllib.request.urlopen) -> dict[str, Any]:
+def generate_guidance(record: dict[str, Any], config: AIConfig, *, opener: Callable[..., Any] | None = None) -> dict[str, Any]:
     public = public_vulnerability_payload(record)
     references = list(dict.fromkeys(([public["source_url"]] if public["source_url"] else []) + public["references"]))
     request_data = {
@@ -162,7 +184,7 @@ def generate_guidance(record: dict[str, Any], config: AIConfig, *, opener: Calla
     body = json.dumps(request_data).encode("utf-8")
     req = urllib.request.Request(_endpoint(config.base_url), data=body, headers={"Authorization": f"Bearer {config.api_key}", "Content-Type": "application/json"}, method="POST")
     try:
-        response = opener(req, timeout=config.timeout_seconds)
+        response = (opener or _opener())(req, timeout=config.timeout_seconds)
         with response:
             raw = response.read(1_000_001)
     except urllib.error.HTTPError as exc:

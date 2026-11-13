@@ -1,7 +1,35 @@
 """Shared, deterministic triage projection. Reading does not alter acknowledgements."""
 import json
+from urllib.parse import urlencode
 from .prioritization import prioritize,network_priority
 from .asset_intelligence import management_status,collectors
+
+ZONE_RULE = 'zone_policy_violation'
+
+
+def zone_alert(store, alert_id=None):
+    """Find the leading active zone alert, or one exact alert for investigation."""
+    sql = '''SELECT a.alert_id,a.explanation,a.policy_evidence,
+        e.source_ip,e.destination_ip,e.destination_port,e.protocol,e.timestamp,
+        COALESCE(l.state,'active') AS state
+        FROM network_alerts a JOIN network_events e USING(event_id)
+        LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE a.rule_id=?'''
+    if alert_id is None:
+        sql += " AND COALESCE(l.state,'active')='active' ORDER BY a.acknowledged,e.timestamp DESC,a.alert_id LIMIT 1"
+        params = (ZONE_RULE,)
+    else:
+        sql += ' AND a.alert_id=?'
+        params = (ZONE_RULE, alert_id)
+    row = store.connection.execute(sql, params).fetchone()
+    return dict(row) | {'policy': json.loads(row['policy_evidence'])} if row else None
+
+
+def zone_pair(policy):
+    return f"{policy['source_zone']} → {policy['destination_zone']}"
+
+
+def alert_url(alert_id):
+    return '/triage?'+urlencode({'alert':alert_id})+'#alert-'+alert_id
 
 
 def chunks(values,size=400):
@@ -19,7 +47,7 @@ def asset_index(store,ips,*,complete=False):
             asset=dict(row);ip=asset['ip_address']
             if ip in assets:continue
             rationale=asset.pop('context_rationale')
-            if asset['identification_source']=='zeek_passive' and not asset['verified'] and not rationale:
+            if asset['identification_source'] in {'zeek_passive','suricata_passive'} and not asset['verified'] and not rationale:
                 asset['criticality']='unknown'
                 asset['criticality_note']='Automatic inventory default is not verified operational criticality'
             assets[ip]=asset
@@ -61,20 +89,20 @@ def _hydrate_evidence(store,items):
                 else:item['evidence']=json.loads(row['evidence_json'])
 
 
-def triage(store,*,limit=None,offset=0,history=False,filters=None):
+def triage(store,*,limit=None,offset=0,history=False,filters=None,alert_id=None):
     # A watcher/worker may update evidence concurrently. Keep ranking and the
     # selected page's evidence in one SQLite read snapshot.
     with store.atomic('triage_projection'):
-        return _triage(store,limit=limit,offset=offset,history=history,filters=filters)
+        return _triage(store,limit=limit,offset=offset,history=history,filters=filters,alert_id=alert_id)
 
 
-def _triage(store,*,limit=None,offset=0,history=False,filters=None):
+def _triage(store,*,limit=None,offset=0,history=False,filters=None,alert_id=None):
     from .monitoring import active_policy
     filters=filters or {}
     for key,choices in [('category',{'exposure','network','endpoint'}),('priority',{'critical','high','medium','low','not_applicable'}),('acknowledged',{'yes','no'})]:
         if filters.get(key) and filters[key] not in choices:raise ValueError('Invalid triage '+key+' filter')
     policy=active_policy(store) or {};protected=set(policy.get('protected_assets',[]));items=[]
-    ack=filters.get('acknowledged');category=filters.get('category')
+    ack=filters.get('acknowledged');category='network' if alert_id else filters.get('category')
     where=' WHERE a.acknowledged='+('1' if ack=='yes' else '0') if ack else ''
     if category in (None,'','exposure'):
         sql='SELECT a.alert_id,a.acknowledged,a.explanation,f.finding_id,f.status,a.updated_at,s.ip_address,s.criticality,s.zone,v.severity,v.kev,v.cve_id FROM alerts a JOIN findings f USING(finding_id) JOIN assets s USING(asset_id) JOIN vulnerabilities v USING(cve_id)'+where
@@ -85,8 +113,12 @@ def _triage(store,*,limit=None,offset=0,history=False,filters=None):
                           'explanation':row['explanation'],'urgency':urgency,'finding_id':row['finding_id'],'cve_id':row['cve_id']})
     if category in (None,'','network'):
         sql="SELECT a.alert_id,a.rule_id,a.event_id,a.severity,a.explanation,a.acknowledged,e.source_ip,e.destination_ip,e.source_port,e.destination_port,e.protocol,e.operation,e.timestamp,e.event_ref,e.source_file,COALESCE(l.state,'active') AS lifecycle FROM network_alerts a JOIN network_events e USING(event_id) LEFT JOIN network_alert_lifecycle l USING(alert_id)"+where
-        if not history:sql+=(" AND " if where else " WHERE ")+"COALESCE(l.state,'active')='active'"
-        for row in store.connection.execute(sql):
+        conditions=[];params=[]
+        if alert_id:
+            conditions.append('a.alert_id=?');params.append(alert_id)
+        if not history:conditions.append("COALESCE(l.state,'active')='active'")
+        if conditions:sql+=(' AND ' if where else ' WHERE ')+' AND '.join(conditions)
+        for row in store.connection.execute(sql,params):
             row=dict(row)
             items.append({'category':'network','alert_id':row['alert_id'],'ip':row['destination_ip'],'severity':row['severity'],
                           'applicability':'not_assessed','acknowledged':bool(row['acknowledged']),'state':row['lifecycle'],'timestamp':row['timestamp'],

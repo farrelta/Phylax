@@ -1,6 +1,7 @@
 """Bounded, process-local operator jobs; every worker owns its SQLite connection."""
 from __future__ import annotations
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
@@ -13,11 +14,12 @@ class Jobs:
         self.executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='phylax-job')
         self.lock=threading.Lock()
         self.items: dict[str,dict[str,Any]]={}
+        self.previews: dict[str, tuple[float, Any]] = {}
 
-    def submit(self, label: str, work: Callable[..., str]) -> str:
+    def submit(self, label: str, work: Callable[..., str | dict], *, deduplicate=True) -> str:
         with self.lock:
             for key,item in self.items.items():
-                if item['label']==label and item['status'] in {'queued','running'}:return key
+                if deduplicate and item['label']==label and item['status'] in {'queued','running'}:return key
             if len(self.items)>=32:
                 finished=[key for key,item in self.items.items() if item['status'] not in {'queued','running'}]
                 if finished:self.items.pop(finished[0])
@@ -32,8 +34,10 @@ class Jobs:
                 with self.lock:self.items[key]['status']='running'
                 store=Store(self.database)
                 message=work(store,update)
-                update(message)
-                with self.lock:self.items[key]['status']='complete'
+                update(message if isinstance(message, str) else message['message'])
+                with self.lock:
+                    self.items[key]['status']='complete'
+                    if isinstance(message, dict):self.items[key]['result']=message
             except Exception as exc:
                 update(f'{type(exc).__name__}: {exc}')
                 with self.lock:self.items[key]['status']='failed'
@@ -44,6 +48,23 @@ class Jobs:
 
     def get(self, key: str) -> dict[str,Any] | None:
         with self.lock:return dict(self.items[key]) if key in self.items else None
+
+    def prepare(self, draft: Any) -> str:
+        with self.lock:
+            now = time.monotonic()
+            self.previews = {key: item for key, item in self.previews.items() if item[0] > now}
+            if len(self.previews) >= 32:
+                self.previews.pop(next(iter(self.previews)))
+            key = uuid.uuid4().hex
+            self.previews[key] = (now + 600, draft)
+            return key
+
+    def consume(self, key: str) -> Any:
+        with self.lock:
+            item = self.previews.pop(key, None)
+        if item is None or item[0] <= time.monotonic():
+            raise ValueError('This preview has expired. Start a new preview.')
+        return item[1]
 
     def close(self):
         self.executor.shutdown(wait=True,cancel_futures=True)

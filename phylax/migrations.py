@@ -55,11 +55,32 @@ CREATE TABLE IF NOT EXISTS csaf_documents(url TEXT PRIMARY KEY,etag TEXT DEFAULT
 '''
 
 
+SENSOR_DDL = '''
+CREATE TABLE IF NOT EXISTS modbus_identity_mappings(
+ observed_vendor TEXT NOT NULL, product_code TEXT NOT NULL, vendor TEXT NOT NULL,
+ product TEXT NOT NULL, role TEXT NOT NULL, firmware INTEGER NOT NULL,
+ PRIMARY KEY(observed_vendor,product_code));
+CREATE TABLE IF NOT EXISTS modbus_identity_components(
+ asset_id TEXT PRIMARY KEY REFERENCES assets ON DELETE CASCADE,
+ component_id TEXT NOT NULL REFERENCES software_components ON DELETE CASCADE);
+CREATE INDEX IF NOT EXISTS observations_kind_ip ON observations(kind,ip,observed_at);
+CREATE INDEX IF NOT EXISTS observations_event_ref ON observations(event_ref);
+CREATE TABLE IF NOT EXISTS wazuh_bindings(
+ manager TEXT NOT NULL, agent_id TEXT NOT NULL, asset_id TEXT NOT NULL REFERENCES assets ON DELETE CASCADE,
+ PRIMARY KEY(manager,agent_id));
+'''
+
+
 def migrate(store):
-    if store.connection.execute('SELECT 1 FROM schema_meta WHERE key=?',(VERSION,)).fetchone():
+    _migrate(store, VERSION, DDL, 'asset-intelligence')
+    _migrate(store, 'offline_sensors_v1', SENSOR_DDL, 'offline-sensors')
+
+
+def _migrate(store, version, ddl, name):
+    if store.connection.execute('SELECT 1 FROM schema_meta WHERE key=?',(version,)).fetchone():
         return
     if store.path != ':memory:':
-        backup_path=Path(store.path+'.pre-asset-intelligence.sqlite')
+        backup_path=Path(store.path+f'.pre-{name}.sqlite')
         if not backup_path.exists():
             temporary=Path(str(backup_path)+'.'+uuid.uuid4().hex+'.tmp')
             backup=sqlite3.connect(temporary)
@@ -72,10 +93,11 @@ def migrate(store):
                 temporary.unlink(missing_ok=True)
     # Statements execute in one transaction; no executescript implicit commits.
     with store.atomic('asset_intelligence_upgrade'):
-        for statement in DDL.split(';'):
+        for statement in ddl.split(';'):
             if statement.strip():store.connection.execute(statement)
-        store.connection.execute("UPDATE assets SET zone='unknown' WHERE UPPER(zone)='UNKNOWN'")
-        store.connection.execute("INSERT OR IGNORE INTO software_mappings VALUES('Apache','apache','http_server','system','Exact Zeek Apache name mapping')")
-        store.connection.execute("INSERT OR IGNORE INTO software_mappings VALUES('Apache httpd','apache','http_server','system','Exact Nmap Apache name mapping')")
-        store.connection.execute('INSERT OR IGNORE INTO schema_meta VALUES(?,?)',(VERSION,'1'))
+        if version == VERSION:
+            store.connection.execute("UPDATE assets SET zone='unknown' WHERE UPPER(zone)='UNKNOWN'")
+            store.connection.execute("INSERT OR IGNORE INTO software_mappings VALUES('Apache','apache','http_server','system','Exact Zeek Apache name mapping')")
+            store.connection.execute("INSERT OR IGNORE INTO software_mappings VALUES('Apache httpd','apache','http_server','system','Exact Nmap Apache name mapping')")
+        store.connection.execute('INSERT OR IGNORE INTO schema_meta VALUES(?,?)',(version,'1'))
     store.connection.commit()

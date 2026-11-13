@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 from .remediation_views import lifecycle_form
 from .theme import PLAIN_STATUS
-from .ui import e, hidden, reference_links, verbatim
+from .ui import e, reference_links, verbatim, assist_link
 
 
 def _text(value) -> str:
@@ -218,6 +218,6 @@ def plan_card(item, submitted=None, error='') -> str:
     body += _section('Provenance and source references', source)
     body += _section('Lifecycle history', _history(item.get('history')))
     replacement = '<p>Generating a replacement archives this plan and clears its review and verification state. A failed hosted request keeps the prior hosted plan.</p>'
-    replacement += '<form method="post" action="/remediation/create">' + hidden('finding_id', item['finding_id']) + '<button>Generate replacement plan</button></form>'
+    replacement += assist_link('remediation', 'Generate replacement plan', item['finding_id'])
     body += _section('Regenerate plan', replacement)
     return body + '</div></article>'

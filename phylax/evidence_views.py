@@ -1,6 +1,6 @@
 """Orient original event records without changing their underlying evidence."""
 import json
-from .ui import verbatim,e,raw_record,local_return
+from .ui import verbatim,e,raw_record,local_return,evidence_url
 
 
 def facts(pairs):
@@ -10,7 +10,9 @@ def facts(pairs):
 def event_page(store,query):
     ref=query.get('event_ref',[''])[0]
     back=local_return(query.get('return_to',['/network'])[0])
-    label='Return to triage case' if back.startswith('/triage') else 'Return to topology' if back.startswith('/attack-surface') else 'Return to network events'
+    label=next((title for prefix,title in (('/triage','Return to triage case'),('/attack-surface','Return to topology'),
+               ('/assets','Return to assets'),('/software','Return to software evidence'),('/?finding_id=','Return to finding'))
+               if back.startswith(prefix)), 'Return to network events')
     body='<p><a href="'+e(back)+'">'+label+'</a></p>'
     events=[dict(r) for r in store.connection.execute('SELECT * FROM network_events WHERE event_ref=?',(ref,))]
     observations=[dict(r) for r in store.connection.execute('SELECT * FROM observations WHERE event_ref=? ORDER BY kind,ip',(ref,))]
@@ -28,6 +30,20 @@ def event_page(store,query):
             body+='<h2>Policy conclusions associated with this event</h2><ul>'+''.join('<li><b>'+e(r['rule_id'].replace('_',' ').title())+'</b> · '+e(r['severity'])+' · '+('Active conclusion' if r['lifecycle']=='active' else 'Historical conclusion · '+e(r['lifecycle']))+'<p>'+e(r['explanation'])+'</p><small>Stored policy: '+e(r['policy_id'] or 'Not recorded')+'</small></li>' for r in alerts)+'</ul><p><a href="/policy">Review configured network policy</a></p>'
     else:
         body+='<h2>Observed endpoint evidence</h2>'+facts([('Addresses',', '.join(dict.fromkeys(r['ip'] for r in observations))),('Observed UTC',observations[0]['observed_at']),('Imported source',observations[0]['source_file'])])
+        if observations[0]['kind']=='modbus-identity':
+            row=observations[0]
+            fingerprint=json.loads(row['raw_json'])
+            body+=facts([('Modbus unit',fingerprint['unit']),('Captured vendor name',fingerprint['vendor']),
+                         ('Captured product code',fingerprint['product_code']),('Reported revision',fingerprint['revision'])])
+            related=store.connection.execute('''SELECT event_ref,observed_at,source_file FROM observations
+                WHERE kind='modbus-identity' AND ip=? AND event_ref!=? ORDER BY observed_at DESC LIMIT 20''',
+                (row['ip'],ref)).fetchall()
+            if related:
+                body+='<details><summary>Other identification responses</summary><ul>'
+                for response in related:
+                    link=evidence_url(response['event_ref'],back)
+                    body+='<li><a href="'+e(link)+'">'+e(response['observed_at'])+'</a> · '+verbatim(response['source_file'])+'</li>'
+                body+='</ul></details>'
     body+='<p class="muted">Event reference: <span class="mono">'+verbatim(ref)+'</span></p><p>'+str(len(events)+len(observations))+' stored record(s). Normalized records and original payloads are available below.</p>'
     for event in events:
         body+=raw_record(event,'Network event · '+event['event_type']+' · '+event['source_ip']+' → '+event['destination_ip'])

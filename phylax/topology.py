@@ -4,6 +4,7 @@ from unicodedata import east_asian_width
 from urllib.parse import urlencode
 
 from .ui import verbatim, e, hidden, field, select, evidence_url
+from .triage import alert_url, asset_index
 
 NODE_LIMIT = 24
 LINK_LIMIT = 60
@@ -26,6 +27,37 @@ def values(query):
 def url(query, *, anchor="surface-details", **changes):
     params = {**query, **changes}
     return '/attack-surface?' + urlencode({k:v for k,v in params.items() if v not in ('',None)}) + '#'+anchor
+
+
+def alert_topology_url(alert_id):
+    return url({'alert':alert_id}, anchor='topology')
+
+
+def render_alert_topology(store, alert):
+    """Focus on the directed connection recorded for this alert."""
+    if alert is None:
+        return '<p class="empty">This zone alert could not be found. <a href="/attack-surface">View full topology</a>.</p>'
+    assets = asset_index(store, [alert['source_ip'], alert['destination_ip']])
+
+    def endpoint(side):
+        ip = alert[side+'_ip']
+        hostname = assets.get(ip, {}).get('hostname')
+        return ('<div class="alert-topology-endpoint"><span>'+e(alert['policy'][side+'_zone'])+' zone</span>'
+                + ('<strong>'+verbatim(hostname)+'</strong>' if hostname else '')+
+                '<span class="mono">'+e(ip)+'</span></div>')
+
+    resolved = '<p class="notice">This policy alert was resolved after reevaluation.</p>' if alert['state'] == 'resolved' else ''
+    protocol = alert['protocol'].upper()
+    if alert['destination_port'] is not None:
+        protocol += ' '+str(alert['destination_port'])
+    return ('<section id="topology" aria-labelledby="alert-topology-title">'
+            '<h2 id="alert-topology-title">Zone policy violation</h2>'+resolved+
+            '<div class="alert-topology">'+endpoint('source')+
+            '<a class="alert-topology-edge" href="'+e(alert_url(alert['alert_id']))+'">'
+            '<span>Open alert</span><span class="alert-topology-arrow" aria-hidden="true"></span>'
+            '<span class="mono">'+e(protocol)+'</span></a>'+endpoint('destination')+'</div>'
+            '<p class="muted">Zones from the saved policy. Arrow shows the observed connection direction.</p>'
+            '<p><a href="/attack-surface#topology">View full topology</a> · <a href="/">Return to overview</a></p></section>')
 
 
 def short(text, length):
@@ -70,9 +102,14 @@ def diagram(data, query):
     if not selected:
         candidates = known_matches if search else observed or data['nodes']
         if candidates:selected=candidates[0]['ip_address']
-    ranked = sorted(observed,key=lambda n:(n['ip_address']!=selected, not matches(n) if search else False,
-                                          -degree[n['ip_address']], n['ip_address']))
+    ranked = sorted(observed, key=lambda n: (bool(search) and not matches(n),
+                                             -degree[n['ip_address']], n['ip_address']))
     nodes = ranked[:NODE_LIMIT]
+    # Clicking a visible node changes its highlight and details, not its position.
+    # An endpoint selected outside the diagram still gets a slot at the limit.
+    selected_outside = next((node for node in ranked[NODE_LIMIT:] if node['ip_address'] == selected), None)
+    if selected_outside is not None:
+        nodes[-1] = selected_outside
     groups = defaultdict(list)
     for node in nodes:groups[node['zone']].append(node)
     zones = [z for z in ('unknown','IT','DMZ','OT') if z in groups]

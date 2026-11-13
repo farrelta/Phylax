@@ -30,7 +30,7 @@ def verify():
         base=f'http://127.0.0.1:{server.server_address[1]}';results={}
         try:
             paths=('/', '/assets','/intelligence','/network','/attack-surface','/remediation','/policy','/settings','/reports','/glossary',
-                   '/discovery','/approvals','/changes','/software','/processes','/triage','/evidence','/report.json','/report.csv','/report.md')
+                   '/approvals','/changes','/software','/processes','/triage','/evidence','/report.json','/report.csv','/report.md')
             for path in paths:
                 with urlopen(base+path,timeout=10) as response:
                     body=response.read();results[path]=response.status
@@ -45,9 +45,7 @@ def verify():
                     body=exc.read();return (exc.code,body) if capture else exc.code
             results['bad_csrf']=post('/approvals/subnet',{'name':'denied','cidr':'192.0.2.0/24'})
             results['good_csrf']=post('/approvals/subnet',{'csrf_token':Handler.csrf_token,'name':'Additional lab subnet','cidr':'192.0.2.0/24'})
-            results['control_target_rejected']=post('/discovery/save',{'csrf_token':Handler.csrf_token,'asset_id':'lab-plc','ports':'502','permission':'true','actor':'Verifier','note':'Must reject'})
-            results['disabled_it_target_saved']=post('/discovery/save',{'csrf_token':Handler.csrf_token,'asset_id':'lab-it','ports':'8080','permission':'false','actor':'Verifier','note':'No execution'})
-            if (results['bad_csrf'],results['good_csrf'],results['control_target_rejected'],results['disabled_it_target_saved'])!=(403,200,400,200):raise RuntimeError('HTTP mutation boundary checks failed')
+            if (results['bad_csrf'],results['good_csrf'])!=(403,200):raise RuntimeError('HTTP mutation boundary checks failed')
             with urlopen(base+'/processes?asset_id=lab-plc',timeout=10) as response:context_form=response.read().decode()
             revision=re.search(r'name="context_revision" value="([a-f0-9]+)"',context_form).group(1)
             context_values={'csrf_token':Handler.csrf_token,'asset_id':'lab-plc','context_revision':revision,'owner':'SYNTHETIC HTTP review owner'}
@@ -81,12 +79,13 @@ def verify():
                 from phylax.triage import triage
                 alert=triage(check)[0][0]
                 results['retired_ack']=post('/ack',{'csrf_token':Handler.csrf_token,'alert_id':alert['alert_id']})
+                results['retired_scan']=post('/discovery/run',{'csrf_token':Handler.csrf_token,'target_id':'retired'})
                 if next(r for r in triage(check)[0] if r['alert_id']==alert['alert_id'])['acknowledged']:raise RuntimeError('Retired route changed acknowledgement')
                 results['triage_ack_saved']=post('/triage/ack',{'csrf_token':Handler.csrf_token,'category':alert['category'],'alert_id':alert['alert_id'],'filter_category':'exposure','acknowledged':'no'})
                 if not next(r for r in triage(check)[0] if r['alert_id']==alert['alert_id'])['acknowledged']:raise RuntimeError('Triage acknowledgement did not persist')
             finally:check.close()
             if tuple(results[k] for k in ('context_saved','stale_context_rejected','opaque_origin_rejected','context_error_retains_input','triage_ack_saved'))!=(200,400,403,400,200):raise RuntimeError('Operator workflow HTTP checks failed')
-            if tuple(results[k] for k in ('focused_plan','plan_review_saved','missing_plan','retired_ack'))!=(200,200,404,404):raise RuntimeError('Consolidated workflow checks failed')
+            if tuple(results[k] for k in ('focused_plan','plan_review_saved','missing_plan','retired_ack','retired_scan'))!=(200,200,404,404,404):raise RuntimeError('Consolidated workflow checks failed')
             return {'routes_checked':len(paths),'results':results,'external_provider_calls':0,'active_scans':0}
         finally:server.shutdown();thread.join(timeout=10)
 

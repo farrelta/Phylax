@@ -3,11 +3,11 @@ from __future__ import annotations
 import html
 import json
 from urllib.parse import urlencode
-from .ai import AIConfig
+from .ai import AIConfig, local_config
 from .core import Store,ASSET_FIELDS,ASSET_TYPES,ZONES,CRITICALITIES,CONFIDENCES
 from .theme import layout
 from .monitoring import active_policy
-from .ui import e,error_summary
+from .ui import e,error_summary,assist_link
 
 ASSET_LABELS={name:name.replace('_',' ').capitalize() for name in ASSET_FIELDS}
 ASSET_LABELS.update(asset_id='Asset ID',ip_address='IP address',mac_address='MAC address',last_seen='Last seen (UTC)')
@@ -31,6 +31,7 @@ def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='')
     body+='<p>Enter operator-supplied identity evidence. Confirmed matches require verified high-confidence identity; an IP address never establishes a model or version.</p>'
     if row:
         body+='<nav class="controls" aria-label="This asset"><a href="/processes?'+e(urlencode({'asset_id':row['asset_id']}))+'">Operational context for this asset</a><a href="/approvals?'+e(urlencode({'ip':row['ip_address']}))+'">Management decisions for '+e(row['ip_address'])+'</a></nav>'
+        body+='<p>'+assist_link('identity', 'Explain identity evidence', row['asset_id'], identity_type='asset')+'</p>'
     body+='<form method="post" action="/assets/save">'
     groups=(
         ('Address and identity',('asset_id','ip_address','mac_address','hostname','asset_type')),
@@ -78,6 +79,7 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     text=submitted.get('policy_json','') if submitted is not None else json.dumps(policy if policy is not None else {},indent=2)
     body=error_summary(error,[('policy-json','Review policy JSON')]) if error else ''
     body+='<p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
+    body+='<p>'+assist_link('policy', 'Draft network policy')+'</p>'
     body+='<p>Keys: protected_assets, allowed_communications, authorized_writers, maintenance_windows_utc. Day numbers: Monday 0 through Sunday 6. Times are UTC.</p>'
     body+='<section aria-labelledby="current-policy-summary"><h2 id="current-policy-summary">Current saved policy</h2>'
     if policy is None:
@@ -104,9 +106,13 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
             days=('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')
             windows=[(', '.join(days[day] for day in window['days']) or 'No days')+' · '+window['start']+'–'+window['end']+' UTC' for window in policy['maintenance_windows_utc']]
             body+='<li>Maintenance windows: '+e(preview(windows))+'.</li>'
+        for source,destination in policy.get('denied_zone_pairs',[]):
+            body+='<li>Denied zone pair: '+e(source)+' → '+e(destination)+'</li>'
         body+='</ul><p class="muted">This summary describes the saved policy. Edits below take effect only after saving and reevaluating stored events.</p>'
     body+='</section>'
     example={'protected_assets':['192.0.2.10'],'allowed_communications':[{'source_ip':'192.0.2.30','destination_ip':'192.0.2.10','protocol':'tcp','destination_port':502}],'authorized_writers':{'192.0.2.10':['192.0.2.30']},'maintenance_windows_utc':[{'days':[0,1,2,3,4],'start':'01:00','end':'02:00'}]}
+    example.update(zone_subnets={'IT':['198.51.100.0/24'],'DMZ':['203.0.113.0/24'],'OT':['192.0.2.0/24']},
+                   denied_zone_pairs=[['IT','OT']])
     body+='<details class="workflow"><summary>Example policy JSON — illustrative addresses, not applied</summary><p>This valid example protects one destination, records an expected TCP connection and Modbus writer, and approves writes Monday–Friday from 01:00 up to 02:00 UTC. Replace the documentation addresses with reviewed local evidence before use.</p><pre>'+e(json.dumps(example,indent=2))+'</pre></details>'
     attrs=' aria-invalid="true" aria-describedby="policy-json-error"' if error else ''
     body+=f'<form method="post" action="/policy/apply"><label><span id="policy-json-label">Policy JSON</span><textarea id="policy-json" aria-labelledby="policy-json-label" name="policy_json" rows="24" maxlength="100000"{attrs}>{html.escape(text)}</textarea>'
@@ -119,8 +125,10 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
 
 def settings_page(store: Store) -> str:
     config=AIConfig.from_env()
+    local = local_config()
     description=f'Configured: {config.provider} · requested model {config.model} · timeout {config.timeout_seconds} seconds' if config else 'Hosted AI disabled: configure a provider, model and key in the server environment or project .env.'
-    body='<h2>Hosted guidance</h2><p>'+html.escape(description)+'</p><p>Only trusted public feed snapshots are eligible for hosted requests. Local inventory, network events, policies and risk evidence stay on this host. Returned guidance remains unverified.</p><h2>Public intelligence sources</h2>'
+    body='<p>'+assist_link('settings', 'Explain data and settings')+'</p><h2>Local AI</h2><p>'+e(local.model if local else 'Local AI is not configured.')+'</p>'
+    body+='<h2>Hosted guidance</h2><p>'+html.escape(description)+'</p><p>Hosted requests require confirmation of the redacted request. Returned guidance remains unverified.</p><h2>Public intelligence sources</h2>'
     body+=(''.join('<p>'+html.escape(f"{r['source']} · {r['health']} · last success {r['last_success_at'] or 'never'} · {r['message']}")+'</p>' for r in store.source_health()) or '<p>No feed synchronization recorded.</p>')
     body+='<p>Source health is based on stored attempts and becomes stale after 24 hours. Opening this page performs no connectivity check.</p>'
     from .ui import form,field,select,table
@@ -135,4 +143,4 @@ def settings_page(store: Store) -> str:
 
 
 def reports_page(store: Store) -> str:
-    return shell('Reports','<p>Exports contain locally stored evidence. Findings do not establish compromise.</p><h2>Investigation reports</h2><p>JSON contains the complete report structure, including findings, uncertainty, provenance, source health and remediation plans. CSV organizes evidence as typed records for analysis. Markdown presents findings and operational context for reading and sharing.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a></p><h2>Inventory only</h2><p>Asset identity and classification fields for inventory exchange. This CSV excludes vulnerability findings, alerts and remediation plans.</p><p><a class="btn" href="/assets.csv">Inventory CSV</a></p>')
+    return shell('Reports','<p>Exports contain locally stored evidence. Findings do not establish compromise.</p><p>'+assist_link('report', 'Draft report summary')+'</p><h2>Investigation reports</h2><p>JSON contains the complete report structure, including findings, uncertainty, provenance, source health and remediation plans. CSV organizes evidence as typed records for analysis. Markdown presents findings and operational context for reading and sharing.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a></p><h2>Inventory only</h2><p>Asset identity and classification fields for inventory exchange. This CSV excludes vulnerability findings, alerts and remediation plans.</p><p><a class="btn" href="/assets.csv">Inventory CSV</a></p>')

@@ -342,7 +342,7 @@ class Store:
         return [dict(r) | {'record':json.loads(r['record_json'])} for r in self.connection.execute(
             'SELECT source,record_json,retrieved_at,public_trusted FROM vulnerability_sources WHERE cve_id=? ORDER BY source',(cve_id,))]
 
-    def create_remediation_plan(self, finding_id: str, provider: str, model: str, plan: dict[str, Any], source_urls: list[str]) -> dict[str, Any]:
+    def create_remediation_plan(self, finding_id: str, provider: str, model: str, plan: dict[str, Any], source_urls: list[str], *, commit: bool = True) -> dict[str, Any]:
         if not self.connection.execute("SELECT 1 FROM findings WHERE finding_id=?", (finding_id,)).fetchone():
             raise ValueError("Finding not found")
         existing = self.connection.execute("SELECT plan_id,status FROM remediation_plans WHERE finding_id=?", (finding_id,)).fetchone()
@@ -356,7 +356,8 @@ class Store:
             plan_id = str(uuid.uuid4())
             self.connection.execute("INSERT INTO remediation_plans VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (plan_id, finding_id, provider, model, json.dumps(plan), json.dumps(source_urls), "Recommended", "", "", "", now, now))
             self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), plan_id, "New", "Recommended", "system", "Plan generated; no operational change was made.", now))
-        self.connection.commit()
+        if commit:
+            self.connection.commit()
         return self.get_remediation_plan(finding_id)  # type: ignore[return-value]
 
     def get_remediation_plan(self, finding_id: str) -> dict[str, Any] | None:
@@ -386,7 +387,7 @@ class Store:
         self.connection.commit()
         return self.get_remediation_plan(finding_id)  # type: ignore[return-value]
 
-    def observe_ip(self, ip: str, timestamp: str) -> None:
+    def observe_ip(self, ip: str, timestamp: str, *, source: str = 'zeek_passive') -> None:
         """Track a private observed endpoint without inferring device identity."""
         try:
             address = ipaddress.ip_address(ip)
@@ -398,7 +399,7 @@ class Store:
         if existing:
             self.connection.execute("UPDATE assets SET last_seen=CASE WHEN last_seen='' OR last_seen<? THEN ? ELSE last_seen END,updated_at=? WHERE asset_id=?", (timestamp, timestamp, utc_now(), existing["asset_id"]))
             return
-        values = (str(uuid.uuid5(uuid.NAMESPACE_URL, f"phylax-observed:{ip}")), ip, "", "", "unknown", "", "", "", "", "unknown", "medium", "zeek_passive", "low", timestamp, "Passive observation only; product, model, and firmware were not inferred.", 0, utc_now())
+        values = (str(uuid.uuid5(uuid.NAMESPACE_URL, f"phylax-observed:{ip}")), ip, "", "", "unknown", "", "", "", "", "unknown", "medium", source, "low", timestamp, "Passive observation only; product, model, and firmware were not inferred.", 0, utc_now())
         self.connection.execute("INSERT OR IGNORE INTO assets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
 
     def import_csv(self, source: str | Path | Any) -> dict[str, Any]:
@@ -461,7 +462,7 @@ class Store:
                     errors.append({'row': line, 'error': 'verified must be true/false'})
                     continue
                 peers=self.connection.execute('SELECT * FROM assets WHERE ip_address=?',(ip,)).fetchall()
-                passive=peers[0] if len(peers)==1 and peers[0]['identification_source']=='zeek_passive' and not peers[0]['vendor'] and not peers[0]['product'] and not peers[0]['verified'] else None
+                passive=peers[0] if len(peers)==1 and peers[0]['identification_source'] in {'zeek_passive','suricata_passive'} and not peers[0]['vendor'] and not peers[0]['product'] and not peers[0]['verified'] else None
                 asset_id = row.get('asset_id') or (passive['asset_id'] if passive else str(uuid.uuid5(uuid.NAMESPACE_URL,f"phylax:{ip}:{row.get('mac_address','')}")))
                 if passive and (not last_seen or passive['last_seen'] > last_seen):
                     last_seen=passive['last_seen']
@@ -477,13 +478,21 @@ class Store:
                     "updated_at": utc_now(),
                 }
                 try:
+                    previous = self.connection.execute('SELECT ip_address FROM assets WHERE asset_id=?',(asset_id,)).fetchone()
                     self.connection.execute(f"INSERT INTO assets ({','.join(values)}) VALUES ({','.join('?' for _ in values)}) ON CONFLICT(asset_id) DO UPDATE SET " + ",".join(f"{key}=excluded.{key}" for key in values if key != "asset_id"), tuple(values.values()))
                     if passive and passive["asset_id"]!=asset_id:
                         self.audit("passive_identity_reconciled",asset_id,{"previous_asset":dict(passive)})
                         self.connection.execute('UPDATE software_components SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
+                        self.connection.execute('UPDATE modbus_identity_components SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
+                        self.connection.execute('UPDATE wazuh_bindings SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
                         self.connection.execute('UPDATE asset_context SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
                         self.connection.execute('UPDATE process_links SET asset_id=? WHERE asset_id=?',(asset_id,passive['asset_id']))
                         self.connection.execute("DELETE FROM assets WHERE asset_id=?",(passive["asset_id"],))
+                    from .fingerprints import project, retire
+                    if previous and previous['ip_address'] != ip:
+                        retire(self, asset_id)
+                        project(self, previous['ip_address'])
+                    project(self, ip)
                     self.correlate(asset_ids=[asset_id], commit=False)
                     self.audit("asset_import", asset_id, {"identity_source": values["identification_source"]})
                     imported += 1

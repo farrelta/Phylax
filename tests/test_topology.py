@@ -1,5 +1,6 @@
 """Offline checks for the minimalist topology's data, limits and local links."""
 import io
+import re
 import unittest
 from html.parser import HTMLParser
 from phylax.core import Store
@@ -102,6 +103,21 @@ class TopologyTests(unittest.TestCase):
         self.assertNotIn('<script>',html);self.assertNotIn('<img',html)
         self.assertIn('&lt;',html);self.assertNotIn('javascript:',html)
         self.assertNotIn('<script',attack_surface_page(self.store))
+
+    def test_selecting_visible_nodes_preserves_diagram_positions(self):
+        data = self.store.attack_surface()
+        graph, _ = diagram(data, {})
+        pattern = r'<text class="topology-ip"[^>]*>([^<]+)</text>'
+        order = re.findall(pattern, graph)
+        self.assertGreater(len(order), 2)
+        for endpoint in order[1:]:
+            with self.subTest(endpoint=endpoint):
+                selected, stats = diagram(data, {'selected': endpoint})
+                self.assertEqual(stats['selected'], endpoint)
+                self.assertEqual(re.findall(pattern, selected), order)
+                transforms = r'transform="translate\([^"]+\)"'
+                self.assertEqual(re.findall(transforms, selected), re.findall(transforms, graph))
+                self.assertRegex(selected, r'class="topology-node is-selected"[^>]+aria-label="[^"]+' + re.escape(endpoint) + '"')
 
     def test_graph_limits_are_explicit_and_selected_endpoint_is_retained(self):
         for index in range(30):self.event(str(index),'198.51.100.'+str(index+1),'192.0.2.10',80,'tcp')

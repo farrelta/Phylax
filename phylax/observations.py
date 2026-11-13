@@ -7,26 +7,8 @@ from datetime import datetime,timezone
 from pathlib import Path
 from .asset_intelligence import address,mac_address,text,identifier,observe,change,actor_note
 from .core import utc_now
+from .monitoring import zeek_rows
 from .validation import utc_timestamp
-
-
-def rows(stream):
-    fields=None
-    for number,line in enumerate(stream,1):
-        line=line.rstrip('\r\n')
-        if not line:continue
-        if line.startswith('#fields'):fields=line.split('\t')[1:];continue
-        if line.startswith('#'):continue
-        try:
-            if len(line)>1_000_000:raise ValueError('Record exceeds 1 MB')
-            if line.startswith('{'):row=json.loads(line)
-            else:
-                parts=line.split('\t')
-                if not fields or len(parts)!=len(fields):raise ValueError('Invalid TSV fields')
-                row=dict(zip(fields,parts))
-            if not isinstance(row,dict):raise ValueError('Expected a record object')
-            yield row
-        except (ValueError,TypeError) as exc:raise ValueError(f'Malformed Zeek row {number}: {exc}') from exc
 
 
 def scalar(row,key,default=''):
@@ -86,25 +68,35 @@ def asset_for_ip(store,ip):
     return dict(assets[0]) if len(assets)==1 else None
 
 
-def software_component(store,item,source_file,event_ref,raw):
-    asset=asset_for_ip(store,item.ip)
-    if not asset:return None
+def software_component(store,item,source_file,event_ref,raw,*,asset_id=None):
+    if asset_id is None:
+        asset=asset_for_ip(store,item.ip)
+        if not asset:return None
+        asset_id=asset['asset_id']
     mapping=store.connection.execute('SELECT * FROM software_mappings WHERE raw_name=?',(item.name,)).fetchone()
     vendor,product=(mapping['vendor'],mapping['product']) if mapping else ('','')
-    cid=identifier('software',asset['asset_id'],item.name,item.version)
-    previous=store.connection.execute('SELECT * FROM software_components WHERE asset_id=? AND raw_name=? AND active=1 ORDER BY last_seen DESC LIMIT 1',(asset['asset_id'],item.name)).fetchone()
+    cid=identifier('software',asset_id,item.name,item.version)
+    previous=store.connection.execute('SELECT * FROM software_components WHERE asset_id=? AND raw_name=? AND active=1 ORDER BY last_seen DESC LIMIT 1',(asset_id,item.name)).fetchone()
     if previous and previous['version']!=item.version and previous['last_seen']<=item.observed_at:
-        store.connection.execute('UPDATE software_components SET verified=0,reviewer=\'\' WHERE asset_id=? AND raw_name=?',(asset['asset_id'],item.name))
+        store.connection.execute('UPDATE software_components SET verified=0,reviewer=\'\' WHERE asset_id=? AND raw_name=?',(asset_id,item.name))
         change(store,item.ip,'software_version_changed',item.observed_at,{'previous':previous['version'],'observed':item.version,'name':item.name,'event_ref':event_ref})
     store.connection.execute('INSERT INTO software_components VALUES(?,?,?,?,?,?,0,1,?,?,?,?,?,\'\') ON CONFLICT(asset_id,raw_name,version) DO UPDATE SET last_seen=MAX(software_components.last_seen,excluded.last_seen)',
-        (cid,asset['asset_id'],item.name,item.version,vendor,product,item.observed_at,item.observed_at,source_file,event_ref,json.dumps(raw,sort_keys=True)))
-    return asset['asset_id']
+        (cid,asset_id,item.name,item.version,vendor,product,item.observed_at,item.observed_at,source_file,event_ref,json.dumps(raw,sort_keys=True)))
+    return asset_id
 
 
 def review_component(store,component_id,*,verified=False,active=True,actor='',note=''):
     actor,note=actor_note(actor,note)
     row=store.connection.execute('SELECT * FROM software_components WHERE component_id=?',(component_id,)).fetchone()
     if not row:raise ValueError('Software component not found')
+    from .fingerprints import COMPONENT_PREFIX
+    if (verified or active) and row['raw_name'].startswith(COMPONENT_PREFIX):
+        from .fingerprints import latest_fingerprint
+        current = store.connection.execute(
+            'SELECT a.ip_address FROM modbus_identity_components m JOIN assets a USING(asset_id) WHERE component_id=?',
+            (component_id,)).fetchone()
+        if not current or asset_for_ip(store,current['ip_address']) is None or latest_fingerprint(store,current['ip_address'])['conflict']:
+            raise ValueError('This fingerprint is no longer current and unambiguous')
     if verified and (not row['vendor'] or not row['product'] or not row['version']):raise ValueError('Map and verify product/version before confirmation')
     store.connection.execute('UPDATE software_components SET verified=?,active=?,reviewer=? WHERE component_id=?',(int(verified),int(active),actor,component_id))
     store.audit('software_review',component_id,{'actor':actor,'note':note,'verified':verified,'active':active})
@@ -112,6 +104,9 @@ def review_component(store,component_id,*,verified=False,active=True,actor='',no
 
 
 def map_software(store,raw_name,vendor,product,actor,note):
+    from .fingerprints import COMPONENT_PREFIX
+    if raw_name.startswith(COMPONENT_PREFIX):
+        raise ValueError('Use the Modbus identity mapping for captured firmware')
     actor,note=actor_note(actor,note)
     values=[text(v,200) for v in (raw_name,vendor,product)]
     if not all(values):raise ValueError('Exact software name, vendor and product are required')
@@ -128,7 +123,7 @@ def ingest_observations(store,path,*,kind,source_file=None,commit=True):
     if path.stat().st_size>500_000_000:raise ValueError('Log exceeds 500 MB')
     inserted=duplicates=0;diagnostics=[];assets=set()
     with store.atomic('observation_import'),path.open(encoding='utf-8') as stream:
-        for row in rows(stream):
+        for _, row in zeek_rows(stream, max_line_length=1_000_000):
             ref=hashlib.sha256(json.dumps(row,sort_keys=True,separators=(',',':')).encode()).hexdigest()
             item=DHCPObservation.parse(row) if kind=='dhcp' else SoftwareObservation.parse(row)
             if not item.ip:

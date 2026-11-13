@@ -1,67 +1,55 @@
 # Phylax
 
-Lightweight, local IT/OT asset intelligence and cybersecurity monitoring for the **Kartika Cyber Hackathon 2026**.
+Phylax is a local dashboard for tracking IT and operational technology (OT) assets. It brings device inventory, observed network traffic, and public security advisories into one place so operators can investigate what happened and see which devices may be affected.
 
-Phylax combines asset inventory, public vulnerability intelligence, passive Zeek observations, evidence-backed alerts, and optional AI remediation guidance. Data is stored locally in SQLite; stored evidence and reports remain available offline.
+## Features
 
-## Quick start
+- Import device inventory and offline Zeek, Suricata, and Wazuh exports. Review observed identities and software before verifying them.
+- Match inventory against cached vulnerability advisories and investigate observed traffic that violates a configured network policy.
+- Trace alerts back to their source evidence and export JSON, CSV, or Markdown reports.
+- Optionally use local and hosted AI to draft explanations, policies, and reports for review.
 
-Run from the repository root with **Python 3.12+ recommended**. Phylax uses the Python standard library; no pip packages are required.
+## Getting started
+
+Run from the repository root on Linux or WSL. Python 3.12 or newer is recommended. Phylax uses the Python standard library, SQLite for local storage, and server-rendered HTML and SVG for the dashboard.
 
 ```bash
 python3 -m phylax --db data/phylax.db serve
 ```
 
-Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The dashboard accepts loopback connections only. Stop with Ctrl+C.
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The first run creates an empty database. Use the same `--db` path for the dashboard and CLI commands. Stop the server with Ctrl+C.
 
-The dashboard supports **English** and **Bahasa Indonesia**. Choose a language at the top of any page and apply it; your preference carries across pages and workflows. See [interface languages](docs/localization.md) for coverage and export behavior.
+The dashboard runs on loopback for one local operator. Basic use requires no package installation, build step, or environment variables. See [local operations](docs/local-operations.md) for optional tools, keys, and backups.
 
-**Zeek, Docker, and Nmap are optional.** Zeek or a locally installed Zeek Docker image is needed to analyze PCAPs. Existing Zeek logs can be imported without them. Nmap is required only for explicitly permitted IT discovery.
+## Usage
 
-## What you can do
+1. On **Overview**, add a device or import a CSV with an `ip_address` column. Leave unknown identity fields blank.
+2. Use **Monitoring** to import recorded network activity. To check devices against public advisories, sync from **Intelligence** or load a saved advisory JSON from **Overview → Import data**.
+3. Open **Triage** to review an alert and its evidence. Use **Reports** to export the results.
 
-- Import or edit inventory, record ownership and process context, and review unmanaged endpoints.
-- Import Zeek connection, Modbus, DHCP, and software logs; track observed changes and communication.
-- Correlate inventory and software evidence with NVD, CISA KEV, ICS RSS, and selected CISA CSAF advisories.
-- Review applicability, source evidence, severity, confidence, and deterministic urgency separately.
-- Investigate passive topology and policy alerts, acknowledge findings, and export JSON, CSV, or Markdown reports.
-- Run bounded discovery against individually approved supporting IT endpoints.
-- Request optional hosted guidance from public advisory data, then review it locally.
+Network alerts describe traffic seen by the sensor. Vulnerability matches describe which advisories may apply to a device. Open the source evidence to investigate further.
 
-## First workflow
+### Try the offline demo
 
-Use your own validated inventory and logs; these paths are placeholders:
+Use a new output directory. This creates a separate database with a fictional inventory and four advisory applicability cases.
 
 ```bash
-python3 -m phylax --db data/phylax.db import-assets /path/to/assets.csv
-python3 -m phylax --db data/phylax.db sync-feeds
-python3 -m phylax --db data/phylax.db analyze-zeek /path/to/conn.log --kind conn
-python3 -m phylax --db data/phylax.db export-report --format json --output data/report.json
+python3 scripts/prepare_release_demo.py --output-dir data/first-demo
+python3 -m phylax --db data/first-demo/phylax-demo.db serve --port 8766
 ```
 
-Imports reassess applicable findings automatically. For an isolated, reproducible example without external feeds or device access, follow the [testing guide](docs/testing.md).
+Open [http://127.0.0.1:8766](http://127.0.0.1:8766) to inspect the simulated findings. The [sensor rehearsal](docs/local-operations.md#offline-sensor-rehearsal) starts with an empty inventory and imports saved logs and software records.
 
-## Safety and privacy
+## Project structure
 
-OT control endpoints remain passive-only. Active discovery requires separate permission for each eligible IT target and its selected TCP ports. Management approval, identity verification, and scan permission are independent decisions.
+```text
+phylax/    CLI, dashboard, ingestion, and SQLite storage
+scripts/   Demo preparation and release checks
+tests/     Offline regression suite and sample inputs
+docs/      Optional local setup and workflows
+```
 
-Phylax does not exploit devices, patch systems, isolate endpoints, issue controller writes, or change firewalls. AI output is advisory, unverified, and never executed. Hosted requests contain eligible public advisory fields; local inventory, network evidence, policies, and risk context stay on the host.
-
-A vulnerability match does not establish compromise. Missing traffic or findings do not establish absence or safety.
-
-## Documentation
-
-Start with the [documentation index](docs/README.md).
-
-| Guide | Contents |
-|---|---|
-| [Setup and configuration](docs/setup.md) | Requirements, storage, keys, backups, upgrades, troubleshooting |
-| [Operator guide](docs/operator-guide.md) | Inventory, approvals, software, topology, triage, reports |
-| [Intelligence and applicability](docs/intelligence.md) | Sources, sync/resume, offline imports, matching and scoring |
-| [Monitoring and discovery](docs/monitoring.md) | Zeek, PCAPs, policy format, watcher, approved IT discovery |
-| [Architecture and security](docs/architecture.md) | Modules, persistence, trust boundaries, AI, limitations |
-| [Testing and demonstration](docs/testing.md) | Offline checks, manual acceptance, isolated Docker lab |
-| [Workflow diagrams](docs/workflows/README.md) | Offline atlas and Mermaid workflows |
+Run `python3 -m phylax --help` to list commands.
 
 ## Tests
 
@@ -69,4 +57,8 @@ Start with the [documentation index](docs/README.md).
 python3 -m unittest discover -s tests -v
 ```
 
-The offline suite mocks feeds, providers, and external processes. Real lab rehearsals are separate and optional. See the testing guide for coverage and limitations.
+The suite runs offline with test doubles for feeds, providers, and external processes.
+
+## Documentation
+
+[Local operations](docs/local-operations.md) covers supported import formats, optional configuration, the offline sensor rehearsal, and SQLite backups.

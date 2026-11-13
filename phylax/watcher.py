@@ -8,6 +8,7 @@ from pathlib import Path
 from .asset_intelligence import heartbeat
 from .core import Store,utc_now
 from .monitoring import ingest_file
+from .fingerprints import KIND as IDENTITY_KIND, LOG_NAME as IDENTITY_LOG
 
 
 class LogWatcher:
@@ -25,7 +26,8 @@ class LogWatcher:
             if index>=1000:messages.append('Directory entry limit reached; archive older logs');break
             if path.is_symlink() or not path.is_file():continue
             kind=path.name.split('.')[0]
-            if kind not in {'conn','modbus','dhcp','software'} or path.suffix not in {'.log','.jsonl','.tsv'}:continue
+            if kind == IDENTITY_LOG:kind=IDENTITY_KIND
+            if kind not in {'conn','modbus','dhcp','software',IDENTITY_KIND} or path.suffix not in {'.log','.jsonl','.tsv'}:continue
             signature=self.signature(path.stat())
             if signature[2]>500_000_000:messages.append(f'{path.name}: exceeds 500 MB');failed+=1;continue
             previous=self.seen.get(str(path));self.seen[str(path)]=signature

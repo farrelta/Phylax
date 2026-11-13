@@ -16,6 +16,8 @@ from phylax.triage import triage,acknowledge
 def verify(directory,image):
     initial=prepare(directory);store=Store(initial['database']);started=time.perf_counter()
     try:
+        expected_rules = {'unexpected_communication', 'unauthorized_modbus_writer',
+                          'write_outside_maintenance_window'}
         policy=json.loads((directory/'policy.json').read_text())
         results=[]
         for label,count in (('benign-read',0),('unauthorized-write',3)):
@@ -23,9 +25,20 @@ def verify(directory,image):
             actual=store.connection.execute('SELECT COUNT(*) FROM network_alerts').fetchone()[0]
             if actual!=count:raise RuntimeError(f'{label}: expected {count} network alerts, got {actual}')
             results.append(result)
+        alerts = store.connection.execute('''SELECT a.rule_id, e.source_file, e.raw_json
+            FROM network_alerts a LEFT JOIN network_events e USING (event_id)''').fetchall()
+        if {alert['rule_id'] for alert in alerts} != expected_rules:
+            raise RuntimeError('Unexpected detection rule coverage')
+        for alert in alerts:
+            if 'pcap-sha256:' not in (alert['source_file'] or ''):
+                raise RuntimeError('Alert is missing capture evidence')
+            if json.loads(alert['raw_json']).get('pdu_type') == 'RESP':
+                raise RuntimeError('Response PDU created a duplicate request alert')
         before=store.connection.execute('SELECT COUNT(*) FROM network_events').fetchone()[0]
         again=analyze_pcap(store,directory/'replay-captures/synthetic-unauthorized-write.pcap',policy=policy,docker_image=image)
         if not again.get('already_analyzed') or store.connection.execute('SELECT COUNT(*) FROM network_events').fetchone()[0]!=before:raise RuntimeError('Duplicate replay was not deduplicated')
+        if store.connection.execute('SELECT COUNT(*) FROM network_alerts').fetchone()[0] != len(alerts):
+            raise RuntimeError('Repeated capture changed the expected alert count')
         rows,_=triage(store)
         unmanaged=[r for r in rows if r['category']=='endpoint' and r['ip']=='172.30.77.99']
         if len(unmanaged)!=1:raise RuntimeError('Unmanaged writer was not found')
@@ -37,6 +50,7 @@ def verify(directory,image):
                  'image':image,'python':platform.python_version(),'platform':platform.platform(),
                  'elapsed_seconds':round(time.perf_counter()-started,6),'peak_rss_mib':round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,2),
                  'states':initial['applicability'],'network_alerts':3,'unmanaged_writer_alerts':1,'events':before,
+                 'rules':sorted(expected_rules),
                  'deduplicated':True,'acknowledgement_persisted':True,'reports':['json','csv','markdown'],'captures':results}
         (directory/'verification.json').write_text(json.dumps(summary,indent=2)+'\n')
         return summary

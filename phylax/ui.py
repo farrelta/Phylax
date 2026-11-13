@@ -17,6 +17,10 @@ def hidden(name,value):
     return f'<input type="hidden" name="{e(name)}" value="{e(value)}">'
 
 
+def assist_link(task, label, key='', **fields):
+    return '<a class="btn" href="/assist?' + e(urlencode({'task': task, 'key': key, **fields})) + '">' + e(label) + '</a>'
+
+
 def field(name,label,value='',required=False,kind='text',*,maxlength=4000,control_id='',help_text='',error=''):
     described=' '.join(control_id+suffix for suffix,text in (('-help',help_text),('-error',error)) if text and control_id)
     attrs=(f' id="{e(control_id)}"' if control_id else '')
