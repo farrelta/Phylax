@@ -1,4 +1,10 @@
 *
+!phylax/
+!phylax/**
+!data/
+!data/**
 !demo/
 !demo/**
 demo/runtime/
+**/__pycache__
+**/*.pyc
