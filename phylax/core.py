@@ -640,6 +640,7 @@ class Store:
             "assets": self.connection.execute("SELECT COUNT(*) FROM assets").fetchone()[0],
             "assets_needing_identity_review": self.connection.execute("SELECT COUNT(*) FROM assets WHERE TRIM(vendor)='' OR TRIM(product)='' OR identity_confidence!='high' OR verified=0").fetchone()[0],
             "findings_count": self.connection.execute('SELECT COUNT(*) FROM findings').fetchone()[0],
+            "advisories_count": self.connection.execute('SELECT COUNT(*) FROM vulnerabilities').fetchone()[0],
             "plans_count": self.connection.execute('SELECT COUNT(*) FROM remediation_plans').fetchone()[0],
             "exposure_alerts_count": self.connection.execute('SELECT COUNT(*) FROM alerts').fetchone()[0],
             "network_alerts_count": self.connection.execute("SELECT COUNT(*) FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE COALESCE(l.state,'active')='active'").fetchone()[0],

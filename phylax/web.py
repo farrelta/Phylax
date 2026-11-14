@@ -61,26 +61,54 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
         if not finding:raise ValueError('Finding not found')
         return finding_case(store,finding,kev_status(finding,data['source_health']),notice)
     cards = [("Devices in inventory", data["assets"], ""), ("Devices to identify", data["assets_needing_identity_review"], "Identity review"), ("Confirmed affected", data["confirmed_assets"], "Confirmed affected"), ("Possibly affected", data["potential_assets"], "Possibly affected"), ("Known-exploited flaws", data["kev_findings"], "KEV"), ("Critical devices at risk", data["critical_exposed_assets"], ""), ("Network connections seen", data["communication_relationships"], ""), ("New alerts", data["unacknowledged_alerts"], ""), ("Out-of-date data feeds", data["stale_sources"], "")]
-    rows = []
+    groups = {}
     for f in data["findings"]:
-        evidence = evidence_html(json.loads(f["evidence"]))
-        missing = "<br>".join(html.escape(x) for x in json.loads(f["missing_evidence"])) or "None recorded"
-        references = reference_links(json.loads(f["references_json"])) or "No references supplied"
-        urgency = prioritize(f,f,f["status"])
-        priority_detail = "; ".join(f"{x['input']}: {x['value']} (+{x['points']})" for x in urgency["factors"])
-        assessment_confidence = {"CONFIRMED_MATCH": "high", "NO_MATCH_TO_THIS_ADVISORY": "high", "POTENTIAL_MATCH": "medium", "NEEDS_REVIEW": "low"}.get(f["status"], "unknown")
-        plan_data = store.get_remediation_plan(f["finding_id"])
-        if plan_data:
-            plan_action = (f'<p>Plan status: {html.escape(plan_data["status"])} · updated {html.escape(plan_data["updated_at"])}</p>'
-                           f'<a class="btn" href="/remediation?{urlencode({"finding_id":f["finding_id"]})}">Review plan</a>')
-        else:
-            plan_action = assist_link('remediation', 'Draft remediation guidance', f['finding_id'])
-        rows.append(f"""<tr id="finding-{html.escape(f['finding_id'],quote=True)}"><td><b class="mono"><a href="/?{urlencode({'finding_id':f['finding_id']})}#finding-{html.escape(f['finding_id'],quote=True)}">{html.escape(f['cve_id'])}</a></b><br>{'DEMO FIXTURE' if f['synthetic'] else html.escape(f['source'])}<br><small>Published {html.escape(f['published'] or 'Unknown')} · modified {html.escape(f['modified'] or 'Unknown')}<br>{references}</small></td>
-          <td><span class="mono">{html.escape(f['ip_address'])}</span> {verbatim(f['hostname'])}<br>{verbatim(f['vendor'])} {verbatim(f['product'])} {verbatim(f['version'])}<br><small>{html.escape(f['criticality'])} criticality · identity {html.escape(f['identity_confidence'])} · {html.escape(f['zone'])} zone</small></td>
-          <td>{status_marker(f['status'])}<br><b>Urgency {urgency['score'] if urgency['score'] is not None else 'n/a'} of 12</b> · {html.escape(f['priority'])}<br>{html.escape(f['severity'] or 'Unknown')} severity · {html.escape(kev_status(f,data['source_health']))}<details><summary>Why this score</summary><small>{html.escape(priority_detail)}<br>Match confidence: {assessment_confidence}</small></details></td>
-          <td>{evidence}<br><small>Missing: {missing}</small></td>
-          <td>{verbatim(f['summary'])}<br><small>{verbatim(f['mitigation']) if f['mitigation'] else html.escape('No verified vendor guidance supplied.')}</small><br>{plan_action}</td></tr>""")
-    finding_table = "".join(rows) or '<tr><td colspan="5" class="empty">No findings yet. Import assets and load a local fixture to begin.</td></tr>'
+        groups.setdefault(f["cve_id"], []).append(f)
+    confidence_label = {"CONFIRMED_MATCH": "high", "NO_MATCH_TO_THIS_ADVISORY": "high", "POTENTIAL_MATCH": "medium", "NEEDS_REVIEW": "low"}
+    group_html = []
+    for cve_id, items in groups.items():
+        lead = items[0]
+        references = reference_links(json.loads(lead["references_json"]))
+        source_label = 'Demo fixture' if lead['synthetic'] else html.escape(lead['source'])
+        published = f' · published {html.escape(lead["published"])}' if lead.get('published') else ''
+        advisory_meta = (f'<details class="cve-about"><summary>Advisory details</summary>'
+                         f'<p>{verbatim(lead["summary"])}</p>'
+                         f'<p class="muted">{source_label}{published}</p>'
+                         + (f'<p>{references}</p>' if references else '') + '</details>')
+        head = (f'<tr class="cve-head"><th colspan="4" scope="colgroup">'
+                f'<a class="mono" href="/?{urlencode({"finding_id": lead["finding_id"]})}#finding-{html.escape(lead["finding_id"], quote=True)}">{html.escape(cve_id)}</a>'
+                f'<span class="cve-sev">{html.escape(lead["severity"] or "severity unrated")} severity</span>'
+                + (f'<span class="cve-kev">Known exploited</span>' if lead.get("kev") else '')
+                + f'<span class="cve-count">{len(items)} device{"s" if len(items) != 1 else ""}</span>'
+                + f'{advisory_meta}</th></tr>')
+        device_rows = []
+        for f in items:
+            evidence = evidence_html(json.loads(f["evidence"]))
+            missing = "<br>".join(html.escape(x) for x in json.loads(f["missing_evidence"]))
+            urgency = prioritize(f, f, f["status"])
+            priority_detail = "; ".join(f"{x['input']}: {x['value']} (+{x['points']})" for x in urgency["factors"])
+            score_text = f"{urgency['score']} / 12" if urgency["score"] is not None else "not scored"
+            plan_data = store.get_remediation_plan(f["finding_id"])
+            if plan_data:
+                plan_action = (f'<p>Plan: {html.escape(plan_data["status"])} · updated {html.escape(plan_data["updated_at"])}</p>'
+                               f'<a class="btn" href="/remediation?{urlencode({"finding_id": f["finding_id"]})}">Review plan</a>')
+            else:
+                plan_action = assist_link('remediation', 'Draft fix guidance (AI, for review)', f['finding_id'])
+            mitigation = verbatim(f['mitigation']) if f['mitigation'] else html.escape('No verified vendor guidance supplied.')
+            details = (f'<details class="finding-more"><summary>Details</summary>'
+                       f'<p><b>Why this score</b><br><small>{html.escape(priority_detail)}<br>Match confidence: {confidence_label.get(f["status"], "unknown")}</small></p>'
+                       f'<p><b>Evidence</b><br>{evidence}</p>'
+                       + (f'<p><small>Missing evidence: {missing}</small></p>' if missing else '')
+                       + f'<p><b>What to do</b><br>{mitigation}</p>{plan_action}</details>')
+            device_rows.append(
+                f'<tr id="finding-{html.escape(f["finding_id"], quote=True)}">'
+                f'<td><span class="mono">{html.escape(f["ip_address"])}</span> {verbatim(f["hostname"])}'
+                f'<br><small>{verbatim(f["vendor"])} {verbatim(f["product"])} {verbatim(f["version"])}</small></td>'
+                f'<td>{html.escape((f["zone"] or "unknown").upper())}<br><small>{html.escape(f["criticality"])} criticality</small></td>'
+                f'<td>{status_marker(f["status"])}</td>'
+                f'<td><b>{html.escape(score_text)}</b> <small>{html.escape(f["priority"])}</small>{details}</td></tr>')
+        group_html.append(f'<tbody class="cve-group">{head}{"".join(device_rows)}</tbody>')
+    finding_table = "".join(group_html) or '<tbody><tr><td colspan="4" class="empty">No findings yet. Import assets and load a local fixture to begin.</td></tr></tbody>'
     alert_summary = (f'<p>{data["unacknowledged_alerts"]} unacknowledged alerts across vulnerability, network and device-management evidence.</p>'
                      '<p><a href="/triage?acknowledged=no">Review new alerts in Triage</a></p>')
     health_html = "".join(f'<div class="alert"><div><b>{html.escape(source["source"])} · {html.escape(source["health"])}</b><br><small>Last success: {html.escape(source["last_success_at"] or "Never")} · {html.escape(source["message"])}</small></div></div>' for source in data["source_health"]) or '<p class="empty">No synchronization yet. Stored offline data remains available.</p>'
@@ -125,17 +153,24 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
         alert_days = [per_day.get((last - timedelta(days=13 - i)).isoformat(), 0) for i in range(14)]
     else:
         alert_days = [0] * 14
+    advisories_loaded = data["advisories_count"] > 0
+    logs_imported = data["network_events"] > 0
+    critical_exposed = data["critical_exposed_assets"]
+    confirmed_sub = f"of {total_assets} devices" + (f" · {critical_exposed} critical" if critical_exposed else "")
     kpis = "".join((
         kpi("Devices in inventory", total_assets, f"{unknown} need identity review" if unknown else "All identified",
             spark([weight.get(a["criticality"], 1) for a in all_assets][:18] or [0],
                   tuple({"critical": "crit", "high": "high", "medium": "gold"}.get(a["criticality"], "") for a in all_assets[:18])),
             href="/assets", glyph="server", color="olive"),
-        kpi("Confirmed affected", confirmed, f"of {total_assets} devices", ring(confirmed, total_assets, pct(confirmed), "crit" if confirmed else "ok"),
-            chip="Act now" if confirmed else "", tone="bad", href="#findings", glyph="shield", color="red"),
+        kpi("Confirmed affected", confirmed, confirmed_sub, ring(confirmed, total_assets, pct(confirmed), "crit" if confirmed else "ok"),
+            chip="Act now" if confirmed else "", tone="bad", href="#findings", glyph="shield", color="red",
+            empty="" if advisories_loaded else "No advisories loaded yet"),
         kpi("Possibly affected", possible, "should be checked", gauge(possible, total_assets, pct(possible), "high" if possible else ""),
-            chip="To check" if possible else "", tone="warn", href="#findings", glyph="search", color="amber"),
+            chip="To check" if possible else "", tone="warn", href="#findings", glyph="search", color="amber",
+            empty="" if advisories_loaded else "No advisories loaded yet"),
         kpi("New alerts", new_alerts, "to review in Triage", spark(alert_days),
-            chip="Review" if new_alerts else "", tone="info", href="/triage?acknowledged=no", glyph="bell", color="blue"),
+            chip="Review" if new_alerts else "", tone="info", href="/triage?acknowledged=no", glyph="bell", color="blue",
+            empty="" if (advisories_loaded or logs_imported) else "No evidence imported yet"),
     ))
     by_device = {}
     for score, priority, f in scored:
@@ -161,13 +196,34 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
         todo.append(("olive", "update", data["stale_sources"], "Data feeds out of date", "Update public intelligence so new flaws are included.", "/settings", "Update sources"))
     if not todo:
         todo.append(("olive", "check", 0, "Nothing urgent right now", "No confirmed or new issues in the stored data. That does not prove the network is safe.", "/reports", "Open reports"))
-    minis = (("Known-exploited flaws", data["kev_findings"], "Listed by CISA as used in real attacks.", "#findings", "red"),
-             ("Critical devices at risk", data["critical_exposed_assets"], "Critical devices with a matching flaw.", "#findings", "red"),
-             ("Network connections seen", data["communication_relationships"], "Device pairs seen talking to each other.", "/attack-surface", ""),
-             ("Out-of-date data feeds", data["stale_sources"], "Sources not updated in the last 24 hours.", "/settings", "amber"))
-    mini_html = '<div class="minis">' + "".join(
-        f'<a class="mini" href="{href}"><span>{html.escape(label)}</span><b class="{tone if value else ""}">{value}</b><small>{html.escape(hint)}</small></a>'
-        for label, value, hint, href, tone in minis) + '</div>'
+    minis = (("Known-exploited flaws", data["kev_findings"], "#findings", "red", advisories_loaded),
+             ("Network connections seen", data["communication_relationships"], "/attack-surface", "", logs_imported),
+             ("Out-of-date data feeds", data["stale_sources"], "/settings", "amber", advisories_loaded))
+    mini_html = '<div class="mini-strip">' + "".join(
+        f'<a class="mini" href="{href}"><span>{html.escape(label)}</span>'
+        + (f'<b class="{tone if value else ""}">{value}</b>' if has_data else '<b class="none">no data</b>')
+        + '</a>'
+        for label, value, href, tone, has_data in minis) + '</div>'
+    last_sync = next((s["last_success_at"] for s in data["source_health"] if s.get("last_success_at")), None)
+    coverage = (
+        (f'{data["network_events"]} network events' if logs_imported else 'Logs: none imported'),
+        (f'{data["advisories_count"]} advisories' if advisories_loaded else 'Advisories: none loaded'),
+        (f'synced {html.escape(last_sync)}' if last_sync else 'Feeds: never synced'),
+    )
+    coverage_html = ('<p class="coverage"><span class="coverage-label">Data coverage</span>'
+                     + ' · '.join(f'<span>{c}</span>' for c in coverage)
+                     + ' <a href="/?import=1#import-data">Import data</a></p>')
+    if confirmed:
+        status_text = f"{confirmed} device{'s' if confirmed != 1 else ''} confirmed affected. Fix them first."
+    elif possible:
+        status_text = f"{possible} device{'s' if possible != 1 else ''} possibly affected. Check their versions."
+    elif new_alerts:
+        status_text = f"{new_alerts} new alert{'s' if new_alerts != 1 else ''} to review."
+    elif unknown:
+        status_text = f"{unknown} device{'s' if unknown != 1 else ''} still need identifying."
+    else:
+        status_text = "Nothing urgent in the imported data. This does not prove the network is safe."
+    status_html = f'<p class="status-line">{html.escape(status_text)}</p>'
     start_html = ('<section class="start" aria-labelledby="start-here"><header><h2 id="start-here">Start here</h2>'
                   '<p>The most important things to do now, in order.</p></header><ol class="steps-next">' + "".join(
         f'<li><b><i class="sev {c}" aria-hidden="true"></i>{html.escape(title)}' + (f'<span class="n">{n}</span>' if n else '') + '</b>'
@@ -219,16 +275,18 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
 <button>Analyze Zeek log</button></form></li>
 </ol></details>"""
     content = f"""{notice_html}{zone_card}{pager}
-<div class="dash"><div class="kpis">{kpis}</div>
-{mini_html}
+<div class="dash">{status_html}
 {start_html}
+{coverage_html}
+<div class="kpis">{kpis}</div>
+{mini_html}
 <div class="cards dash-main">
 <section class="cardx"><header><h2>Exposure map</h2><span class="select-pill">Highest urgency</span></header>{map_html}<ul class="bars">{rank_html}</ul>
 <div class="card-foot"><a class="btn" href="/reports">Full report</a><a class="btn sq" href="/triage" aria-label="Open triage">{icon("arrow")}</a></div></section>
 <section class="cardx"><header><h2>Recent activity</h2><a class="select-pill" href="/triage">Latest first</a></header><ul class="feed">{feed_html}</ul></section>
 </div></div>
 {identity_review_html}
-<section class="cardx wide"><header><h2 id="findings">Exposure findings</h2><a class="aux" href="/reports">Full report {icon("arrow")}</a></header><div class="panel"><table class="findings"><thead><tr><th>Vulnerability</th><th>Device</th><th>Risk</th><th>Why we think so</th><th>What it is and what to do</th></tr></thead><tbody>{finding_table}</tbody></table></div></section>
+<section class="cardx wide"><header><h2 id="findings">Exposure findings</h2><a class="aux" href="/reports">Full report {icon("arrow")}</a></header><p class="panel-note">Grouped by advisory. Open Details on a device for evidence and what to do.</p><div class="panel"><table class="findings grouped"><thead><tr><th>Device</th><th>Zone</th><th>Status</th><th>Urgency</th></tr></thead>{finding_table}</table></div></section>
 <div class="cards three">
 <section class="cardx"><header><h2>Alerts</h2><span class="aux">{data["network_events"]} network events</span></header><div class="panel text-panel">{alert_summary}</div></section>
 <section class="cardx"><header><h2>Intelligence sources</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="panel">{health_html}</div></section>
@@ -257,7 +315,7 @@ def exposure_map(assets, scores) -> str:
                     dots.append(f'<circle class="dot" cx="{x}" cy="{y}" r="1.4"/>')
                     break
     labels = "".join(f'<text class="zl" x="{cx}" y="{cy + ry + 22}" text-anchor="middle">{z}</text>' for z, (cx, cy, rx, ry) in zones.items())
-    glows = []
+    markers = []
     for asset in assets:
         name = asset["hostname"] or asset["ip_address"]
         cx, cy, rx, ry = zones.get((asset["zone"] or "").upper(), (300, 100, 62, 50))
@@ -266,18 +324,15 @@ def exposure_map(assets, scores) -> str:
         y = cy + (digest[1] / 255 - .5) * ry * 1.2
         score, priority = scores.get(name, (0, ""))
         tone = "crit" if priority == "critical" else "high" if priority == "high" else "ok"
-        radius = 5 + score * 1.9
+        radius = 3.5 + score * 0.9
         title = html.escape(f"{name} · {asset['zone'] or 'Unknown'} · urgency {score} of 12")
-        glows.append(f'<g><title>{title}</title><circle fill="url(#glow-{tone})" cx="{x:.0f}" cy="{y:.0f}" r="{radius * 2.2:.0f}"/>'
-                     + (f'<circle class="ring1" stroke="url(#line-{tone})" cx="{x:.0f}" cy="{y:.0f}" r="{radius * 1.35:.0f}"/>' if score else "")
-                     + f'<circle class="core" fill="url(#core-{tone})" cx="{x:.0f}" cy="{y:.0f}" r="{max(3, radius * .55):.0f}"/></g>')
-    defs = "".join(
-        f'<radialGradient id="glow-{k}"><stop offset="0" stop-color="{c}" stop-opacity=".55"/><stop offset=".45" stop-color="{c}" stop-opacity=".18"/><stop offset="1" stop-color="{c}" stop-opacity="0"/></radialGradient>'
-        f'<radialGradient id="core-{k}"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset=".35" stop-color="{c}"/><stop offset="1" stop-color="{c}" stop-opacity=".6"/></radialGradient>'
-        f'<linearGradient id="line-{k}"><stop offset="0" stop-color="{c}"/><stop offset="1" stop-color="{c}" stop-opacity=".3"/></linearGradient>'
-        for k, c in (("ok", "#a3b35c"), ("high", "#f0a03c"), ("crit", "#ef5b5b")))
-    return (f'<svg class="map" viewBox="0 0 600 205" role="img" aria-label="Devices by network zone, sized by urgency">'
-            f'<defs>{defs}</defs>{"".join(dots)}{labels}{"".join(glows)}</svg>')
+        # Flat markers: solid fill sized by urgency, plus the score as a text label when it is worth reading.
+        marker = f'<circle class="mk mk-{tone}" cx="{x:.0f}" cy="{y:.0f}" r="{radius:.1f}"/>'
+        if score >= 1:
+            marker += f'<text class="mk-num" x="{x:.0f}" y="{y - radius - 2:.0f}" text-anchor="middle">{score}</text>'
+        markers.append(f'<g><title>{title}</title>{marker}</g>')
+    return (f'<svg class="map" viewBox="0 0 600 212" role="img" aria-label="Devices by network zone, labelled with urgency score">'
+            f'{"".join(dots)}{labels}{"".join(markers)}</svg>')
 
 
 def assets_page(store: Store, search: str = "", page_number: int = 1, *, identity_review: bool = False) -> str:

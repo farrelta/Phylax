@@ -88,7 +88,6 @@ CSS = """
 body{margin:0;background:radial-gradient(1000px 460px at 70% -12%,#2b301566,transparent 70%),var(--bg);color:var(--text);font:15px/1.55 var(--sans);display:grid;grid-template-columns:208px minmax(0,1fr);min-height:100vh}
 ::selection{background:#4b5320;color:#fff}input,textarea{caret-color:var(--link)}html{scrollbar-color:#4b5320 var(--bg)}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
-:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 aside{border-right:1px solid var(--line);padding:18px 0;position:sticky;top:0;height:100vh;overflow:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:0 18px 20px;color:var(--text)}
 .brand:hover{text-decoration:none}
@@ -348,7 +347,7 @@ aside{position:sticky;top:14px;height:calc(100vh - 28px);margin:14px 0 14px 14px
 .brand b{font:600 15px/1 var(--display);letter-spacing:.26em}
 .brand b::after{content:none}
 .new-row{display:flex;gap:6px;margin:0 0 22px}
-.primary-action{flex:1;justify-content:center;margin:0;padding:9px 12px;border-radius:8px;font-size:14px;font-weight:600;background:var(--action);color:var(--accent-ink);box-shadow:0 8px 24px #556b2f33}
+.primary-action{flex:1;justify-content:center;margin:0;padding:9px 12px;border-radius:8px;font-size:14px;font-weight:600;background:var(--action);color:var(--accent-ink);box-shadow:0 8px 24px #00000059}
 .plus{flex:none;display:grid;place-items:center;width:38px;border-radius:8px;background:var(--action);color:var(--accent-ink);font-size:20px;font-weight:600;line-height:1}
 .plus:hover{background:var(--action-hover);text-decoration:none}
 .site-navigation nav a{position:relative;gap:11px;margin:1px 0;padding:8px 12px;border-radius:8px;font-size:13.5px;color:#c3c6b2}
@@ -392,15 +391,16 @@ h1{font:600 26px/1.2 var(--display);margin:4px 0 6px}
 .select-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:7px;color:var(--muted);font-size:12px}
 .select-pill::after{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}
 .map{display:block;width:100%;height:auto;margin:2px 0 14px}
-.map .dot{fill:#ffffff1f}.map .zl{fill:#9a9d88;font:600 10px var(--sans);letter-spacing:.14em}
-.map .ring1{fill:none;stroke-opacity:.45}.map .core{stroke:none}
+.map .dot{fill:#ffffff1f}.map .zl{fill:#c3c6b2;font:600 12px var(--sans);letter-spacing:.12em}
+.map .mk{stroke:#070806;stroke-width:1}.map .mk-ok{fill:var(--olive-soft)}.map .mk-high{fill:var(--amber)}.map .mk-crit{fill:var(--red)}
+.map .mk-num{fill:#eef0e6;font:600 12px var(--mono)}
 .bars{display:grid;gap:12px;margin:0;padding:0;list-style:none}
 .bars li{display:grid;gap:6px}
 .bars .row{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#dcdfcf}
 .bars .row b{font:600 12px var(--sans);font-variant-numeric:tabular-nums}
 .bars .row span{color:var(--muted);text-align:right;overflow-wrap:anywhere}
-.bars .bar{height:4px;background:repeating-linear-gradient(90deg,#ffffff1a 0 2px,transparent 2px 5px)}
-.bars .bar i{background:var(--accent);box-shadow:0 0 10px #a3b35c80}.bars .bar i.crit{background:var(--crit);box-shadow:0 0 10px #ff5d5d80}
+.bars .bar{height:4px;border-radius:999px;background:#ffffff12}
+.bars .bar i{background:var(--accent)}.bars .bar i.crit{background:var(--crit)}
 .card-foot{display:flex;justify-content:flex-end;gap:6px;margin-top:16px}
 .card-foot .btn{padding:7px 16px;border-radius:8px;background:#ffffff0a;border-color:var(--line-2);font-size:13px;font-weight:600}
 .card-foot .sq{display:grid;place-items:center;width:34px;padding:0}.card-foot .sq svg,.feed .go svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -666,6 +666,62 @@ main:has(.alert-board) .filter-bar button{padding:6px 14px;font-size:13px;border
 .alert-board.is-dragging .alert-column{transition:opacity .15s,box-shadow .15s}
 @media(max-width:1100px){.alert-board{grid-template-columns:repeat(2,minmax(0,1fr))}main:has(.alert-board) .triage-viewbar{position:static;margin:0 0 14px}}
 @media(max-width:560px){.alert-board{grid-template-columns:minmax(0,1fr)}.alert-column{min-height:0}}
+
+/* ---- dashboard: status line, coverage, mini-strip, grouped findings ---- */
+.status-line{margin:0 0 10px;color:#dcdfcf;font:600 15px/1.4 var(--sans)}
+.coverage{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0 0 14px;color:var(--muted);font-size:13px}
+.coverage-label{color:#dcdfcf;font-weight:600}
+.coverage a{font-weight:600}
+.mini-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.mini-strip .mini{grid-template-columns:minmax(0,1fr) auto;min-height:44px}
+.mini-strip .mini .none{color:var(--muted);font-size:14px;font-weight:400}
+@media(max-width:900px){.mini-strip{grid-template-columns:minmax(0,1fr)}}
+
+/* grouped findings table */
+.findings.grouped{border-collapse:collapse;width:100%}
+.findings.grouped th,.findings.grouped td{text-align:left;vertical-align:top}
+.cve-group+.cve-group .cve-head{border-top:1px solid var(--line-2)}
+.cve-head th{padding:14px 12px 8px;background:#ffffff06;font-size:14px;font-weight:600;color:#fff}
+.cve-head .mono{margin-right:10px}
+.cve-sev{display:inline-block;margin-left:4px;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600;background:#ffffff0d;color:#dcdfcf}
+.cve-kev{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;background:#e5534b1a;color:#f2a19c}
+.cve-count{display:inline-block;margin-left:8px;color:var(--muted);font-size:12px;font-weight:400}
+.cve-about{display:inline;margin-left:8px}
+.cve-about>summary{display:inline;color:var(--muted);font-size:12px;font-weight:400;cursor:pointer}
+.cve-about>summary:hover{color:var(--text)}
+.cve-about p{margin:8px 0 4px;color:#dcdfcf;font-size:13px;font-weight:400;max-width:72ch;line-height:1.5}
+.cve-group tr:not(.cve-head) td{padding:8px 12px;border-top:1px solid #ffffff0a;font-size:13px}
+.cve-group tr:not(.cve-head) td small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+.panel-note{margin:0 0 8px;color:var(--muted);font-size:13px;line-height:1.45}
+
+/* finding-more disclosure inside table rows */
+.finding-more{margin:6px 0 0}
+.finding-more>summary{color:var(--link);font-size:12px;cursor:pointer}
+.finding-more>summary:hover{text-decoration:underline}
+.finding-more[open]>summary{margin-bottom:8px}
+.finding-more p{margin:4px 0;font-size:13px;color:#dcdfcf;line-height:1.5}
+.finding-more p b{color:#fff;font-weight:600}
+.finding-more small{color:var(--muted)}
+.finding-more .btn{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:6px 14px;border-radius:8px;font-size:12.5px;font-weight:600;background:#ffffff0a;border:1px solid var(--line-2);color:#e6e8dc;text-decoration:none}
+.finding-more .btn:hover{background:#ffffff14}
+
+/* empty-state KPIs */
+.kpi-empty .label .chip{display:none}
+.kpi-empty .viz{display:none}
+.kpi-empty .none{display:block;font:600 22px var(--display);color:var(--muted);margin-top:4px}
+
+/* ---- legibility: text floor 12px, hover contrast, tap targets ---- */
+.zone-badge{font-size:12px}
+.chip{font-size:12px}
+.feed small{font-size:12px}
+.case-facts dt{font-size:12px}
+.alert-card-meta .alert-urgency{font-size:12px}
+a:hover{color:#f3f5e6}
+button.primary:hover,.btn.primary:hover,.primary-action:hover,.plus:hover{color:#f3f5e6}
+@media(max-width:900px){.chip,.feed a,.steps-next .btn,.card-foot .btn,.row-action .btn,.finding-more>summary,.coverage a,.mini{min-height:44px;display:inline-flex;align-items:center}}
+
+/* ---- reduced motion ---- */
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.alert-card:hover{transform:none}}
 """
 
 
@@ -719,9 +775,13 @@ def icon(name: str) -> str:
     return f'<svg viewBox="0 0 24 24" aria-hidden="true">{ICONS.get(name, "")}</svg>'
 
 
-def kpi(label: str, value, sub: str = "", visual: str = "", chip: str = "", tone: str = "", href: str = "", glyph: str = "", color: str = "olive") -> str:
-    chip_html = f'<span class="chip {tone}">{html.escape(chip)}</span>' if chip else ""
+def kpi(label: str, value, sub: str = "", visual: str = "", chip: str = "", tone: str = "", href: str = "", glyph: str = "", color: str = "olive", empty: str = "") -> str:
     glyph_html = f'<span class="kpi-ico">{icon(glyph)}</span>' if glyph else ""
+    if empty:
+        inner = (f'<span class="label"><span class="name">{glyph_html}{html.escape(label)}</span></span>'
+                 f'<b class="none" aria-hidden="true">&mdash;</b><small>{html.escape(empty)}</small>')
+        return f'<a class="kpi kpi-empty k-{color}" href="{html.escape(href, quote=True)}">{inner}</a>' if href else f'<div class="kpi kpi-empty k-{color}">{inner}</div>'
+    chip_html = f'<span class="chip {tone}">{html.escape(chip)}</span>' if chip else ""
     inner = (f'<span class="label"><span class="name">{glyph_html}{html.escape(label)}</span>{chip_html}</span><b>{value}</b>'
              f'<small>{html.escape(sub)}</small>' + (f'<span class="viz">{visual}</span>' if visual else ""))
     return f'<a class="kpi k-{color}" href="{html.escape(href, quote=True)}">{inner}</a>' if href else f'<div class="kpi k-{color}">{inner}</div>'
@@ -781,9 +841,12 @@ def layout(title: str, body: str, active: str = "", lead: str = "", heading: str
         for label, items in NAV
     )
     current = title
+    document_title = title
     if title in PAGE_GUIDE:
         heading, plain = PAGE_GUIDE[title]
         lead = html.escape(plain)
+        current = heading
+        document_title = heading
     lead_html = f'<p class="lead">{lead}</p>' if lead else ""
     section = next(((href, text) for _, items in NAV for href, text in items if href == parent), None)
     if crumbs is None:
@@ -801,7 +864,7 @@ def layout(title: str, body: str, active: str = "", lead: str = "", heading: str
     body = _empty_states(body)
     return (
         f'<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>Phylax · {html.escape(title)}</title><style>{CSS}</style>"
+        f"<title>Phylax · {html.escape(document_title)}</title><style>{CSS}</style>"
         f'<body><a class="skip-link" href="#main-content">Skip to main content</a><aside><a class="brand" href="/" aria-label="Phylax home"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="shield" d="M12 2.2 20.6 5.6V12c0 4.6-3.6 8-8.6 9.8C7 20 3.4 16.6 3.4 12V5.6Z"/><rect class="eye" x="9.4" y="9.4" width="5.2" height="5.2"/></svg><span><b>Phylax</b><small>OT/IT exposure review</small></span></a>'
         f'<div class="new-row"><a class="primary-action" href="/?import=1#import-data">Add data</a><a class="plus" href="/assets/edit" aria-label="Add asset manually" title="Add asset manually">+</a></div>'
         f'<p class="current-location">Current page: {html.escape(current)}</p><div class="site-navigation desktop-navigation">{groups}</div>'

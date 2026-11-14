@@ -65,7 +65,7 @@ class SimplifiedWorkflowTests(unittest.TestCase):
         self.store.update_remediation_plan(self.fid,'Under Review',change_notes='TEST ONLY review note')
         overview=page(self.store)
         self.assertIn('/remediation?'+urlencode({'finding_id':self.fid}),overview)
-        self.assertIn('Plan status: Under Review',overview)
+        self.assertIn('Plan: Under Review',overview)
         self.assertNotIn('action="/remediation/update"',overview)
         text=remediation_page(self.store,99,finding_id=self.fid)
         self.assertIn('id="plan-'+self.fid+'"',text)

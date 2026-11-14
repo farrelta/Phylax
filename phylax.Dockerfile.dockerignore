@@ -1,0 +1,11 @@
+# Build context for phylax.Dockerfile (the repository's .dockerignore serves the replay lab).
+*
+!phylax/
+!phylax/**
+!scripts/
+!scripts/**
+!docker/
+!docker/**
+!README.md
+**/__pycache__
+**/*.pyc

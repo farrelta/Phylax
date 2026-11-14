@@ -47,7 +47,7 @@ class UIHardeningTests(unittest.TestCase):
         item=self.make_plan()
         overview=page(self.store)
         self.assertIn('Review plan',overview)
-        self.assertIn('Plan status: Recommended',overview)
+        self.assertIn('Plan: Recommended',overview)
         self.assertNotIn('action="/remediation/update"',overview)
         html=remediation_page(self.store)
         controls=[r for r in Controls(html).controls if r[1].get('name') in {'status','reviewer','change_notes','verification_evidence'}]
