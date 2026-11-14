@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import secrets
 import socket
@@ -633,6 +634,8 @@ class Handler(BaseHTTPRequestHandler):
             return
 
     def _valid_request_host(self) -> bool:
+        if getattr(self, 'public', False):
+            return True
         server = getattr(self,'server',None)
         port = server.server_address[1] if server else 8765
         return valid_host(self.headers.get('Host',''),port)
@@ -735,7 +738,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(b'Invalid Host', 'text/plain; charset=utf-8',403)
                 return
             origin = self.headers.get('Origin')
-            if origin and not valid_origin(origin,self.headers['Host'],self.server.server_address[1]):
+            if origin and not getattr(self, 'public', False) and not valid_origin(origin,self.headers['Host'],self.server.server_address[1]):
                 message=('Cross-origin request denied. Open http://'+self.headers['Host']
                          +'/ directly in a regular browser tab, reload the dashboard, and retry. '
                          'The request Origin must match the dashboard host and port; embedded pages and opaque origins are not accepted.')
@@ -901,17 +904,20 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(database: str, host: str = "127.0.0.1", port: int = 8765) -> None:
-    if host not in {"127.0.0.1", "localhost", "::1"}:
-        raise ValueError("Dashboard binds to loopback only")
+    public = os.environ.get("PHYLAX_PUBLIC") == "1"
+    if not public and host not in {"127.0.0.1", "localhost", "::1"}:
+        raise ValueError("Dashboard binds to loopback only (set PHYLAX_PUBLIC=1 for hosted deploy)")
+    bind = "0.0.0.0" if public else ("127.0.0.1" if host == "localhost" else host)
     store = Store(database)
     Handler.store = store
+    Handler.public = public
     # SQLite connection is intentionally confined to this single request thread.
     class LocalHTTPServer(HTTPServer):
-        address_family=socket.AF_INET6 if host=="::1" else socket.AF_INET
-    server = LocalHTTPServer(("127.0.0.1" if host=="localhost" else host, port), Handler)
+        address_family=socket.AF_INET6 if host=="::1" and not public else socket.AF_INET
+    server = LocalHTTPServer((bind, port), Handler)
     server.jobs = Jobs(database)
     Handler.csrf_token = secrets.token_urlsafe(32)
-    print(f"Phylax dashboard: http://{host}:{port} (local-only)")
+    print(f"Phylax dashboard: http://{bind}:{port}" + (" (public)" if public else " (local-only)"))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
