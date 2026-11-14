@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+import argparse
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .core import Store
+from .feeds import sync_store, refresh_cve
+from .monitoring import ingest_file, validate_policy, reevaluate_events
+from .pcap import analyze_pcap
+from .sensor_imports import import_wazuh
+from .web import serve
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="phylax", description="Local IT/OT intelligence and passive network monitoring")
+    parser.add_argument("--db", default="data/phylax.db", help="SQLite database path")
+    commands = parser.add_subparsers(dest="command", required=True)
+    web = commands.add_parser("serve", help="Start the loopback-only dashboard")
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=8765)
+    imp = commands.add_parser("import-assets", help="Import asset inventory CSV")
+    imp.add_argument("file")
+    vuln = commands.add_parser("load-fixture", help="Load a local JSON vulnerability fixture")
+    vuln.add_argument("file")
+    commands.add_parser("correlate", help="Re-evaluate inventory against stored intelligence")
+    exp = commands.add_parser("export-report", help="Export JSON, CSV, or Markdown findings")
+    exp.add_argument("--format", choices=("json", "csv", "markdown"), default="json")
+    exp.add_argument("--output", required=True)
+    sync = commands.add_parser("sync-feeds", help="Incrementally synchronize NVD, CISA KEV, and ICS advisory sources")
+    sync.add_argument("--backfill-days", type=int, metavar="DAYS", help="Explicitly query a wider NVD last-modified window (1-120 days); normal syncs remain incremental")
+    network = commands.add_parser("analyze-zeek", help="Import a Zeek conn.log or Modbus log passively")
+    network.add_argument("file")
+    network.add_argument("--kind", choices=("conn", "modbus", "dhcp", "software", "modbus-identity"))
+    network.add_argument("--policy", help="JSON passive communication policy")
+    replay = commands.add_parser('analyze-pcap',help='Analyze an offline capture with local Zeek or a network-disabled Docker container')
+    replay.add_argument('file')
+    replay.add_argument('--policy')
+    replay.add_argument('--docker-image',help='Explicit installed Zeek image tag/digest; image is never pulled during analysis')
+    replay.add_argument('--icsnpp', action='store_true', help='Load the locally installed ICSNPP Modbus package')
+    wazuh = commands.add_parser('import-wazuh', help='Import a Wazuh Syscollector export for an existing IT asset')
+    wazuh.add_argument('file')
+    wazuh.add_argument('--kind', choices=('os', 'packages'), required=True)
+    wazuh.add_argument('--manager', required=True)
+    wazuh.add_argument('--agent-id', required=True)
+    wazuh.add_argument('--asset-id', required=True)
+    review = commands.add_parser('apply-policy',help='Persist a policy version and reevaluate stored events')
+    review.add_argument('file')
+    refresh=commands.add_parser('refresh-cve',help='Refresh one official public CVE and its full applicability evidence')
+    refresh.add_argument('cve_id')
+    from .release_cli import parsers,handle,COMMANDS
+    parsers(commands)
+    args = parser.parse_args()
+    if args.command in COMMANDS:
+        import json
+        try:print(json.dumps(handle(args),indent=2))
+        except (ValueError,RuntimeError,OSError) as exc:parser.exit(2,f'Phylax: {exc}\n')
+        return
+    if args.command == "serve":
+        serve(args.db, args.host, args.port)
+        return
+    store = Store(args.db)
+    try:
+        if args.command == "import-assets":
+            result = store.import_csv(args.file)
+            print(f"Imported {result['imported']} rows; {len(result['errors'])} errors")
+            for error in result["errors"]:
+                print(f"Row {error['row']}: {error['error']}")
+        elif args.command == "load-fixture":
+            print(store.ingest_fixture(args.file))
+        elif args.command == "correlate":
+            print(store.correlate())
+        elif args.command == "export-report":
+            Path(args.output).write_text(store.report(args.format), encoding="utf-8")
+            print(f"Wrote {args.output}")
+        elif args.command == "sync-feeds":
+            def report_progress(source: str, stage: str, message: str) -> None:
+                timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+                print(f"[{timestamp}] [{source}] {stage.upper()}: {message}", file=sys.stderr, flush=True)
+
+            if args.backfill_days is not None and not 1 <= args.backfill_days <= 120:
+                parser.error("--backfill-days must be between 1 and 120")
+            report_progress("Phylax", "start", "Syncing NVD incremental changes (or a requested backfill window), the full CISA KEV catalog, and CISA ICS advisory RSS. An interrupted NVD window resumes from its saved page; feed failures are independent and cached records are retained.")
+            results = sync_store(store, progress=report_progress, backfill_days=args.backfill_days)
+            report_progress("Phylax", "progress", "Re-evaluating local assets against stored vulnerability intelligence.")
+            findings = store.correlate()
+            succeeded = sum(1 for result in results.values() if result["ok"])
+            report_progress("Phylax", "done", f"Feed sync complete: {succeeded}/{len(results)} sources healthy; correlation updated {sum(findings.values())} findings.")
+            for source, result in results.items():
+                print(f"{source}: {'ok' if result['ok'] else 'unavailable'} {result.get('records', result.get('error', ''))}")
+        elif args.command == 'refresh-cve':
+            print(f'Refreshed {refresh_cve(store,args.cve_id)} public CVE record')
+        elif args.command == 'apply-policy':
+            import json
+            print(reevaluate_events(store,validate_policy(json.loads(Path(args.file).read_text(encoding='utf-8')))))
+        elif args.command == 'analyze-pcap':
+            import json
+            policy=validate_policy(json.loads(Path(args.policy).read_text(encoding='utf-8'))) if args.policy else None
+            print(analyze_pcap(store,args.file,policy=policy,docker_image=args.docker_image,icsnpp=args.icsnpp))
+        elif args.command == 'import-wazuh':
+            print(import_wazuh(store,args.file,manager=args.manager,agent_id=args.agent_id,asset_id=args.asset_id,kind=args.kind))
+        elif args.command == "analyze-zeek":
+            import json
+            policy = validate_policy(json.loads(Path(args.policy).read_text(encoding="utf-8"))) if args.policy else None
+            print(ingest_file(store, args.file, kind=args.kind, policy=policy))
+    except (ValueError, RuntimeError, OSError) as exc:
+        parser.exit(2, f'Phylax: {exc}\n')
+    finally:
+        store.close()
+
+
+if __name__ == "__main__":
+    main()

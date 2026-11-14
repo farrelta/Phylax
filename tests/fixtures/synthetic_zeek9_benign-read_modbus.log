@@ -1,0 +1,2 @@
+{"func": "READ_HOLDING_REGISTERS", "id.orig_h": "192.0.2.30", "id.orig_p": 40000, "id.resp_h": "192.0.2.10", "id.resp_p": 502, "pdu_type": "REQ", "tid": 1, "ts": 1793246400.003, "uid": "CjRU0g1chRhLCDPVyj", "unit": 1}
+{"func": "READ_HOLDING_REGISTERS", "id.orig_h": "192.0.2.30", "id.orig_p": 40000, "id.resp_h": "192.0.2.10", "id.resp_p": 502, "pdu_type": "RESP", "tid": 1, "ts": 1793246400.004, "uid": "CjRU0g1chRhLCDPVyj", "unit": 1}

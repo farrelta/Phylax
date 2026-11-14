@@ -1,0 +1,12 @@
+{
+  "protected_assets": ["192.0.2.10"],
+  "allowed_communications": [
+    {"source_ip": "192.0.2.30", "destination_ip": "192.0.2.10", "protocol": "tcp", "destination_port": 502}
+  ],
+  "authorized_writers": {
+    "192.0.2.10": ["192.0.2.30"]
+  },
+  "maintenance_windows_utc": [
+    {"days": [0, 1, 2, 3, 4], "start": "01:00", "end": "03:00"}
+  ]
+}

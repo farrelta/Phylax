@@ -1,0 +1,71 @@
+{
+  "generated_at": "2026-10-30T23:42:45Z",
+  "synthetic": true,
+  "scope": "Two generated offline captures; no real OT devices or incidents.",
+  "docker_image": "zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0",
+  "python": "3.14.7",
+  "platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "events_stored": 6,
+  "active_alerts": 3,
+  "rules": [
+    "unauthorized_modbus_writer",
+    "unexpected_communication",
+    "write_outside_maintenance_window"
+  ],
+  "duplicate_capture_deduplicated": true,
+  "captures": [
+    {
+      "capture": "benign-read",
+      "elapsed_seconds": 0.576213,
+      "active_alerts_after_import": 0,
+      "result": {
+        "capture_sha256": "84598f56ff9958b96ae64d88b172e9be60c05bf2e66de3b1badc46ff14518d09",
+        "docker_image": "zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0",
+        "logs": [
+          {
+            "events_inserted": 1,
+            "duplicates_skipped": 0,
+            "alerts_created": 0,
+            "diagnostics": [],
+            "diagnostic_count": 0
+          },
+          {
+            "events_inserted": 2,
+            "duplicates_skipped": 0,
+            "alerts_created": 0,
+            "diagnostics": [],
+            "diagnostic_count": 0
+          }
+        ],
+        "coverage": "Zeek connection and available Modbus logs only; ICSNPP extension installation is optional and not verified by this runner."
+      }
+    },
+    {
+      "capture": "unauthorized-write",
+      "elapsed_seconds": 0.574912,
+      "active_alerts_after_import": 3,
+      "result": {
+        "capture_sha256": "cd3491ce40ef37878b9d740708e8ee7e16ab042c781e3fededa07cb295240c01",
+        "docker_image": "zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0",
+        "logs": [
+          {
+            "events_inserted": 1,
+            "duplicates_skipped": 0,
+            "alerts_created": 1,
+            "diagnostics": [],
+            "diagnostic_count": 0
+          },
+          {
+            "events_inserted": 2,
+            "duplicates_skipped": 0,
+            "alerts_created": 2,
+            "diagnostics": [],
+            "diagnostic_count": 0
+          }
+        ],
+        "coverage": "Zeek connection and available Modbus logs only; ICSNPP extension installation is optional and not verified by this runner."
+      }
+    }
+  ],
+  "coverage": "Installed Zeek connection/Modbus analyzer only; ICSNPP is not certified."
+}

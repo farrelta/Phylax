@@ -1,0 +1,2 @@
+{"ts":"2026-10-29T04:00:00Z","uid":"MODBUS-DEMO-READ","id.orig_h":"192.0.2.30","id.orig_p":50100,"id.resp_h":"192.0.2.10","id.resp_p":502,"proto":"tcp","func":3,"unit":1}
+{"ts":"2026-10-29T04:05:00Z","uid":"MODBUS-DEMO-WRITE","id.orig_h":"192.0.2.99","id.orig_p":42300,"id.resp_h":"192.0.2.10","id.resp_p":502,"proto":"tcp","func":6,"unit":1}

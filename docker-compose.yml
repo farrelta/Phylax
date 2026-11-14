@@ -1,0 +1,37 @@
+# docker compose up --build            -> empty Phylax at http://localhost:8765
+# docker compose --profile demo up --build   -> also a demo copy at http://localhost:8766
+#
+# The host port must equal PHYLAX_PORT: Phylax only accepts requests addressed to
+# localhost on its own port. Ports are published on 127.0.0.1 only, so other
+# computers on the network cannot reach the dashboard.
+services:
+  phylax:
+    build:
+      context: .
+      dockerfile: phylax.Dockerfile
+    image: phylax:local
+    environment:
+      PHYLAX_PORT: "8765"
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - phylax-data:/data
+    restart: unless-stopped
+
+  phylax-demo:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: phylax.Dockerfile
+    image: phylax:local
+    environment:
+      PHYLAX_PORT: "8766"
+      PHYLAX_DEMO: "1"
+    ports:
+      - "127.0.0.1:8766:8766"
+    volumes:
+      - phylax-demo-data:/data
+
+volumes:
+  phylax-data:
+  phylax-demo-data:
