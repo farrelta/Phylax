@@ -144,4 +144,13 @@ def settings_page(store: Store, *, notice: str = "") -> str:
 
 
 def reports_page(store: Store) -> str:
-    return shell('Reports','<p>Exports contain locally stored evidence. Findings do not establish compromise.</p><p>'+assist_link('report', 'Create investigation report')+'</p><p>Choose findings, optionally use AI to organize the review, and download a Markdown report.</p><h2>Full evidence exports</h2><p>JSON contains the complete report structure, including findings, uncertainty, provenance, source health and remediation plans. CSV organizes evidence as typed records for analysis. Markdown presents findings and operational context for reading and sharing.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a></p><h2>Inventory only</h2><p>Asset identity and classification fields for inventory exchange. This CSV excludes vulnerability findings, alerts and remediation plans.</p><p><a class="btn" href="/assets.csv">Inventory CSV</a></p>')
+    from .theme import icon
+    down=icon('download')
+    cards=[('Readable report','Best for reading, printing or sharing with your team.','/report.md','Markdown report'),
+           ('Spreadsheet','Open in Excel to sort and filter the evidence.','/report.csv','CSV report'),
+           ('Complete data','Everything, including uncertainty and sources, for other tools or archiving.','/report.json','JSON report'),
+           ('Device list only','Just the devices, without findings, alerts or fix plans.','/assets.csv','Inventory CSV')]
+    body='<section class="cardx wide"><header><h2>Selected findings report</h2></header><p>Choose findings, optionally use AI to organize the review, and download a Markdown report.</p><p>'+assist_link('report', 'Create investigation report')+'</p></section>'
+    body+='<div class="report-grid">'+''.join('<section class="cardx"><h2>'+e(title)+'</h2><p>'+e(text)+'</p><a class="btn" href="'+href+'">'+down+e(label)+'</a></section>' for title,text,href,label in cards)+'</div>'
+    body+='<p class="muted">Exports contain locally stored evidence. Findings do not establish compromise.</p>'
+    return shell('Reports',body)

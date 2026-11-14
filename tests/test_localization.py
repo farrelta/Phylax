@@ -131,15 +131,15 @@ class LocalizedHTTPTests(unittest.TestCase):
 
     def test_all_pages_localize_and_keep_functional_markup(self):
         routes={
-            '/':'Ringkasan keamanan','/assets':'Inventaris aset','/assets/edit':'Tambahkan aset',
-            '/assets/edit?asset_id=lab-plc':'Edit aset','/network':'Pemantauan jaringan pasif',
-            '/attack-surface':'Permukaan serangan pasif','/intelligence':'Intelijen CVE',
-            '/intelligence/ics':'Advisori CISA ICS','/triage':'Triase keamanan terpadu',
-            '/reports':'Laporan','/settings':'Pengaturan dan sumber data','/policy':'Kebijakan jaringan pasif',
-            '/glossary':'Glosarium','/remediation':'Rencana remediasi','/approvals':'Persetujuan pengelolaan perangkat',
-            '/changes':'Linimasa perubahan aset',
-            '/software':'Bukti dan verifikasi perangkat lunak','/processes':'Konteks operasional dan proses',
-            '/evidence?event_ref=missing':'Bukti peristiwa asli','/?finding_id='+self.fid:'Temuan kerentanan'}
+            '/':'Ringkasan keamanan','/assets':'Perangkat','/assets/edit':'Tambahkan aset',
+            '/assets/edit?asset_id=lab-plc':'Edit aset','/network':'Aktivitas jaringan',
+            '/attack-surface':'Peta jaringan','/intelligence':'Kerentanan yang diketahui',
+            '/intelligence/ics':'Advisori industri','/triage':'Peringatan',
+            '/reports':'Laporan','/settings':'Pengaturan','/policy':'Aturan jaringan',
+            '/glossary':'Glosarium','/remediation':'Rencana perbaikan','/approvals':'Persetujuan perangkat',
+            '/changes':'Perubahan perangkat',
+            '/software':'Perangkat lunak di perangkat','/processes':'Pemilik dan penggunaan',
+            '/evidence?event_ref=missing':'Catatan asli','/?finding_id='+self.fid:'Temuan kerentanan'}
         for route,title in routes.items():
             with self.subTest(route=route):
                 handler,body=self.get(route);_,english=self.get(route,'en')
@@ -168,7 +168,7 @@ class LocalizedHTTPTests(unittest.TestCase):
         self.assertEqual(handler.response_headers['Set-Cookie'],'phylax_language=id; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax')
         handler=self.handler('/language',{'language':'en','next':'/assets?q=LAB'});handler.do_POST()
         self.assertIn('phylax_language=en;',handler.response_headers['Set-Cookie'])
-        _,body=self.get('/assets','en');self.assertIn('<html lang="en">',body);self.assertIn('<h1>Asset inventory</h1>',body)
+        _,body=self.get('/assets','en');self.assertIn('<html lang="en">',body);self.assertIn('<h1>Devices</h1>',body)
 
     def test_switch_retains_host_origin_csrf_and_redirect_protections(self):
         for key,value in [('csrf_token','bad'),('language','fr')]:
@@ -247,7 +247,7 @@ class LocalizedHTTPTests(unittest.TestCase):
         self.assertIn('<span translate="no">High &lt;script&gt;operator&lt;/script&gt;</span>',body)
         _,body=self.get('/intelligence');self.assertIn('<span translate="no">No records yet.</span>',body)
         self.assertIn('<span translate="no">High</span>',body)
-        self.assertIn('<h1>Intelijen CVE</h1>',body)
+        self.assertIn('<h1>Kerentanan yang diketahui</h1>',body)
 
 
 if __name__=='__main__':unittest.main()

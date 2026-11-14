@@ -20,7 +20,7 @@ from .remediation_presenter import plan_card
 from .finding_views import finding_case
 from .advisory_views import advisory_summary
 from .operator_pages import inventory_form,policy_page,settings_page,reports_page
-from .theme import layout, ring, status_marker, term, glossary_page
+from .theme import layout, ring, status_marker, term, glossary_page, icon, kpi, spark, gauge
 from .feeds import sync_store
 from .monitoring import ingest_file, infer_zeek_kind, validate_policy, reevaluate_events
 from .sensor_imports import import_wazuh
@@ -28,7 +28,7 @@ from .fingerprints import latest_fingerprint
 from . import assistant_web, release_web
 from .ui import verbatim, field, select, table, pager, reference_links, evidence_lines, evidence_url, assist_link
 from .topology import VIEWPORT_SCRIPT, alert_topology_url, render_alert_topology, render_topology, url as surface_url, values as surface_query
-from .triage import zone_alert, zone_pair
+from .triage import zone_alert, zone_pair, triage as triage_rows, alert_url
 from .i18n import (COOKIE_NAME, LANGUAGES, language_control, local_destination,
                    request_language, translate_html, translate_text)
 
@@ -72,28 +72,56 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
         if not finding:raise ValueError('Finding not found')
         return finding_case(store,finding,kev_status(finding,data['source_health']),notice)
     cards = [("Devices in inventory", data["assets"], ""), ("Devices to identify", data["assets_needing_identity_review"], "Identity review"), ("Confirmed affected", data["confirmed_assets"], "Confirmed affected"), ("Possibly affected", data["potential_assets"], "Possibly affected"), ("Known-exploited flaws", data["kev_findings"], "KEV"), ("Critical devices at risk", data["critical_exposed_assets"], ""), ("Network connections seen", data["communication_relationships"], ""), ("New alerts", data["unacknowledged_alerts"], ""), ("Out-of-date data feeds", data["stale_sources"], "")]
-    rows = []
+    groups = {}
     for f in data["findings"]:
-        evidence = evidence_html(json.loads(f["evidence"]))
-        missing = "<br>".join(html.escape(x) for x in json.loads(f["missing_evidence"])) or "None recorded"
-        references = reference_links(json.loads(f["references_json"])) or "No references supplied"
-        urgency = prioritize(f,f,f["status"])
-        priority_detail = "; ".join(f"{x['input']}: {x['value']} (+{x['points']})" for x in urgency["factors"])
-        assessment_confidence = {"CONFIRMED_MATCH": "high", "NO_MATCH_TO_THIS_ADVISORY": "high", "POTENTIAL_MATCH": "medium", "NEEDS_REVIEW": "low"}.get(f["status"], "unknown")
-        plan_data = store.get_remediation_plan(f["finding_id"])
-        if plan_data:
-            plan_action = (f'<p>Plan status: {html.escape(plan_data["status"])} · updated {html.escape(plan_data["updated_at"])}</p>'
-                           f'<a class="btn" href="/remediation?{urlencode({"finding_id":f["finding_id"]})}">Review plan</a>')
-        else:
-            plan_action = assist_link('remediation', 'Draft remediation guidance', f['finding_id'])
-        rows.append(f"""<tr id="finding-{html.escape(f['finding_id'],quote=True)}"><td><b class="mono"><a href="/?{urlencode({'finding_id':f['finding_id']})}#finding-{html.escape(f['finding_id'],quote=True)}">{html.escape(f['cve_id'])}</a></b><br>{'DEMO FIXTURE' if f['synthetic'] else html.escape(f['source'])}<br><small>Published {html.escape(f['published'] or 'Unknown')} · modified {html.escape(f['modified'] or 'Unknown')}<br>{references}</small></td>
-          <td><span class="mono">{html.escape(f['ip_address'])}</span> {verbatim(f['hostname'])}<br>{verbatim(f['vendor'])} {verbatim(f['product'])} {verbatim(f['version'])}<br><small>{html.escape(f['criticality'])} criticality · identity {html.escape(f['identity_confidence'])} · {html.escape(f['zone'])} zone</small></td>
-          <td>{status_marker(f['status'])}<br><b>Urgency {urgency['score'] if urgency['score'] is not None else 'n/a'} of 12</b> · {html.escape(f['priority'])}<br>{html.escape(f['severity'] or 'Unknown')} severity · {html.escape(kev_status(f,data['source_health']))}<details><summary>Why this score</summary><small>{html.escape(priority_detail)}<br>Match confidence: {assessment_confidence}</small></details></td>
-          <td>{evidence}<br><small>Missing: {missing}</small></td>
-          <td>{verbatim(f['summary'])}<br><small>{verbatim(f['mitigation']) if f['mitigation'] else html.escape('No verified vendor guidance supplied.')}</small><br>{plan_action}</td></tr>""")
-    finding_table = "".join(rows) or '<tr><td colspan="5" class="empty">No findings yet. Import assets and load a local fixture to begin.</td></tr>'
+        groups.setdefault(f["cve_id"], []).append(f)
+    confidence_label = {"CONFIRMED_MATCH": "high", "NO_MATCH_TO_THIS_ADVISORY": "high", "POTENTIAL_MATCH": "medium", "NEEDS_REVIEW": "low"}
+    group_html = []
+    for cve_id, items in groups.items():
+        lead = items[0]
+        references = reference_links(json.loads(lead["references_json"]))
+        source_label = 'Demo fixture' if lead['synthetic'] else html.escape(lead['source'])
+        published = f' · published {html.escape(lead["published"])}' if lead.get('published') else ''
+        advisory_meta = (f'<details class="cve-about"><summary>Advisory details</summary>'
+                         f'<p>{verbatim(lead["summary"])}</p>'
+                         f'<p class="muted">{source_label}{published}</p>'
+                         + (f'<p>{references}</p>' if references else '') + '</details>')
+        head = (f'<tr class="cve-head"><th colspan="4" scope="colgroup">'
+                f'<a class="mono" href="/?{urlencode({"finding_id": lead["finding_id"]})}#finding-{html.escape(lead["finding_id"], quote=True)}">{html.escape(cve_id)}</a>'
+                f'<span class="cve-sev">{html.escape(lead["severity"] or "severity unrated")} severity</span>'
+                + (f'<span class="cve-kev">Known exploited</span>' if lead.get("kev") else '')
+                + f'<span class="cve-count">{len(items)} device{"s" if len(items) != 1 else ""}</span>'
+                + f'{advisory_meta}</th></tr>')
+        device_rows = []
+        for f in items:
+            evidence = evidence_html(json.loads(f["evidence"]))
+            missing = "<br>".join(html.escape(x) for x in json.loads(f["missing_evidence"]))
+            urgency = prioritize(f, f, f["status"])
+            priority_detail = "; ".join(f"{x['input']}: {x['value']} (+{x['points']})" for x in urgency["factors"])
+            score_text = f"{urgency['score']} / 12" if urgency["score"] is not None else "not scored"
+            plan_data = store.get_remediation_plan(f["finding_id"])
+            if plan_data:
+                plan_action = (f'<p>Plan: {html.escape(plan_data["status"])} · updated {html.escape(plan_data["updated_at"])}</p>'
+                               f'<a class="btn" href="/remediation?{urlencode({"finding_id": f["finding_id"]})}">Review plan</a>')
+            else:
+                plan_action = assist_link('remediation', 'Draft fix guidance (AI, for review)', f['finding_id'])
+            mitigation = verbatim(f['mitigation']) if f['mitigation'] else html.escape('No verified vendor guidance supplied.')
+            details = (f'<details class="finding-more"><summary>Details for {html.escape(f["hostname"] or f["ip_address"])}</summary>'
+                       f'<p><b>Why this score</b><br><small>{html.escape(priority_detail)}<br>Match confidence: {confidence_label.get(f["status"], "unknown")}</small></p>'
+                       f'<p><b>Evidence</b><br>{evidence}</p>'
+                       + (f'<p><small>Missing evidence: {missing}</small></p>' if missing else '')
+                       + f'<p><b>What to do</b><br>{mitigation}</p>{plan_action}</details>')
+            device_rows.append(
+                f'<tr id="finding-{html.escape(f["finding_id"], quote=True)}">'
+                f'<td><span class="mono">{html.escape(f["ip_address"])}</span> {verbatim(f["hostname"])}'
+                f'<br><small>{verbatim(f["vendor"])} {verbatim(f["product"])} {verbatim(f["version"])}</small></td>'
+                f'<td>{html.escape((f["zone"] or "unknown").upper())}<br><small>{html.escape(f["criticality"])} criticality</small></td>'
+                f'<td>{status_marker(f["status"])}</td>'
+                f'<td><b>{html.escape(score_text)}</b> <small>{html.escape(f["priority"])}</small>{details}</td></tr>')
+        group_html.append(f'<tbody class="cve-group">{head}{"".join(device_rows)}</tbody>')
+    finding_table = "".join(group_html) or '<tbody><tr><td colspan="4" class="empty">No findings yet. Import assets and load a local fixture to begin.</td></tr></tbody>'
     alert_summary = (f'<p>{data["unacknowledged_alerts"]} unacknowledged alerts across vulnerability, network and device-management evidence.</p>'
-                     '<p><a href="/triage?acknowledged=no">Review new alerts in Triage</a></p>')
+                     '<p><a href="/triage">Review new alerts in Triage</a></p>')
     health_html = "".join(f'<div class="alert"><div><b>{html.escape(source["source"])} · {html.escape(source["health"])}</b><br><small>Last success: {html.escape(source["last_success_at"] or "Never")} · {html.escape(source["message"])}</small></div></div>' for source in data["source_health"]) or '<p class="empty">No synchronization yet. Stored offline data remains available.</p>'
     updates_html = "".join(f'<div class="alert"><div><b>{html.escape(item["change_type"])} · {html.escape(item["cve_id"])}</b><br><small>{html.escape(item["source"])} · {html.escape(item["changed_at"])}<br>{verbatim(item["summary"])}</small></div></div>' for item in data["recent_intelligence"]) or '<p class="empty">No intelligence records stored yet.</p>'
     identity_review_html = f'<p class="notice">{data["assets_needing_identity_review"]} assets need identity review. Unknown product or version information limits vulnerability assessment. <a href="/assets?identity_review=yes">Review these assets</a>.</p>' if data["assets_needing_identity_review"] else ""
@@ -104,12 +132,6 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
     if page_number*50 < largest:pager += f'<a class="link" href="/?page={page_number+1}">Next</a>'
     pager = f'<div class="controls">{pager}</div>' if pager.strip() else ''
     notice_html = f'<div class="notice">{html.escape(notice)}</div>' if notice else ""
-    hot = {"Confirmed affected", "Known-exploited flaws", "Critical devices at risk", "New alerts"}
-    def stat_items(items):
-        return "".join(f'<div class="{"hot" if label in hot and value else ""}"><dt>{term(tip, label) if tip else html.escape(label)}</dt><dd>{value}</dd></div>' for label,value,tip in items)
-    primary_metrics={'Devices in inventory','Confirmed affected','Possibly affected','New alerts'}
-    stats_html=stat_items(c for c in cards if c[0] in primary_metrics)
-    more_stats='<details class="workflow"><summary>More inventory and source metrics</summary><dl class="stats">'+stat_items(c for c in cards if c[0] not in primary_metrics)+'</dl></details>'
     scored = []
     for f in data["findings"]:
         u = prioritize(f, f, f["status"])
@@ -117,25 +139,7 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
             scored.append((u["score"], u["priority"], f))
     scored.sort(key=lambda t: -t[0])
     tone = {"critical": "crit", "high": "high", "medium": "info"}
-    focus_cards = "".join(
-        f'<a class="card" href="/?{urlencode({"finding_id":f["finding_id"]})}#finding-{html.escape(f["finding_id"],quote=True)}">{ring(score, 12, str(score), tone.get(priority, "none"))}<div><b>{html.escape(f["cve_id"])}</b>'
-        f'<small>{verbatim(f["hostname"] or f["ip_address"])} · {html.escape(priority)} priority</small><div class="t">{status_marker(f["status"])}</div></div></a>'
-        for score, priority, f in scored[:3])
-    surface = store.attack_surface()
-    inventory_nodes = [n for n in surface["nodes"] if n["asset_id"]]
-    seen = sum(1 for n in inventory_nodes if n["observed"])
-    focus_cards += (f'<div class="card">{ring(seen, len(inventory_nodes), f"{seen}/{len(inventory_nodes)}", "ok")}<div><b>Network visibility</b>'
-                    f'<small>{seen} of {len(inventory_nodes)} inventory assets appear in imported logs</small></div></div>')
-    total_assets, confirmed, possible = data["assets"], data["confirmed_assets"], data["potential_assets"]
-    if not total_assets:
-        headline = "No devices loaded yet.<small>Start with step 1 below: import your list of devices.</small>"
-    elif scored:
-        top_score, top_priority, top = scored[0]
-        headline = (f"{confirmed} of {total_assets} devices are confirmed affected by a known flaw, and {possible} more are possibly affected."
-                    f'<small>Start with <b>{html.escape(top["cve_id"])}</b> on <b>{verbatim(top["hostname"] or top["ip_address"])}</b> '
-                    f'(urgency {top_score} of 12, {html.escape(top_priority)}). <a href="#findings">See the findings</a>.</small>')
-    else:
-        headline = f"None of your {total_assets} devices match a known flaw yet.<small>Sync public sources or import a cached advisory in <a href='/intelligence'>Intelligence</a>. Imports reassess findings automatically.</small>"
+    total_assets, confirmed, possible, new_alerts = data["assets"], data["confirmed_assets"], data["potential_assets"], data["unacknowledged_alerts"]
     violation = zone_alert(store)
     zone_card = ''
     if violation:
@@ -145,12 +149,134 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
         zone_card = (f'<div class="headline zone-alert"><b>Zone policy violation</b> · {pair}'
                      f'<small><span class="mono">{source} → {destination}</span> · '
                      f'<a href="{html.escape(alert_topology_url(violation["alert_id"]), quote=True)}">Show on topology</a></small></div>')
-    focus_html = f'{zone_card}<p class="headline">{headline}</p><h2>Top priorities</h2><div class="focus">{focus_cards}</div>'
-    content = f"""{notice_html}{pager}{identity_review_html}
-<dl class="stats">{stats_html}</dl>{more_stats}
-{focus_html}
-<div class="split"><div><h2 id="findings">Exposure findings</h2><section class="panel"><table class="findings"><thead><tr><th>Vulnerability</th><th>Device</th><th>Risk</th><th>Why we think so</th><th>What it is and what to do</th></tr></thead><tbody>{finding_table}</tbody></table></section></div>
-<div><h2>Security alerts · {data["network_events"]} network events</h2><section class="panel text-panel">{alert_summary}</section><h2>Intelligence sources</h2><section class="panel">{health_html}</section><h2>Recent intelligence updates</h2><section class="panel">{updates_html}</section></div></div>
+    weight = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+    all_assets = store.assets()
+    unknown = data["assets_needing_identity_review"]
+    pct = lambda n: f"{round(100 * n / total_assets)}%" if total_assets else "0%"
+    history_rows, _ = triage_rows(store, limit=500, history=True)
+    per_day = {}
+    for row in history_rows:
+        per_day[row["timestamp"][:10]] = per_day.get(row["timestamp"][:10], 0) + 1
+    days = sorted(per_day)
+    if days:
+        from datetime import date, timedelta
+        last = date.fromisoformat(days[-1])
+        alert_days = [per_day.get((last - timedelta(days=13 - i)).isoformat(), 0) for i in range(14)]
+    else:
+        alert_days = [0] * 14
+    advisories_loaded = data["advisories_count"] > 0
+    logs_imported = data["network_events"] > 0
+    critical_exposed = data["critical_exposed_assets"]
+    confirmed_sub = f"of {total_assets} devices" + (f" · {critical_exposed} critical" if critical_exposed else "")
+    kpis = "".join((
+        kpi("Devices in inventory", total_assets, f"{unknown} need identity review" if unknown else "All identified",
+            spark([weight.get(a["criticality"], 1) for a in all_assets][:18] or [0],
+                  tuple({"critical": "crit", "high": "high", "medium": "gold"}.get(a["criticality"], "") for a in all_assets[:18])),
+            href="/assets", glyph="server", color="olive"),
+        kpi("Confirmed affected", confirmed, confirmed_sub, ring(confirmed, total_assets, pct(confirmed), "crit" if confirmed else "ok"),
+            chip="Act now" if confirmed else "", tone="bad", href="#findings", glyph="shield", color="red",
+            empty="" if advisories_loaded else "No advisories loaded yet"),
+        kpi("Possibly affected", possible, "should be checked", gauge(possible, total_assets, pct(possible), "high" if possible else ""),
+            chip="To check" if possible else "", tone="warn", href="#findings", glyph="search", color="amber",
+            empty="" if advisories_loaded else "No advisories loaded yet"),
+        kpi("New alerts", new_alerts, "to review in Triage", spark(alert_days),
+            chip="Review" if new_alerts else "", tone="info", href="/triage", glyph="bell", color="blue",
+            empty="" if (advisories_loaded or logs_imported) else "No evidence imported yet"),
+    ))
+    by_device = {}
+    for score, priority, f in scored:
+        name = f["hostname"] or f["ip_address"]
+        if name not in by_device or score > by_device[name][0]:
+            by_device[name] = (score, priority, f)
+    ranked = sorted(by_device.items(), key=lambda kv: -kv[1][0])[:6]
+    zone_of = {(a["hostname"] or a["ip_address"]): a["zone"] for a in all_assets}
+    rank_html = "".join(
+        f'<li><div class="row"><b>{score}</b><span>{verbatim(name)} · {html.escape(zone_of.get(name) or "Unknown")}</span></div>'
+        f'<div class="bar"><i class="{"crit" if priority == "critical" else "high" if priority == "high" else ""}" style="width:{round(100 * score / 12)}%"></i></div></li>'
+        for name, (score, priority, f) in ranked) or '<li class="empty">Nothing scored yet.</li>'
+    todo = []
+    if confirmed:
+        todo.append(("red", "shield", confirmed, "Devices confirmed affected", "A known flaw matches these devices. Open the finding and plan a fix first.", "#findings", "See findings"))
+    if new_alerts:
+        todo.append(("blue", "bell", new_alerts, "New alerts to review", "Look at each alert and acknowledge the ones you have checked.", "/triage", "Open triage"))
+    if possible:
+        todo.append(("amber", "search", possible, "Devices possibly affected", "Check the version on the device to confirm or rule out the flaw.", "#findings", "Check versions"))
+    if unknown:
+        todo.append(("gold", "id", unknown, "Devices to identify", "Add vendor, product and version so Phylax can check them for flaws.", "/assets?identity_review=yes", "Identify devices"))
+    if data["stale_sources"]:
+        todo.append(("olive", "update", data["stale_sources"], "Data feeds out of date", "Update public intelligence so new flaws are included.", "/settings", "Update sources"))
+    if not todo:
+        todo.append(("olive", "check", 0, "Nothing urgent right now", "No confirmed or new issues in the stored data. That does not prove the network is safe.", "/reports", "Open reports"))
+    minis = (("Known-exploited flaws", data["kev_findings"], "#findings", "red", advisories_loaded),
+             ("Network connections seen", data["communication_relationships"], "/attack-surface", "", logs_imported),
+             ("Out-of-date data feeds", data["stale_sources"], "/settings", "amber", advisories_loaded))
+    mini_html = '<div class="mini-strip">' + "".join(
+        f'<a class="mini" href="{href}"><span>{html.escape(label)}</span>'
+        + (f'<b class="{tone if value else ""}">{value}</b>' if has_data else '<b class="none">no data</b>')
+        + '</a>'
+        for label, value, href, tone, has_data in minis) + '</div>'
+    last_sync = next((s["last_success_at"] for s in data["source_health"] if s.get("last_success_at")), None)
+    coverage = (
+        (f'{data["network_events"]} network events' if logs_imported else 'Logs: none imported'),
+        (f'{data["advisories_count"]} advisories' if advisories_loaded else 'Advisories: none loaded'),
+        (f'synced {html.escape(last_sync)}' if last_sync else 'Feeds: never synced'),
+    )
+    coverage_html = ('<p class="coverage"><span class="coverage-label">Data coverage</span>'
+                     + ' · '.join(f'<span>{c}</span>' for c in coverage)
+                     + '</p>')
+    if confirmed:
+        status_text = f"{confirmed} device{'s' if confirmed != 1 else ''} confirmed affected. Fix them first."
+    elif possible:
+        status_text = f"{possible} device{'s' if possible != 1 else ''} possibly affected. Check their versions."
+    elif new_alerts:
+        status_text = f"{new_alerts} new alert{'s' if new_alerts != 1 else ''} to review."
+    elif unknown:
+        status_text = f"{unknown} device{'s' if unknown != 1 else ''} still need identifying."
+    else:
+        status_text = "Nothing urgent in the imported data. This does not prove the network is safe."
+    status_html = f'<p class="status-line">{html.escape(status_text)}</p>'
+    start_html = ('<section class="start" aria-labelledby="start-here"><header><h2 id="start-here">Start here</h2>'
+                  '<p>The most important things to do now, in order.</p></header><ol class="steps-next">' + "".join(
+        f'<li><b><i class="sev {c}" aria-hidden="true"></i>{html.escape(title)}' + (f'<span class="n">{n}</span>' if n else '') + '</b>'
+        f'<p>{html.escape(text)}</p><a class="btn" href="{html.escape(href, quote=True)}">{html.escape(label)}</a></li>'
+        for c, g, n, title, text, href, label in todo[:3]) + '</ol></section>')
+    map_html = exposure_map(all_assets, {name: (score, priority) for name, (score, priority, _) in by_device.items()})
+    events = []
+    activity_rows, _ = triage_rows(store, limit=10)
+    labels = {"exposure": "Vulnerability exposure", "network": "Network policy", "endpoint": "Device management"}
+    kinds = {"exposure": ("shield", "high"), "network": ("pulse", "info"), "endpoint": ("device", "gold")}
+    for row in activity_rows:
+        asset = row["context"]
+        icon_name, icon_tone = kinds.get(row["category"], ("bell", ""))
+        if row["urgency"]["priority"] == "critical":
+            icon_tone = "crit"
+        events.append((row["timestamp"], icon_name, icon_tone, row.get("cve_id") or labels.get(row["category"], "Alert"),
+                       f'{verbatim(asset.get("hostname") or row["ip"])} · {html.escape(row["timestamp"])}', alert_url(row["alert_id"])))
+    for item in data["recent_intelligence"][:4]:
+        events.append((item["changed_at"], "update", "olive", f'{html.escape(item["change_type"])} · {html.escape(item["cve_id"])}',
+                       f'{html.escape(item["source"])} · {html.escape(item["changed_at"])}', "/intelligence"))
+    events.sort(key=lambda e: e[0], reverse=True)
+    feed_html = "".join(
+        f'<li><a href="{html.escape(href, quote=True)}"><span class="ico {tone_}">{icon(icon_name)}</span><span><b>{title}</b><small>{sub_}</small></span><span class="go">{icon("arrow")}</span></a></li>'
+        for _, icon_name, tone_, title, sub_, href in events[:10]) or '<li class="empty">No recent activity yet.</li>'
+    content = f"""{notice_html}{zone_card}{pager}
+<div class="dash">{status_html}
+{start_html}
+{coverage_html}
+<div class="kpis">{kpis}</div>
+{mini_html}
+<div class="cards dash-main">
+<section class="cardx"><header><h2>Exposure map</h2><span class="select-pill">Highest urgency</span></header>{map_html}<ul class="bars">{rank_html}</ul>
+<div class="card-foot"><a class="btn" href="/reports">Full report</a><a class="btn sq" href="/triage" aria-label="Open triage">{icon("arrow")}</a></div></section>
+<section class="cardx"><header><h2>Recent activity</h2><a class="select-pill" href="/triage">Latest first</a></header><ul class="feed">{feed_html}</ul></section>
+</div></div>
+{identity_review_html}
+<section class="cardx wide"><header><h2 id="findings">Exposure findings</h2><a class="aux" href="/reports">Full report {icon("arrow")}</a></header><p class="panel-note">Grouped by advisory. Open Details on a device for evidence and what to do.</p><div class="panel"><table class="findings grouped"><thead><tr><th scope="col">Device</th><th scope="col">Zone</th><th scope="col">Status</th><th scope="col">Urgency</th></tr></thead>{finding_table}</table></div></section>
+<div class="cards three">
+<section class="cardx"><header><h2>Alerts</h2><span class="aux">{data["network_events"]} network events</span></header><div class="card-body">{alert_summary}</div></section>
+<section class="cardx"><header><h2>Intelligence sources</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="card-body">{health_html}</div></section>
+<section class="cardx"><header><h2>Recent intelligence updates</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="card-body">{updates_html}</div></section>
+</div>
 <footer>Urgency is a transparent rule-based priority; severity and applicability remain separate. KEV indicates catalog-listed exploitation, not an attack on this asset. Absence of a finding does not mean an asset is safe. Timestamps are stored in UTC. Exports are on the <a href="/reports">Reports</a> page.</footer>"""
     if not total_assets:
         content=notice_html+zone_card+f'''<section class="setup-start"><h2>Start with your asset inventory</h2><p>No devices loaded yet. Add an asset or import a CSV with an IP address for each device. Unknown product and firmware information can stay blank.</p>
@@ -158,6 +284,39 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
 <h3>Then build the evidence</h3><ol><li>Load cached advisories in <a href="/intelligence">Intelligence</a>.</li><li>Import Zeek logs in <a href="/network">Monitoring</a>.</li><li>Review applicability, missing evidence and policy alerts.</li></ol>
 </section>'''
     return layout("Overview", content, "/", lead="Local inventory, recorded network activity, and stored intelligence.", heading="Security overview")
+
+
+def exposure_map(assets, scores) -> str:
+    """Dot-matrix zone map with one glow per device, sized by its urgency score."""
+    import hashlib
+    zones = {"IT": (110, 92, 92, 62), "DMZ": (300, 100, 62, 50), "OT": (480, 92, 100, 66)}
+    dots = []
+    for y in range(10, 196, 9):
+        for x in range(8, 600, 9):
+            for cx, cy, rx, ry in zones.values():
+                wobble = (int(hashlib.md5(f"{x},{y}".encode()).hexdigest()[:2], 16) / 255 - .5) * .35
+                if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1 + wobble:
+                    dots.append(f'<circle class="dot" cx="{x}" cy="{y}" r="1.4"/>')
+                    break
+    labels = "".join(f'<text class="zl" x="{cx}" y="{cy + ry + 22}" text-anchor="middle">{z}</text>' for z, (cx, cy, rx, ry) in zones.items())
+    markers = []
+    for asset in assets:
+        name = asset["hostname"] or asset["ip_address"]
+        cx, cy, rx, ry = zones.get((asset["zone"] or "").upper(), (300, 100, 62, 50))
+        digest = hashlib.md5(asset["asset_id"].encode()).digest()
+        x = cx + (digest[0] / 255 - .5) * rx * 1.2
+        y = cy + (digest[1] / 255 - .5) * ry * 1.2
+        score, priority = scores.get(name, (0, ""))
+        tone = "crit" if priority == "critical" else "high" if priority == "high" else "ok"
+        radius = 3.5 + score * 0.9
+        title = html.escape(f"{name} · {asset['zone'] or 'Unknown'} · urgency {score} of 12")
+        # Flat markers: solid fill sized by urgency, plus the score as a text label when it is worth reading.
+        marker = f'<circle class="mk mk-{tone}" cx="{x:.0f}" cy="{y:.0f}" r="{radius:.1f}"/>'
+        if score >= 1:
+            marker += f'<text class="mk-num" x="{x:.0f}" y="{y - radius - 2:.0f}" text-anchor="middle">{score}</text>'
+        markers.append(f'<g><title>{title}</title>{marker}</g>')
+    return (f'<svg class="map" viewBox="0 0 600 212" role="img" aria-label="Devices by network zone, labelled with urgency score">'
+            f'{"".join(dots)}{labels}{"".join(markers)}</svg>')
 
 
 def assets_page(store: Store, search: str = "", page_number: int = 1, *, identity_review: bool = False, notice: str = "") -> str:
@@ -180,21 +339,54 @@ def assets_page(store: Store, search: str = "", page_number: int = 1, *, identit
         return '<br><small>'+'<br>'.join(html.escape(line) for line in lines)+(
             '<br>'+verbatim(observed) if observed else '')+revision+f'<br><a href="{link}">Original event</a></small>'
 
-    body = "".join(f"""<tr><td class="asset-address"><span class="mono">{html.escape(row['ip_address'])}</span><small>ID {html.escape(row['asset_id'])}<br>{html.escape(row['mac_address'] or 'MAC unknown')}</small><a href="/assets/edit?{urlencode({'asset_id':row['asset_id']})}">Edit</a></td><td>{verbatim(row['hostname']) if row['hostname'] else html.escape('Unknown')}</td>
-      <td>{html.escape(row['asset_type'])}<br><small>{verbatim(row['vendor'])} {verbatim(row['product'])} {verbatim(row['version'])}<br>{verbatim(row['operating_system'])}</small>{fingerprint_detail(row['ip_address'])}</td>
-      <td>{html.escape(row['zone'])}<br>{html.escape(row['criticality'])}</td><td>{html.escape(row['identification_source'])}<br><small>{html.escape(row['identity_confidence'])} confidence · {'verified' if row['verified'] else 'unverified'}</small></td><td>{html.escape(row['last_seen'] or 'Unknown')}<br><small>{verbatim(row['notes'])}</small></td></tr>""" for row in rows) or '<tr><td colspan="6" class="empty">No assets found.</td></tr>'
+    def needs_identity(row):
+        return not (row['vendor'] or '').strip() or not (row['product'] or '').strip() or row['identity_confidence'] != 'high' or not row['verified']
+
+    def device_row(row):
+        edit = '/assets/edit?' + urlencode({'asset_id': row['asset_id']})
+        make = ' '.join(v for v in (row['vendor'], row['product'], row['version']) if v)
+        make_html = verbatim(make) if make else '<span class="missing">Unknown</span>'
+        if needs_identity(row):
+            state = f'<a class="state warn" href="{html.escape(edit, quote=True)}">Needs identifying</a>'
+        else:
+            state = '<span class="state good">Identified</span>'
+        importance = row['criticality'] or 'unknown'
+        zone = (row['zone'] or '?').upper()
+        name = verbatim(row['hostname']) if row['hostname'] else html.escape('Unnamed device')
+        more = (f'<details class="more"><summary>More details</summary><dl class="kv">'
+                f'<div><dt>Asset ID</dt><dd>{html.escape(row["asset_id"])}</dd></div>'
+                f'<div><dt>MAC address</dt><dd>{html.escape(row["mac_address"] or "MAC unknown")}</dd></div>'
+                f'<div><dt>Operating system</dt><dd>{verbatim(row["operating_system"]) if row["operating_system"] else html.escape("Unknown")}</dd></div>'
+                f'<div><dt>Identified by</dt><dd>{html.escape(row["identification_source"])} · {html.escape(row["identity_confidence"])} confidence · {"verified" if row["verified"] else "unverified"}</dd></div>'
+                f'<div><dt>Last seen</dt><dd>{html.escape(row["last_seen"] or "Unknown")}</dd></div>'
+                + (f'<div><dt>Notes</dt><dd>{verbatim(row["notes"])}</dd></div>' if row['notes'] else '')
+                + f'</dl>{fingerprint_detail(row["ip_address"])}</details>')
+        return (f'<tr><td class="device"><b>{name}</b><small><span class="mono">{html.escape(row["ip_address"])}</span> · {html.escape(row["asset_type"] or "Unknown type")}</small>{more}</td>'
+                f'<td>{make_html}</td>'
+                f'<td><span class="zone-badge zone-{html.escape(zone.lower())}" title="{html.escape(zone)} zone">{html.escape(zone[:3])}</span></td>'
+                f'<td><span class="imp imp-{html.escape(importance)}">{html.escape(importance.capitalize())}</span></td>'
+                f'<td>{state}</td>'
+                f'<td class="row-action"><a class="btn" href="{html.escape(edit, quote=True)}">Edit</a></td></tr>')
+
+    body = "".join(device_row(row) for row in rows) or '<tr><td colspan="6" class="empty">No assets found. Import a CSV or add a device.</td></tr>'
     query = urlencode({"q": search, **({"identity_review":"yes"} if identity_review else {})})
     previous = f'<a class="link" href="/assets?{query}&page={page_number - 1}">Previous</a>' if page_number > 1 else ""
     next_link = f'<a class="link" href="/assets?{query}&page={page_number + 1}">Next</a>' if page_number * limit < total else ""
     review_control = '<label class="inline-check"><input type="checkbox" name="identity_review" value="yes"'+(' checked' if identity_review else '')+'> Needs identity review</label>'
+    counts = store.dashboard()
+    tabs = (f'<nav class="quick-tabs" aria-label="Device filter"><a href="/assets"' + ('' if identity_review else ' class="on"') + f'>All devices <span>{counts["assets"]}</span></a>'
+            f'<a href="/assets?identity_review=yes"' + (' class="on"' if identity_review else '') + f'>Needs identifying <span>{counts["assets_needing_identity_review"]}</span></a></nav>')
+    pages = f'<span class="muted">{total} devices · page {page_number}</span>{previous}{next_link}'
     upload = '''<form method="post" action="/assets/import" enctype="multipart/form-data">
 <div><label for="asset-import-file">Inventory CSV</label>
 <input id="asset-import-file" required name="file" type="file" accept=".csv,text/csv" aria-describedby="asset-import-hint">
 <small id="asset-import-hint">Choose a CSV with one row per device and an IP address for each.</small></div>
 <button>Import asset CSV</button></form>'''
-    content = f"""{action_notice(notice)}<div class="controls"><form method="get" action="/assets"><input name="q" value="{html.escape(search, quote=True)}" placeholder="Search IP, hostname, vendor, product" aria-label="Search assets">{review_control} <button>Search</button><a href="/assets">Clear filters</a></form><a class="btn primary" href="/assets/edit">Add asset</a><span class="muted">{total} assets · page {page_number}</span>{previous}{next_link}</div>
+    content = f"""{action_notice(notice)}<div class="toolbar">{tabs}<div class="toolbar-actions"><a class="btn" href="/assets.csv">Export CSV</a><a class="btn primary" href="/assets/edit">Add asset</a></div></div>
+<form class="search-row" method="get" action="/assets"><input name="q" value="{html.escape(search, quote=True)}" placeholder="Search by name, address, vendor or product" aria-label="Search assets">{review_control}<button>Search</button>{'<a href="/assets">Clear filters</a>' if search or identity_review else ''}</form>
 <details class="workflow"><summary>Import inventory CSV</summary>{upload}</details>
-<section class="panel"><table class="asset-inventory"><thead><tr><th>Address</th><th>Hostname</th><th>Type and identity</th><th>Zone / criticality</th><th>Source / confidence</th><th>Last seen / notes</th></tr></thead><tbody>{body}</tbody></table></section>"""
+<section class="panel"><table class="asset-inventory device-table"><thead><tr><th>Device</th><th>Make and model</th><th>Zone</th><th>Importance</th><th>Status</th><th><span class="vh">Actions</span></th></tr></thead><tbody>{body}</tbody></table></section>
+<div class="controls pager-row">{pages}</div>"""
     return layout("Inventory", content, "/assets", lead="Observed metadata remains separate from operator verification. Unknown identity is not inferred from an IP address.", heading="Asset inventory")
 
 
@@ -246,14 +438,29 @@ def network_page(store: Store, page_number: int = 1, notice: str = '') -> str:
     page_number = max(1, page_number)
     limit = 50
     events, total = store.recent_network_events(limit=limit, offset=(page_number - 1) * limit)
-    rows = "".join(f"""<tr><td class="mono">{html.escape(row['timestamp'])}<br><small><a href="{html.escape(evidence_url(row['event_ref'],'/network?page='+str(page_number)),quote=True)}">{verbatim(row['event_ref'])}</a></small></td><td class="mono">{html.escape(row['source_ip'])}:{html.escape(str(row['source_port'] or ''))}<br>↓ {html.escape(row['destination_ip'])}:{html.escape(str(row['destination_port'] or ''))}</td><td>{html.escape(row['protocol'])} · {html.escape(row['event_type'])}<br>{html.escape(row['operation'])}</td><td>{html.escape(row['rule_ids'] or 'No active rule alert')}<br><small>{html.escape('; '.join(json.loads(row['diagnostics_json'] or '[]')))}<br>{verbatim(row['source_file'])}</small></td></tr>""" for row in events) or '<tr><td colspan="4" class="empty">No network events imported yet. Choose a Zeek log above to get started.</td></tr>'
+    def event_row(row):
+        when = re.sub(r'\.0+(?=Z|$)', '', row['timestamp']).replace('T', ' ').replace('Z', ' UTC')
+        record = html.escape(evidence_url(row['event_ref'], '/network?page=' + str(page_number)), quote=True)
+        what = ' · '.join(v for v in (row['protocol'], row['event_type'], row['operation']) if v)
+        notes = '; '.join(json.loads(row['diagnostics_json'] or '[]'))
+        alert = (f'<span class="flag">{html.escape(row["rule_ids"])}</span>' if row['rule_ids']
+                 else '<span class="muted">No active rule alert</span>')
+        return (f'<tr><td><span class="nw">{html.escape(when)}</span><small><a href="{record}">{verbatim(row["event_ref"])}</a></small></td>'
+                f'<td class="mono">{html.escape(row["source_ip"])}<span class="arrow" aria-hidden="true"> → </span>{html.escape(row["destination_ip"])}'
+                f'<small>port {html.escape(str(row["source_port"] or "–"))} → {html.escape(str(row["destination_port"] or "–"))}</small></td>'
+                f'<td>{html.escape(what)}</td><td>{alert}<small>{html.escape(notes)}' + (' · ' if notes else '') + f'{verbatim(row["source_file"])}</small></td></tr>')
+
+    rows = "".join(event_row(row) for row in events) or '<tr><td colspan="4" class="empty">No network activity yet. Upload a Zeek log above to get started.</td></tr>'
     pager = _pager("/network", "", page_number, total, limit)
     kind = select('kind','Zeek log kind',[('','Detect from file name'),('conn','Connections'),('modbus','Modbus operations'),
         ('modbus-identity','Modbus device identification'),('dhcp','DHCP'),('software','Software')])
     banner = '<p class="notice success" role="status">'+html.escape(notice)+'</p>' if notice else ''
-    content = f"""{banner}<div class="controls">{pager}</div>
-<form method="post" action="/network/import" enctype="multipart/form-data"><label>Zeek log<input required name="file" type="file" accept=".log,.json,.jsonl,.tsv"></label>{kind}<p>Phylax uses the saved network policy to check imported activity.</p><button>Import Zeek log</button></form>
-<section class="panel"><table><thead><tr><th>Timestamp / event reference</th><th>Source / destination</th><th>Protocol / operation</th><th>Detection / source file</th></tr></thead><tbody>{rows}</tbody></table></section>"""
+    content = f"""{banner}<section class="cardx upload-card"><div class="upload-text"><h2>Add a network log</h2>
+<p>Choose a log file exported by Zeek, for example <span class="mono">conn.log</span> or <span class="mono">modbus.log</span>. Phylax uses the saved network policy to check imported activity.</p></div>
+<form method="post" action="/network/import" enctype="multipart/form-data"><label class="file-pick"><span>Log file</span><input required name="file" type="file" accept=".log,.json,.jsonl,.tsv"></label>
+<details class="more"><summary>More options</summary>{kind}<small>Phylax can usually tell the type from the file name.</small></details>
+<button class="primary">Import Zeek log</button></form></section>
+<section class="cardx wide"><header><h2>Recorded traffic</h2><span class="aux">{pager}</span></header><div class="panel"><table class="events-table"><thead><tr><th>When</th><th>From → to</th><th>What happened</th><th>Alert</th></tr></thead><tbody>{rows}</tbody></table></div></section>"""
     return layout("Network events", content, "/network", lead="Import Zeek logs or review recorded network activity.", heading="Passive network monitoring")
 
 
@@ -385,12 +592,13 @@ class Handler(BaseHTTPRequestHandler):
         language = request_language(self.headers)
         if content_type.startswith('text/html'):
             label=self.store.connection.execute("SELECT value FROM schema_meta WHERE key='dataset_label'").fetchone()
-            if label:
-                banner='<div class="notice" translate="no">'+html.escape(label[0])+'</div>'
-                body=re.sub(r'<main\b[^>]*>',lambda match:match[0]+banner,body.decode('utf-8'),count=1).encode('utf-8')
+            chip = '<span class="dataset" translate="no">'+html.escape(label[0])+'</span>' if label else '<span></span>'
             markup = body.decode('utf-8')
-            control = language_control(self.path, language)
-            markup = markup.replace('<main id="main-content" tabindex="-1">', '<main id="main-content" tabindex="-1">'+control, 1)
+            control = '<div class="topbar">'+chip+language_control(self.path, language)+'</div>'
+            if '<main id="main-content" tabindex="-1">' in markup:
+                markup = markup.replace('<main id="main-content" tabindex="-1">', '<main id="main-content" tabindex="-1">'+control, 1)
+            elif label:
+                markup = re.sub(r'<main\b[^>]*>', lambda match: match[0]+chip, markup, count=1)
             body = protect_forms(translate_html(markup, language),self.csrf_token).encode('utf-8')
         elif content_type.startswith('text/plain'):
             body = translate_text(body.decode('utf-8'), language).encode('utf-8')
@@ -428,6 +636,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(b'Invalid Host', 'text/plain; charset=utf-8',403)
             return
         path = urlparse(self.path).path
+        if path == '/static/board.js':
+            from .triage_views import BOARD_JS
+            self._send(BOARD_JS.encode(), 'text/javascript; charset=utf-8')
+            return
         if path == '/static/topology.js':
             self._send(VIEWPORT_SCRIPT.encode(), 'text/javascript; charset=utf-8')
             return
