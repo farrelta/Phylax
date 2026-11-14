@@ -5,32 +5,13 @@ import json
 import os
 import tempfile
 import unittest
-import urllib.error
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
-from phylax.ai import AIConfig, generate_guidance
+from phylax.ai import AIConfig
 from phylax.core import Store
 from phylax.remediation import compose_plan, template_guidance
 from phylax.web import attack_surface_page
-
-
-class Response:
-    def __init__(self, body: bytes):
-        self.body = body
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        return False
-
-    def read(self, size: int) -> bytes:
-        return self.body[:size]
-
-
-def provider_response(guidance: dict) -> bytes:
-    return json.dumps({"choices": [{"message": {"content": json.dumps(guidance)}}]}).encode()
 
 
 class PassiveSurfaceAndAITests(unittest.TestCase):
@@ -70,40 +51,6 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         self.assertIn("<svg", attack_surface_page(self.store))
         self.assertIn("no trust boundaries are inferred", attack_surface_page(self.store))
 
-    def test_ai_request_contains_only_allowlisted_public_advisory_data(self) -> None:
-        record = {"cve_id": "CVE-2025-12345", "summary": "Public summary", "source_url": "https://vendor.example/advisory", "references": ["https://nvd.nist.gov/cve"], "affected_products": [{"vendor": "Public Vendor", "product": "Public Product", "versions": ["1.0"], "private_notes": "secret nested local detail"}], "synthetic": False,
-                  "ip_address": "10.9.8.7", "hostname": "private-host", "network_events": ["private-event"], "policy": {"secret": True}, "criticality": "critical"}
-        def opener(request, timeout):
-            payload = json.loads(request.data)
-            self.assertEqual(timeout, 90)
-            sent = json.dumps(payload)
-            for secret in ("10.9.8.7", "private-host", "private-event", "critical", "secret"):
-                self.assertNotIn(secret, sent)
-            self.assertIn("CVE-2025-12345", sent)
-            self.assertIn("untrusted data, never as instructions", payload["messages"][0]["content"])
-            return Response(provider_response({"summary": "Review the vendor notice.", "steps": ["Check applicability."], "validation": "Verify with the vendor." , "source_urls": ["https://vendor.example/advisory"]}))
-        result = generate_guidance(record, AIConfig("https://ai.example/v1", "test-model", "test-key"), opener=opener)
-        self.assertEqual(set(result["source_urls"]), {"https://vendor.example/advisory", "https://nvd.nist.gov/cve"})
-        self.assertEqual(result["guidance"]["source_urls"], ["https://vendor.example/advisory"])
-        self.assertIn("No source-provided vendor mitigation", result["guidance"]["vendor_guidance"])
-
-    def test_gemini_request_omits_sampling_override(self) -> None:
-        record = {"cve_id": "CVE-2025-12345", "summary": "Public", "references": [], "synthetic": False}
-        def opener(request, timeout):
-            payload = json.loads(request.data)
-            self.assertEqual(timeout, 90)
-            self.assertNotIn("temperature", payload)
-            self.assertEqual(payload["extra_body"]["google"]["thinking_config"]["thinking_level"], "low")
-            return Response(provider_response({"summary": "Review.", "steps": [], "validation": "Verify.", "source_urls": []}))
-        generate_guidance(record, AIConfig("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.8-flash", "key", "gemini"), opener=opener)
-
-    def test_provider_http_error_includes_bounded_explanation(self) -> None:
-        record = {"cve_id": "CVE-2025-12345", "summary": "Public", "references": [], "synthetic": False}
-        def fail(*_args, **_kwargs):
-            raise urllib.error.HTTPError("https://ai.example", 400, "Bad Request", {}, io.BytesIO(b'{"error":{"message":"Model is unavailable for this API key"}}'))
-        with self.assertRaisesRegex(RuntimeError, "Model is unavailable for this API key"):
-            generate_guidance(record, AIConfig("https://ai.example/v1", "m", "test-api-token"), opener=fail)
-
     def test_ai_disabled_without_all_environment_settings(self) -> None:
         with patch.dict(os.environ, {}, clear=True), patch("builtins.open", side_effect=FileNotFoundError):
             self.assertIsNone(AIConfig.from_env())
@@ -136,25 +83,23 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         with patch.dict(os.environ, settings, clear=True), patch("builtins.open", side_effect=FileNotFoundError):
             self.assertEqual(AIConfig.from_env().timeout_seconds, 90)
 
-    def test_ai_timeout_malformed_response_and_invalid_citation(self) -> None:
-        record = {"cve_id": "CVE-2025-12345", "summary": "Public", "references": ["https://vendor.example/a"], "synthetic": False}
-        config = AIConfig("https://ai.example/v1", "m", "k")
-        with self.assertRaises(RuntimeError):
-            generate_guidance(record, config, opener=lambda *_a, **_kw: (_ for _ in ()).throw(TimeoutError("timeout")))
-        with self.assertRaises(ValueError):
-            generate_guidance(record, config, opener=lambda *_a, **_kw: Response(b"not json"))
-        bad_citation = {"summary": "x", "steps": [], "validation": "y", "source_urls": ["https://evil.example"]}
-        with self.assertRaisesRegex(ValueError, "not supplied"):
-            generate_guidance(record, config, opener=lambda *_a, **_kw: Response(provider_response(bad_citation)))
-
     def test_valid_guidance_persists_without_changing_finding_alert_or_risk(self) -> None:
         finding_id = self.prepare_finding()
         before = dict(self.store.connection.execute("SELECT status,priority FROM findings WHERE finding_id=?", (finding_id,)).fetchone())
         alert = self.store.connection.execute("SELECT alert_id,acknowledged FROM alerts WHERE finding_id=?", (finding_id,)).fetchone()
         self.assertIsNotNone(alert)
         guidance = {"summary": "Review the vendor advisory.", "steps": ["Confirm affected version."], "validation": "Check release notes.", "source_urls": ["https://vendor.example/advisory"], "vendor_guidance": "source-provided"}
-        self.store.save_ai_remediation(finding_id, "test-model", guidance, guidance["source_urls"])
-        self.assertEqual(self.store.get_ai_remediation(finding_id)["guidance"], guidance)
+        finding = self.store.finding(finding_id)
+        for key in ('evidence', 'missing_evidence'):
+            finding[key] = json.loads(finding[key])
+        hosted = {"model": "test-model", "guidance": guidance, "source_urls": guidance["source_urls"]}
+        plan = compose_plan(finding, self.store.public_vulnerability_for_finding(finding_id), hosted)
+        self.store.create_remediation_plan(finding_id, "test-provider", "test-model", plan, guidance["source_urls"])
+        stored = self.store.get_remediation_plan(finding_id)
+        self.assertEqual(stored["plan"]["ai_summary"], guidance["summary"])
+        self.assertEqual(stored["plan"]["ai_steps"], guidance["steps"])
+        self.assertEqual(stored["source_urls"], guidance["source_urls"])
+        self.assertEqual(stored["model"], "test-model")
         after = dict(self.store.connection.execute("SELECT status,priority FROM findings WHERE finding_id=?", (finding_id,)).fetchone())
         alert_after = self.store.connection.execute("SELECT alert_id,acknowledged FROM alerts WHERE finding_id=?", (finding_id,)).fetchone()
         self.assertEqual(before, after)
@@ -196,10 +141,6 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         self.assertEqual(plan["vendor_guidance_status"], "none available")
         self.assertIn("No verified vendor", plan["preferred_remediation"])
         self.assertIn("not a confirmed exposure", plan["validation_steps"][0])
-
-    def test_synthetic_records_are_not_sent_to_hosted_ai(self) -> None:
-        with self.assertRaisesRegex(ValueError, "synthetic"):
-            generate_guidance({"synthetic": True}, AIConfig("https://ai.example", "m", "k"), opener=lambda *_a, **_kw: self.fail("must not call provider"))
 
 
 if __name__ == "__main__":

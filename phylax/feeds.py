@@ -1,4 +1,4 @@
-"""Documented, read-only public vulnerability source adapters."""
+"""Synchronization from read-only public vulnerability sources."""
 
 from __future__ import annotations
 
@@ -10,8 +10,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
-from .adapters import IntelligenceAdapter, KEVAdapter, ICSAdapter
+from typing import Any, Callable, Iterator
 from .identifiers import cpe_parts as _cpe_parts, cpe_components as _cpe_components
 
 
@@ -21,11 +20,12 @@ ICS_RSS_URL = "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml"
 MAX_RESPONSE_BYTES = 20_000_000
 
 
-def fetch(url: str, *, timeout: float = 20, opener: Callable[..., Any] = urllib.request.urlopen) -> bytes:
+def fetch(url: str | urllib.request.Request, *, timeout: float = 20, opener: Callable[..., Any] | None = None) -> bytes:
     """Fetch a fixed adapter URL with bounded body, timeout, and transient retries."""
     headers = {"User-Agent": "Phylax/0.1 (local vulnerability intelligence client)", "Accept": "application/json, application/rss+xml, application/xml"}
+    opener = opener or urllib.request.urlopen
+    request = url if isinstance(url, urllib.request.Request) else urllib.request.Request(url, headers=headers)
     for attempt in range(4):
-        request = urllib.request.Request(url, headers=headers)
         try:
             with opener(request, timeout=timeout) as response:
                 body = response.read(MAX_RESPONSE_BYTES + 1)
@@ -38,8 +38,9 @@ def fetch(url: str, *, timeout: float = 20, opener: Callable[..., Any] = urllib.
             delay = exc.headers.get("Retry-After", "")
             try:
                 wait = min(30, max(0, float(delay)))
-            except ValueError:
+            except (TypeError, ValueError):
                 wait = 2 ** attempt
+            exc.close()
             time.sleep(wait)
         except (urllib.error.URLError, TimeoutError):
             if attempt == 3:
@@ -159,8 +160,12 @@ def normalize_ics_rss(xml_body: bytes, retrieved_at: str) -> list[dict[str, str]
     return records
 
 
-def nvd_pages(*, since: datetime | None = None, until: datetime | None = None, page_size: int = 2000, start_index: int = 0, api_key: str | None = None, fetcher: Callable[[str], bytes] = fetch, now: datetime | None = None, on_page: Callable[[int, int, int], None] | None = None, on_batch: Callable[[int, int, int, list[dict[str, Any]]], None] | None = None):
-    """Yield normalized CVEs; callbacks expose page batches for durable resumable ingestion."""
+def nvd_pages(
+    *, since: datetime | None = None, until: datetime | None = None,
+    page_size: int = 2000, start_index: int = 0, api_key: str | None = None,
+    fetcher: Callable[[str], bytes] = fetch, now: datetime | None = None,
+) -> Iterator[tuple[int, int, int, list[dict[str, Any]]]]:
+    """Yield the page number, total, next offset and normalized records."""
     now = now or datetime.now(timezone.utc)
     end = (until or now).astimezone(timezone.utc)
     start = since.astimezone(timezone.utc) if since else end - timedelta(days=30)
@@ -176,7 +181,7 @@ def nvd_pages(*, since: datetime | None = None, until: datetime | None = None, p
         # The default fetcher accepts a Request; callers can inject deterministic byte fixtures.
         if fetcher is fetch and api_key:
             request = urllib.request.Request(url, headers={"apiKey": api_key, "User-Agent": "Phylax/0.1"})
-            body = fetch_request(request)
+            body = fetch(request)
         else:
             body = fetcher(url)
         payload = json.loads(body)
@@ -186,55 +191,32 @@ def nvd_pages(*, since: datetime | None = None, until: datetime | None = None, p
         total = int(payload["totalResults"])
         if total < 0:raise ValueError("NVD totalResults must not be negative")
         page_number = start_index // min(2000, max(1, page_size)) + 1
-        records = [normalize_nvd(row, retrieved_at) for row in rows]
-        if on_batch:
-            on_batch(page_number, total, start_index + len(rows), records)
-        if on_page:
-            on_page(page_number, total, len(rows))
-        yield from records
-        if not rows and start_index < total:
-            raise RuntimeError(f"NVD returned an empty page at offset {start_index} of {total}; keeping the sync checkpoint")
         start_index += len(rows)
-        if not rows or start_index >= total:
+        yield page_number, total, start_index, [normalize_nvd(row, retrieved_at) for row in rows]
+        if start_index >= total:
             break
+        if not rows:
+            raise RuntimeError(f"NVD returned an empty page at offset {start_index} of {total}; keeping the sync checkpoint")
 
 
-def fetch_request(request: urllib.request.Request) -> bytes:
-    """Same bounds and retry behavior as fetch(), with an NVD API-key header."""
-    for attempt in range(4):
-        try:
-            with urllib.request.urlopen(request, timeout=20) as response:
-                body = response.read(MAX_RESPONSE_BYTES + 1)
-                if len(body) > MAX_RESPONSE_BYTES:
-                    raise ValueError("Source response exceeds 20 MB limit")
-                return body
-        except urllib.error.HTTPError as exc:
-            if exc.code not in {429, 500, 502, 503, 504} or attempt == 3:
-                raise
-            try:
-                wait = min(30, max(0, float(exc.headers.get("Retry-After", ""))))
-            except (TypeError, ValueError):
-                wait = 2 ** attempt
-            time.sleep(wait)
-        except (urllib.error.URLError, TimeoutError):
-            if attempt == 3:
-                raise
-            time.sleep(2 ** attempt)
-    raise RuntimeError("unreachable")
+def load_kev(store, fetcher, retrieved_at):
+    records = normalize_kev(json.loads(fetcher(KEV_URL)))
+    for record in records:
+        record['retrieved_at'] = retrieved_at
+    return store.ingest_normalized(records, trusted_public=True) if records else 0
 
 
-def collect_live(fetcher: Callable[[str], bytes] = fetch, *, nvd_since: datetime | None = None, api_key: str | None = None) -> dict[str, Any]:
-    """Collect all three official feeds into normalized records; caller persists atomically."""
-    now = datetime.now(timezone.utc)
-    timestamp = now.isoformat(timespec="seconds").replace("+00:00", "Z")
-    nvd = list(nvd_pages(since=nvd_since, api_key=api_key, fetcher=fetcher))
-    kev_data = json.loads(fetcher(KEV_URL))
-    kev = normalize_kev(kev_data)
-    rss = normalize_ics_rss(fetcher(ICS_RSS_URL), timestamp)
-    return {"retrieved_at": timestamp, "nvd": nvd, "kev": kev, "ics_advisories": rss}
+def load_ics(store, fetcher, retrieved_at):
+    records = normalize_ics_rss(fetcher(ICS_RSS_URL), retrieved_at)
+    return store.save_ics_advisories(records) if records else 0
 
 
-def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: str | None = None, progress: Callable[[str, str, str], None] | None = None, backfill_days: int | None = None, nvd_page_size: int = 2000, additional_adapters: tuple[IntelligenceAdapter, ...] = ()) -> dict[str, Any]:
+def sync_store(
+    store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: str | None = None,
+    progress: Callable[[str, str, str], None] | None = None, backfill_days: int | None = None,
+    nvd_page_size: int = 2000,
+    additional_loaders: tuple[tuple[str, Callable[[Any, Callable[[str], bytes], str], int]], ...] = (),
+) -> dict[str, Any]:
     """Synchronize each source independently and preserve source health on failure."""
     def log(source: str, stage: str, message: str) -> None:
         if progress:
@@ -270,13 +252,13 @@ def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: 
     try:
         log("NVD API 2.0", "start", resume_message)
         saved = 0
-        def persist_batch(page: int, total: int, next_offset: int, records: list[dict[str, Any]]) -> None:
-            nonlocal saved
-            saved += store.ingest_normalized(records, trusted_public=True)
+        for page, total, next_offset, records in nvd_pages(
+                since=since, until=until, page_size=page_size, start_index=next_index,
+                api_key=api_key or os.environ.get("NVD_API_KEY"), fetcher=fetcher):
+            if records:
+                saved += store.ingest_normalized(records, trusted_public=True)
             store.save_sync_checkpoint("NVD API 2.0", since.isoformat().replace("+00:00", "Z"), until.isoformat().replace("+00:00", "Z"), next_offset, page_size, total)
             log("NVD API 2.0", "progress", f"Saved page {page}; {len(records)} records on this page, {next_offset}/{total} fetched in this window.")
-        for _record in nvd_pages(since=since, until=until, page_size=page_size, start_index=next_index, api_key=api_key or os.environ.get("NVD_API_KEY"), fetcher=fetcher, on_batch=persist_batch):
-            pass
         store.set_source_health("NVD API 2.0", "healthy", records=saved, message=f"Retrieved {saved} CVE records since {since.date()}.", attempted_at=until.isoformat().replace("+00:00", "Z"))
         store.clear_sync_checkpoint("NVD API 2.0")
         results["NVD API 2.0"] = {"ok": True, "records": saved}
@@ -285,21 +267,21 @@ def sync_store(store: Any, *, fetcher: Callable[[str], bytes] = fetch, api_key: 
         store.set_source_health("NVD API 2.0", "unavailable", message=f"{type(exc).__name__}: {exc}")
         results["NVD API 2.0"] = {"ok": False, "error": str(exc)}
         log("NVD API 2.0", "error", f"Failed: {type(exc).__name__}: {exc}")
-    for adapter in (KEVAdapter(),ICSAdapter(),*additional_adapters):
+    for name, load in (('CISA KEV', load_kev), ('CISA ICS advisories RSS', load_ics), *additional_loaders):
         try:
-            log(adapter.name,'start','Retrieving structured public intelligence.')
+            log(name,'start','Retrieving structured public intelligence.')
             timestamp=datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
-            batch=adapter.collect(fetcher,timestamp)
-            saved=store.ingest_normalized(batch.vulnerabilities,trusted_public=adapter.trusted_public) if batch.vulnerabilities else 0
-            if batch.advisories:saved+=store.save_ics_advisories(batch.advisories)
+            saved=load(store,fetcher,timestamp)
             message=f'Retrieved {saved} records. Advisory-only entries do not imply version applicability.'
-            store.set_source_health(adapter.name,'healthy',records=saved,message=message)
-            results[adapter.name]={'ok':True,'records':saved}
-            log(adapter.name,'done',message)
+            store.set_source_health(name,'healthy',records=saved,message=message)
+            results[name]={'ok':True,'records':saved}
+            log(name,'done',message)
         except Exception as exc:
-            store.set_source_health(adapter.name,'unavailable',message=f'{type(exc).__name__}: {exc}')
-            results[adapter.name]={'ok':False,'error':str(exc)}
-            log(adapter.name,'error',f'Failed: {type(exc).__name__}: {exc}')
+            store.set_source_health(name,'unavailable',message=f'{type(exc).__name__}: {exc}')
+            results[name]={'ok':False,'error':str(exc)}
+            log(name,'error',f'Failed: {type(exc).__name__}: {exc}')
+    from .csaf import sync_csaf
+    results.update(sync_csaf(store,progress=progress))
     return results
 
 
@@ -309,7 +291,7 @@ def refresh_cve(store: Any, cve_id: str, *, fetcher: Callable[[str],bytes] = fet
     if not re.fullmatch(r'CVE-\d{4}-\d{4,}',cve_id.upper()):raise ValueError('Invalid CVE identifier')
     url=NVD_URL+'?'+urllib.parse.urlencode({'cveId':cve_id.upper()})
     if fetcher is fetch and os.environ.get('NVD_API_KEY'):
-        body=fetch_request(urllib.request.Request(url,headers={'apiKey':os.environ['NVD_API_KEY'],'User-Agent':'Phylax/0.1'}))
+        body=fetch(urllib.request.Request(url,headers={'apiKey':os.environ['NVD_API_KEY'],'User-Agent':'Phylax/0.1'}))
     else:body=fetcher(url)
     payload=json.loads(body)
     if not isinstance(payload,dict) or not isinstance(payload.get('vulnerabilities'),list) or len(payload['vulnerabilities'])!=1:

@@ -2,41 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any
 
-from .ai import AIConfig, generate_guidance
 from .prioritization import prioritize
-
-
-class RemediationProvider(Protocol):
-    name: str
-    model: str
-
-    def generate(self, public_record: dict[str, Any]) -> dict[str, Any] | None: ...
-
-
-class HostedModelProvider:
-    """Hosted provider receives the public advisory record only."""
-
-    def __init__(self, config: AIConfig):
-        self.config = config
-        self.model = config.model
-        self.name = f"{config.provider}-public-data-only"
-
-    def generate(self, public_record: dict[str, Any]) -> dict[str, Any]:
-        result = generate_guidance(public_record, self.config)
-        self.model = result["model"]
-        return result
-
-
-class TemplateFallbackProvider:
-    """Local deterministic path; it makes no network request."""
-
-    name = "template-fallback"
-    model = ""
-
-    def generate(self, public_record: dict[str, Any]) -> None:
-        return None
 
 
 def template_guidance(finding: dict[str, Any]) -> dict[str, Any]:

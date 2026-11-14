@@ -1,3 +1,3 @@
-"""Phylax: local-first, passive IT/OT security decision support."""
+"""Phylax: local IT/OT intelligence and passive network monitoring."""
 
 __version__ = "0.1.0"
