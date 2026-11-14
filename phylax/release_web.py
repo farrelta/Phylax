@@ -43,7 +43,7 @@ def page(store,path,query,submitted=None,error=''):
 def error_page(store,path,values,error):
     base='/'+path.split('/')[1]
     if base not in PAGES:return layout('Input needs attention','<p class="notice error" role="alert">'+e(error)+'</p><p><a href="/settings">Return to settings</a></p>','/settings')
-    query={k:[v[0]] for k,v in values.items() if v and k in {'asset_id','component_id','ip','category','priority','acknowledged','q','page'}}
+    query={k:[v[0]] for k,v in values.items() if v and k in {'asset_id','component_id','ip','category','priority','acknowledged','q','page','view','history'}}
     try:return page(store,base,query,{k:v[0] for k,v in values.items()},str(error))
     except ValueError:return layout('Input needs attention','<p class="notice error" role="alert">'+e(error)+'</p><p><a href="'+base+'">Reload the current records</a></p>',base)
 
@@ -86,7 +86,7 @@ def post(store,path,form_values):
         unlink_process(store,f.get('asset_id',''),f.get('process_id',''),actor,note);query['asset_id']=f.get('asset_id','')
     elif path=='/triage/ack':
         acknowledge(store,f.get('category',''),f.get('alert_id',''))
-        query={k:f[k] for k in ('priority','acknowledged','q','page') if f.get(k)}
+        query={k:f[k] for k in ('priority','acknowledged','q','page','view','history') if f.get(k)}
         if f.get('filter_category'):query['category']=f['filter_category']
         if f.get('alert') and f['alert']==f.get('alert_id') and f.get('category')=='network':
             query={'alert':f['alert']}

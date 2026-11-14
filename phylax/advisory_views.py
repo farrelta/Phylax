@@ -29,17 +29,26 @@ def advisory_text(value):
     return '\n\n'.join(' '.join(line.split()) for line in ''.join(parser.parts).splitlines() if line.strip())
 
 
-def advisory_summary(value,limit=320):
-    """Preview source text, with all readable source content available on demand."""
-    full=advisory_text(value)
-    if not full:return '<p class="muted">No advisory summary supplied.</p>'
-    paragraphs=full.split('\n\n')
-    selected=next((i+1 for i,line in enumerate(paragraphs[:-1]) if re.fullmatch(r'(?:\d+[.\s]*)?(?:executive\s+)?summary',line,re.I)),None)
-    preview=paragraphs[selected] if selected is not None else next((line for line in paragraphs if line.casefold() not in {'view csaf','view advisory'}),paragraphs[0])
-    if len(preview)>limit:
-        cut=preview[:limit].rsplit(' ',1)[0]
-        preview=(cut or preview[:limit]).rstrip()+'…'
-    body='<p translate="no" class="advisory-preview">'+e(preview)+'</p>'
-    if full!=preview:
-        body+='<details class="advisory-content"><summary>Read full advisory text</summary><div class="advisory-text" tabindex="0" role="region" aria-label="Full advisory text">'+e(full)+'</div></details>'
-    return body
+def advisory_summary(value):
+    """Show the first substantive paragraph with the full cached description on demand."""
+    full = advisory_text(value)
+    if not full:
+        return '<p class="muted">No advisory summary supplied.</p>'
+    paragraphs = full.split('\n\n')
+    summary_heading = r'(?:\d+[.\s]*)?(?:executive\s+)?summary'
+    substantive = [
+        line for line in paragraphs
+        if line.casefold() not in {'view csaf', 'view advisory'}
+        and not re.fullmatch(summary_heading, line, re.I)
+    ]
+    first = substantive[0] if substantive else paragraphs[0]
+    full_markup = '<div class="advisory-text" translate="no">' + e(full) + '</div>'
+    if full == first:
+        return full_markup
+    return (
+        '<details class="advisory-content"><summary>'
+        '<span class="advisory-collapse">Show first substantive paragraph</span>'
+        '<span class="advisory-expand">Show full cached text</span>'
+        '</summary>' + full_markup + '</details>'
+        '<p translate="no" class="advisory-preview">' + e(first) + '</p>'
+    )

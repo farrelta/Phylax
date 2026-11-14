@@ -7,11 +7,15 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from phylax.asset_intelligence import add_subnet, endpoint_decision, heartbeat, save_context, save_process
 from phylax.core import Store
+from phylax.csaf import normalize as normalize_csaf
 from phylax.fingerprints import save_mapping
-from phylax.monitoring import ingest_file, reevaluate_events
+from phylax.monitoring import reevaluate_events
 from phylax.observations import review_component
-from phylax.sensor_imports import import_suricata, import_wazuh
+from phylax.remediation import compose_plan
+from phylax.sensor_imports import import_wazuh
+from phylax.watcher import LogWatcher
 from scripts.generate_passive_demo import frame
 
 PLC = '192.0.2.10'
@@ -21,6 +25,9 @@ DMZ = '203.0.113.30'
 UNKNOWN = '192.0.2.99'
 ADVISORY = ('https://download.schneider-electric.com/files?p_Doc_Ref=SEVD-2021-285-04'
             '&p_File_Name=SEVD-2021-285-04_M218_Security_Notification.pdf&p_enDocType=Security+and+Safety+Notice')
+CISA_FIXTURE = Path(__file__).resolve().parents[1] / 'tests/fixtures/public_cisa_icsa_24_004_01.json'
+CISA_URL = 'https://raw.githubusercontent.com/cisagov/CSAF/develop/csaf_files/OT/white/2024/icsa-24-004-01.json'
+CISA_RETRIEVED_AT = '2026-11-04T05:12:00Z'
 POLICY = {'zone_subnets': {'IT': ['198.51.100.0/24'], 'DMZ': ['203.0.113.0/24'], 'OT': ['192.0.2.0/24']},
           'denied_zone_pairs': [['IT', 'OT']]}
 WHEN = '2026-11-12T09:00:00Z'
@@ -95,12 +102,13 @@ def prepare(directory):
         conns.append({'ts': EPOCH+index, 'uid': f'lab-flow-{index}', 'id.orig_h': client, 'id.orig_p': 40000+index,
                       'id.resp_h': server, 'id.resp_p': 502, 'proto': 'tcp', 'service': 'modbus', 'conn_state': state})
     write_jsonl(directory/'conn.log', conns)
-    write_jsonl(directory/'eve.json', [
-        {'timestamp': WHEN, 'flow_id': 1, 'event_type': 'flow', 'src_ip': IT, 'dest_ip': PLC,
-         'src_port': 40002, 'dest_port': 502, 'proto': 'TCP', 'app_proto': 'modbus', 'flow': {'start': WHEN}}])
     wazuh = {'error': 0, 'data': {'total_failed_items': 0, 'affected_items': [
         {'agent_id': '001', 'scan': {'time': WHEN}, 'name': 'Example Lab Package', 'version': '1.2.3'}]}}
     (directory/'wazuh-packages.json').write_text(json.dumps(wazuh, indent=2), encoding='utf-8')
+    wazuh['data']['affected_items'] = [
+        {'agent_id': '001', 'scan': {'time': WHEN},
+         'os': {'name': 'Simulated Workstation Linux', 'version': '12.0'}}]
+    (directory/'wazuh-os.json').write_text(json.dumps(wazuh, indent=2), encoding='utf-8')
     (directory/'README.txt').write_text(DEMO_LABEL+' All packets are generated in files only.\n', encoding='utf-8')
     database = directory/'phylax-demo.db'
     store = Store(database)
@@ -121,23 +129,59 @@ def stage_presentation(directory, database):
     try:
         if store.assets():
             raise RuntimeError('Presentation setup requires the fresh empty demo inventory')
-        ingest_file(store, directory/'conn.log')
-        ingest_file(store, directory/'modbus_read_device_identification.log')
+        watcher = LogWatcher(store, directory)
+        watcher.poll()
+        imports = watcher.poll()
+        heartbeat(store, watcher.key, 'watcher', 'stopped',
+                  f"Offline demo preparation: {imports['imported']} finalized Zeek logs imported.")
+        if imports['failed'] or imports['imported'] != 2:
+            raise RuntimeError(f'Expected both saved Zeek logs to import: {imports}')
+
+        assets = {asset['ip_address']: asset for asset in store.assets()}
+        inventory = (
+            'asset_id,ip_address,hostname,zone,criticality,identification_source\n'
+            f"{assets[PLC]['asset_id']},{PLC},Simulated Cooling Controller,OT,critical,zeek_passive\n"
+            f"{assets[FIXED]['asset_id']},{FIXED},Simulated Backup Controller,OT,medium,zeek_passive\n"
+            f"{assets[IT]['asset_id']},{IT},Simulated IT Workstation,IT,medium,zeek_passive\n"
+            f"{assets[DMZ]['asset_id']},{DMZ},Simulated DMZ Host,DMZ,medium,zeek_passive\n"
+        )
+        result = store.import_csv(io.StringIO(inventory))
+        if result['errors']:
+            raise RuntimeError(result['errors'])
+
+        actor = 'Demo operator'
+        subnet_id = add_subnet(store, 'Simulated industrial network', POLICY['zone_subnets']['OT'][0])
+        endpoint_decision(store, subnet_id, ip=PLC, actor=actor,
+                          note='Management approval for the simulated controller.')
+        controller_id = assets[PLC]['asset_id']
+        save_context(store, controller_id, owner='Simulated facilities team', site='Fictional support site',
+                     location='Simulated cooling room', lifecycle='commissioned',
+                     criticality_rationale='Supports the simulated facility cooling process.')
+        save_process(store, 'Simulated facility cooling', 'Cooling for the fictional support site.',
+                     controller_id, actor, 'Recorded for the simulated investigation.')
+
+        for kind in ('os', 'packages'):
+            import_wazuh(store, directory/f'wazuh-{kind}.json', manager='simulated-manager',
+                         agent_id='001', asset_id=assets[IT]['asset_id'], kind=kind)
+
+        document = json.loads(CISA_FIXTURE.read_text(encoding='utf-8'))
+        _, advisories = normalize_csaf(document, CISA_URL, CISA_RETRIEVED_AT)
+        store.save_ics_advisories(advisories)
+        store.set_source_health('Demo advisory cache', 'cached', records=1 + len(advisories),
+                                message='Loaded saved Schneider Electric and CISA advisories offline.')
+
         before = _statuses(store)
         if before.get(PLC) != 'POTENTIAL_MATCH':
             raise RuntimeError('The simulated controller must begin as a potential match')
-        asset = next(asset for asset in store.assets() if asset['ip_address'] == PLC)
-        result = store.import_csv(io.StringIO(
-            f"asset_id,ip_address,zone,criticality,identification_source\n{asset['asset_id']},{PLC},OT,critical,zeek_passive\n"))
-        if result['errors']:
-            raise RuntimeError(result['errors'])
-        import_suricata(store, directory/'eve.json')
-        result = store.import_csv(io.StringIO(f'ip_address,hostname,zone\n{IT},Simulated IT,IT\n'))
-        if result['errors']:
-            raise RuntimeError(result['errors'])
-        asset = next(asset for asset in store.assets() if asset['ip_address'] == IT)
-        import_wazuh(store, directory/'wazuh-packages.json', manager='simulated-manager', agent_id='001',
-                     asset_id=asset['asset_id'], kind='packages')
+        finding = next(row for row in store.dashboard()['findings'] if row['asset_id'] == controller_id)
+        for field in ('evidence', 'missing_evidence'):
+            finding[field] = json.loads(finding[field])
+        finding['references'] = json.loads(finding['references_json'])
+        finding_id = finding['finding_id']
+        plan = compose_plan(finding, store.public_vulnerability_for_finding(finding_id))
+        plan['provider_note'] += ' Draft for the simulated support-site investigation.'
+        store.create_remediation_plan(finding_id, 'template-fallback', '', plan, plan['source_references'])
+
         alert = store.connection.execute("SELECT alert_id FROM network_alerts WHERE rule_id='zone_policy_violation'").fetchall()
         if len(alert) != 1:
             raise RuntimeError('Expected exactly one IT to OT policy alert')
@@ -161,8 +205,8 @@ def rehearse(directory, database):
         if len(violations) != 1 or violations[0]['source_ip'] != IT:
             raise RuntimeError('Expected exactly one IT to OT policy alert')
         evidence = {row['kind'] for row in report['asset_intelligence']['sensor_evidence']}
-        if evidence != {'modbus-identity', 'suricata_flow', 'wazuh_inventory'}:
-            raise RuntimeError('Expected evidence from all three sensors in the report')
+        if evidence != {'modbus-identity', 'wazuh_inventory'}:
+            raise RuntimeError('Expected Zeek identity and Wazuh software evidence in the report')
         (directory/'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         return {'before_review': before, 'after_review': after, 'zone_alerts': len(violations),
                 'sources': sorted(evidence), 'report': str(directory/'report.json')}

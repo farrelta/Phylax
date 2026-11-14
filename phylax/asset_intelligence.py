@@ -152,7 +152,7 @@ def observe(store,*,kind,ip,when,source_file,event_ref,raw,mac=''):
     cursor=store.connection.execute('INSERT OR IGNORE INTO observations VALUES(?,?,?,?,?,?,?,?,?)',
         (oid,kind,ip,mac,when,utc_now(),source_file,event_ref,json.dumps(raw,sort_keys=True)))
     if not cursor.rowcount:return False
-    store.observe_ip(ip,when,source='suricata_passive' if kind=='suricata_flow' else 'zeek_passive')
+    store.observe_ip(ip,when)
     if not previous:change(store,ip,'first_observed',when,{'observation_id':oid,'source_file':source_file})
     if mac:
         old=store.connection.execute("SELECT mac,observed_at FROM observations WHERE ip=? AND mac!='' AND observation_id!=? ORDER BY observed_at DESC LIMIT 1",(ip,oid)).fetchone()

@@ -1,63 +1,11 @@
-"""Offline Suricata flow and Wazuh Syscollector imports."""
-from dataclasses import replace
+"""Offline Wazuh Syscollector imports."""
 from pathlib import Path
 import json
 import re
 
 from .asset_intelligence import identifier, text
 from .core import read_json_limited, utc_now
-from .monitoring import normalize_row
-from .observations import SoftwareObservation, observe_connection, scalar, software_component, timestamp
-
-
-def import_suricata(store, path, *, source_file=None):
-    path = Path(path)
-    if path.stat().st_size > 500_000_000:
-        raise ValueError('Suricata log exceeds 500 MB limit')
-    source = 'Suricata EVE: ' + (source_file or path.name)
-    inserted = duplicates = skipped = 0
-    with store.atomic('suricata_import'), path.open(encoding='utf-8') as stream:
-        for number, line in enumerate(stream, 1):
-            if not line.strip():
-                continue
-            try:
-                if len(line) > 1_000_000:
-                    raise ValueError('Record exceeds 1 MB')
-                row = json.loads(line)
-                if not isinstance(row, dict):
-                    raise ValueError('Expected an EVE object')
-                if not scalar(row, 'event_type'):
-                    raise ValueError('EVE record requires event_type')
-                if row['event_type'] != 'flow':
-                    skipped += 1
-                    continue
-                if not all(scalar(row, field) for field in ('src_ip', 'dest_ip', 'proto', 'flow_id')):
-                    raise ValueError('EVE flow requires endpoint addresses, protocol and flow ID')
-                flow = row.get('flow')
-                if not isinstance(flow, dict):
-                    raise ValueError('EVE flow record requires a flow object')
-                ref = identifier('suricata_flow', json.dumps(row, sort_keys=True))
-                event = normalize_row({
-                    'timestamp': timestamp(scalar(flow, 'start') or scalar(row, 'timestamp')),
-                    'source_ip': row['src_ip'], 'destination_ip': row['dest_ip'],
-                    'source_port': row.get('src_port'), 'destination_port': row.get('dest_port'),
-                    'proto': row['proto']
-                }, kind='conn', source_file=source)
-                event = replace(event, event_type='suricata_flow', event_ref=ref, raw=row)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(f'Malformed Suricata row {number}: {exc}') from exc
-            result = store.connection.execute('INSERT OR IGNORE INTO network_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                (ref, ref, event.timestamp, event.source_ip, event.source_port, event.destination_ip,
-                 event.destination_port, event.protocol, '', event.event_type, source, json.dumps(row, sort_keys=True)))
-            if result.rowcount:
-                observe_connection(store, event)
-                inserted += 1
-            else:
-                duplicates += 1
-        store.audit('suricata_import', source, {'observations': inserted, 'duplicates': duplicates, 'skipped': skipped})
-    store.connection.commit()
-    return {'events_inserted': inserted, 'duplicates_skipped': duplicates, 'records_skipped': skipped,
-            'alerts_created': 0, 'diagnostics': [], 'diagnostic_count': 0}
+from .observations import SoftwareObservation, scalar, software_component, timestamp
 
 
 def import_wazuh(store, path, *, manager, agent_id, asset_id, kind, source_file=None):

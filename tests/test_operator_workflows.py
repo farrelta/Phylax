@@ -84,7 +84,7 @@ class OperatorWorkflowTests(unittest.TestCase):
             self.assertEqual(h.response_status,400)
             body=h.wfile.getvalue().decode()
             self.assertIn('role="alert"',body);self.assertIn('&lt;script&gt;typed value&lt;/script&gt;',body)
-            self.assertNotIn('SYNTHETIC banner regression',body)
+            self.assertIn('SYNTHETIC banner regression',body)
             self.assertNotIn('<script>typed',body);self.assertIn('name="csrf_token"',body)
             self.assertEqual(helper.store.connection.execute('SELECT owner FROM asset_context').fetchone()[0],'Saved context')
             bad=helper.handler('/processes/context',urlencode({**values,'csrf_token':'bad'}));bad.do_POST()

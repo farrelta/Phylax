@@ -39,9 +39,9 @@ class SimplifiedWorkflowTests(unittest.TestCase):
         plan['cisa_required_action']='TEST ONLY: retain source action'
         return self.store.create_remediation_plan(self.fid,'template-fallback','',plan,plan['source_references'])
 
-    def test_primary_destinations_and_contextual_navigation(self):
+    def test_seven_primary_destinations_and_contextual_navigation(self):
         self.assertEqual([href for _,items in NAV for href,_ in items],
-                         ['/','/assets','/intelligence','/network','/attack-surface','/triage','/remediation','/data','/policy','/reports','/settings','/glossary'])
+                         ['/','/assets','/network','/intelligence','/triage','/reports','/settings'])
         for root,(label,items) in SECONDARY_NAV.items():
             for href,_ in items:
                 text=layout('Test view','',href)

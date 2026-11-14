@@ -81,6 +81,38 @@ class AssistanceTests(unittest.TestCase):
             draft.update(data['requested_rule'])
         return draft, 'actual-model'
 
+    def test_ics_summary_uses_the_selected_cached_advisory(self):
+        link = 'https://www.cisa.gov/news-events/ics-advisories/example'
+        self.store.save_ics_advisories([
+            {'advisory_id': 'demo-ics', 'title': 'Example controller advisory', 'link': link,
+             'summary': '<p>Source describes product scope.</p><script>ignored-script</script>'},
+            {'advisory_id': 'other-ics', 'title': 'Other record', 'summary': 'Unrelated text.'},
+        ])
+        fields = {'task': 'ics-advisory', 'key': 'demo-ics'}
+        with patch('phylax.assistant_web.local_config', return_value=LOCAL), patch(
+            'phylax.assistant_web.AIConfig.from_env', return_value=HOSTED
+        ), patch('phylax.assistant_web.complete', side_effect=self.response) as model:
+            fallback = self.job(self.post(mode='builtin', **fields))['result']
+            self.assertIn('Example controller advisory', fallback['context'])
+            self.assertNotIn('Source describes product scope.', fallback['context'])
+            page = self.http.handler('/assist?' + urlencode(fields))
+            page.do_GET()
+            self.assertEqual(page.response_status, 200)
+            self.assertNotIn(b'Source describes product scope.', page.wfile.getvalue())
+            model.assert_not_called()
+            self.assertIn('draft', self.job(self.post(mode='local', **fields))['result'])
+            model.reset_mock()
+            preview = self.post(mode='hosted', **fields)
+            token = self.token(preview)
+            text = html.unescape(re.search(r'<pre[^>]*>(.*?)</pre>', preview.wfile.getvalue().decode(), re.S)[1])
+            self.assertIn('Source describes product scope.', text)
+            for excluded in ('ignored-script', 'Unrelated text.', 'private-host', link):
+                self.assertNotIn(excluded, text)
+            model.assert_not_called()
+            self.assertIn('draft', self.job(self.post(confirm=token))['result'])
+            self.assertEqual(model.call_args.args[1], text.encode())
+            self.assertEqual(self.post(task='ics-advisory', key='other-ics', mode='hosted').response_status, 400)
+
     def test_all_modes_and_exact_hosted_preview(self):
         cases = {'policy': {'source': 'IT', 'destination': 'OT', 'action': 'flag', 'prompt': 'private-host'},
                  'alert': {'key': self.alerts[0]['alert_id']}, 'settings': {},

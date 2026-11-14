@@ -131,15 +131,15 @@ class LocalizedHTTPTests(unittest.TestCase):
 
     def test_all_pages_localize_and_keep_functional_markup(self):
         routes={
-            '/':'Ringkasan','/assets':'Perangkat','/assets/edit':'Tambah perangkat',
-            '/assets/edit?asset_id=lab-plc':'Edit perangkat','/network':'Aktivitas jaringan',
+            '/':'Ringkasan keamanan','/assets':'Perangkat','/assets/edit':'Tambahkan aset',
+            '/assets/edit?asset_id=lab-plc':'Edit aset','/network':'Aktivitas jaringan',
             '/attack-surface':'Peta jaringan','/intelligence':'Kerentanan yang diketahui',
-            '/intelligence/ics':'Advisori CISA ICS','/triage':'Triase keamanan terpadu',
+            '/intelligence/ics':'Advisori industri','/triage':'Peringatan',
             '/reports':'Laporan','/settings':'Pengaturan','/policy':'Aturan jaringan',
-            '/glossary':'Glosarium','/remediation':'Rencana perbaikan','/approvals':'Persetujuan pengelolaan perangkat',
-            '/changes':'Linimasa perubahan aset','/data':'Tambah data',
-            '/software':'Bukti dan verifikasi perangkat lunak','/processes':'Konteks operasional dan proses',
-            '/evidence?event_ref=missing':'Bukti peristiwa asli','/?finding_id='+self.fid:'Temuan kerentanan'}
+            '/glossary':'Glosarium','/remediation':'Rencana perbaikan','/approvals':'Persetujuan perangkat',
+            '/changes':'Perubahan perangkat',
+            '/software':'Perangkat lunak di perangkat','/processes':'Pemilik dan penggunaan',
+            '/evidence?event_ref=missing':'Catatan asli','/?finding_id='+self.fid:'Temuan kerentanan'}
         for route,title in routes.items():
             with self.subTest(route=route):
                 handler,body=self.get(route);_,english=self.get(route,'en')
@@ -155,7 +155,7 @@ class LocalizedHTTPTests(unittest.TestCase):
     def test_empty_pages_also_localize(self):
         self.store.close();self.store=Store(':memory:')
         for path,expected in [('/','Mulai dengan inventaris aset Anda'),('/assets','Aset tidak ditemukan.'),
-                ('/triage','Tidak ada peringatan aktif'),('/software','Belum ada bukti perangkat lunak'),
+                ('/triage','Tidak ada peringatan di kolom ini.'),('/triage?view=list','Tidak ada peringatan aktif'),('/software','Belum ada bukti perangkat lunak'),
                 ('/remediation','Belum ada rencana remediasi'),
                 ('/intelligence','Catatan intelijen tidak ditemukan')]:
             with self.subTest(path=path):

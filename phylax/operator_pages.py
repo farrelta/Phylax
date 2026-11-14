@@ -14,7 +14,7 @@ ASSET_LABELS.update(asset_id='Asset ID',ip_address='IP address',mac_address='MAC
 
 
 def shell(title: str, body: str, *, asset_id: str = '') -> str:
-    active={'Edit device':'/assets','Add device':'/assets','Network rules':'/policy','Settings':'/settings','Reports':'/reports'}.get(title,'')
+    active={'Edit asset':'/assets','Add asset':'/assets','Passive network policy':'/policy','Settings and data sources':'/settings','Reports':'/reports'}.get(title,'')
     return layout(title,body,active,asset_id=asset_id)
 
 
@@ -71,17 +71,17 @@ def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='')
     for title,names in groups:
         body+='<fieldset class="editor"><legend>'+e(title)+'</legend><div class="form-grid">'+''.join(control(name) for name in names)+'</div></fieldset>'
     body+='<button class="primary">Save inventory and reassess findings</button></form>'
-    return shell('Edit device' if row else 'Add device',body,asset_id=row['asset_id'] if row else '')
+    return shell('Edit asset' if row else 'Add asset',body,asset_id=row['asset_id'] if row else '')
 
 
 def policy_page(store: Store,*,submitted=None,error='') -> str:
     policy=active_policy(store)
     text=submitted.get('policy_json','') if submitted is not None else json.dumps(policy if policy is not None else {},indent=2)
     body=error_summary(error,[('policy-json','Review policy JSON')]) if error else ''
-    body+='<p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
     body+='<p>'+assist_link('policy', 'Draft network policy')+'</p>'
-    body+='<p>Keys: protected_assets, allowed_communications, authorized_writers, maintenance_windows_utc. Day numbers: Monday 0 through Sunday 6. Times are UTC.</p>'
-    body+='<section aria-labelledby="current-policy-summary"><h2 id="current-policy-summary">Current saved policy</h2>'
+    body+='<details class="cardx workflow"><summary>How rules work</summary><p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
+    body+='<p>Keys: protected_assets, allowed_communications, authorized_writers, maintenance_windows_utc. Day numbers: Monday 0 through Sunday 6. Times are UTC.</p></details>'
+    body+='<section class="cardx wide" aria-labelledby="current-policy-summary"><h2 id="current-policy-summary">Current saved policy</h2>'
     if policy is None:
         body+='<p>No active policy is saved. The editor below has not been applied.</p>'
     else:
@@ -120,27 +120,40 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     body+='</label><button class="primary">Save policy and reevaluate stored events</button></form>'
     rows=store.connection.execute('SELECT policy_id,created_at FROM network_policies ORDER BY created_at DESC LIMIT 20').fetchall()
     body+='<h2>Stored policy versions</h2><ul>'+''.join(f'<li>{r["policy_id"]} · {r["created_at"]}</li>' for r in rows)+'</ul>'
-    return shell('Network rules',body)
+    return shell('Passive network policy',body)
 
 
 def settings_page(store: Store) -> str:
     config=AIConfig.from_env()
     local = local_config()
     description=f'Configured: {config.provider} · requested model {config.model} · timeout {config.timeout_seconds} seconds' if config else 'Hosted AI disabled: configure a provider, model and key in the server environment or project .env.'
-    body='<p>'+assist_link('settings', 'Explain data and settings')+'</p><h2>Local AI</h2><p>'+e(local.model if local else 'Local AI is not configured.')+'</p>'
-    body+='<h2>Hosted guidance</h2><p>'+html.escape(description)+'</p><p>Hosted requests require confirmation of the redacted request. Returned guidance remains unverified.</p><h2>Public intelligence sources</h2>'
-    body+=(''.join('<p>'+html.escape(f"{r['source']} · {r['health']} · last success {r['last_success_at'] or 'never'} · {r['message']}")+'</p>' for r in store.source_health()) or '<p>No feed synchronization recorded.</p>')
-    body+='<p>Source health is based on stored attempts and becomes stale after 24 hours. Opening this page performs no connectivity check.</p>'
     from .ui import form,field,select,table
     from .asset_intelligence import collectors
-    body+='<h2>Selected structured CISA advisories</h2><p>Configure official CSAF document URLs. Synchronization checks only these documents, using local cache and conditional requests.</p>'
+    tone={'healthy':'','ok':'','stale':'amber','failed':'red','error':'red'}
+    sources=''.join('<li><i class="sev '+tone.get(str(r['health']).lower(),'amber')+'"></i><b>'+e(r['source'])+' · '+e(r['health'])+'</b><small>'
+                    +html.escape(f"last success {r['last_success_at'] or 'never'} · {r['message']}")+'</small></li>' for r in store.source_health())
+    body='<div class="cards"><section class="cardx"><header><h2>Public intelligence sources</h2><a class="aux" href="/intelligence">Open intelligence</a></header>'
+    body+=('<ul class="status-list">'+sources+'</ul>' if sources else '<p>No feed synchronization recorded.</p>')
+    body+='<p class="muted">Source health is based on stored attempts and becomes stale after 24 hours. Opening this page performs no connectivity check.</p></section>'
+    body+='<section class="cardx"><header><h2>Collection health</h2></header><div class="panel">'+table(collectors(store),[(k,k.replace('_',' ').title()) for k in ('kind','status','heartbeat','last_success','message')])+'</div></section></div>'
+    body+='<section class="cardx wide"><header><h2>Recent finalized-log imports</h2></header><div class="panel">'+table([dict(r) for r in store.connection.execute('SELECT path,status,message,processed_at FROM ingestion_files ORDER BY processed_at DESC LIMIT 50')],[('path','Local file'),('status','Outcome'),('message','Diagnostics'),('processed_at','Processed UTC')])+'</div></section>'
+    body+='<details class="cardx workflow"><summary>AI assistance</summary><p>'+assist_link('settings', 'Explain data and settings')+'</p><h2>Local AI</h2><p>'+e(local.model if local else 'Local AI is not configured.')+'</p>'
+    body+='<h2>Hosted guidance</h2><p>'+html.escape(description)+'</p><p>Hosted requests require confirmation of the redacted request. Returned guidance remains unverified.</p></details>'
+    body+='<details class="cardx workflow"><summary>Selected structured CISA advisories</summary><p>Configure official CSAF document URLs. Synchronization checks only these documents, using local cache and conditional requests.</p>'
     body+=form('/sources/csaf',field('url','Official CSAF document HTTPS URL',required=True)+select('enabled','Source',[('true','Enabled'),('false','Disabled')]),'Save advisory source')
-    body+=table([dict(r) for r in store.connection.execute('SELECT url,enabled,retrieved_at FROM csaf_documents')],[('url','Document'),('enabled','Enabled'),('retrieved_at','Retrieved UTC')])
-    body+='<h2>Collection health</h2>'+table(collectors(store),[(k,k.replace('_',' ').title()) for k in ('kind','status','heartbeat','last_success','message')])
-    body+='<h2>Recent finalized-log imports</h2>'+table([dict(r) for r in store.connection.execute('SELECT path,status,message,processed_at FROM ingestion_files ORDER BY processed_at DESC LIMIT 50')],[('path','Local file'),('status','Outcome'),('message','Diagnostics'),('processed_at','Processed UTC')])
-    body+='<details class="workflow"><summary>Advanced assessment tools</summary><p>Inventory and intelligence imports reassess findings automatically. Use manual correlation to rebuild assessments from stored evidence when troubleshooting.</p>'+form('/correlate','','Reassess stored findings')+'</details>'
-    return shell('Settings',body)
+    body+=table([dict(r) for r in store.connection.execute('SELECT url,enabled,retrieved_at FROM csaf_documents')],[('url','Document'),('enabled','Enabled'),('retrieved_at','Retrieved UTC')])+'</details>'
+    body+='<details class="cardx workflow"><summary>Advanced assessment tools</summary><p>Inventory and intelligence imports reassess findings automatically. Use manual correlation to rebuild assessments from stored evidence when troubleshooting.</p>'+form('/correlate','','Reassess stored findings')+'</details>'
+    return shell('Settings and data sources',body)
 
 
 def reports_page(store: Store) -> str:
-    return shell('Reports','<p>Exports contain locally stored evidence. Findings do not establish compromise.</p><p>'+assist_link('report', 'Draft report summary')+'</p><h2>Investigation reports</h2><p>JSON contains the complete report structure, including findings, uncertainty, provenance, source health and remediation plans. CSV organizes evidence as typed records for analysis. Markdown presents findings and operational context for reading and sharing.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a></p><h2>Inventory only</h2><p>Asset identity and classification fields for inventory exchange. This CSV excludes vulnerability findings, alerts and remediation plans.</p><p><a class="btn" href="/assets.csv">Inventory CSV</a></p>')
+    from .theme import icon
+    down=icon('download')
+    cards=[('Readable report','Best for reading, printing or sharing with your team.','/report.md','Markdown report'),
+           ('Spreadsheet','Open in Excel to sort and filter the evidence.','/report.csv','CSV report'),
+           ('Complete data','Everything, including uncertainty and sources, for other tools or archiving.','/report.json','JSON report'),
+           ('Device list only','Just the devices, without findings, alerts or fix plans.','/assets.csv','Inventory CSV')]
+    body='<div class="report-grid">'+''.join('<section class="cardx"><h2>'+e(title)+'</h2><p>'+e(text)+'</p><a class="btn" href="'+href+'">'+down+e(label)+'</a></section>' for title,text,href,label in cards)+'</div>'
+    body+='<section class="cardx wide"><header><h2>Need a short summary?</h2></header><p>Let the assistant draft a summary of the current findings for a briefing.</p><p>'+assist_link('report', 'Draft report summary')+'</p></section>'
+    body+='<p class="muted">Exports contain locally stored evidence. Findings do not establish compromise.</p>'
+    return shell('Reports',body)

@@ -2,14 +2,8 @@
 from urllib.parse import urlencode
 from .ui import verbatim, e,field,select,form,hidden,raw_record,evidence_lines,evidence_url,assist_link
 from .triage import ZONE_RULE, alert_url, triage, zone_pair
-from .theme import PLAIN_STATUS, pill
+from .theme import PLAIN_STATUS
 from .topology import alert_topology_url
-
-
-def plain(text):
-    for code,label in PLAIN_STATUS.items():
-        text=str(text).replace(code,label)
-    return text
 
 
 def details_list(pairs):
@@ -35,33 +29,210 @@ def policy_lines(policy):
     return lines or ['Review the policy evidence in the original record.']
 
 
+BOARD_ICONS = {
+    'open': '<circle cx="8" cy="8" r="6"/>',
+    'triaged': '<circle cx="8" cy="8" r="6" stroke-dasharray="2.2 2"/>',
+    'progress': '<circle cx="8" cy="8" r="6"/><path class="fill" d="M8 2a6 6 0 0 1 0 12z"/>',
+    'resolved': '<circle class="disc" cx="8" cy="8" r="7"/><path class="tick" d="M5 8.2l2 2 4-4.2"/>',
+}
+CALENDAR = ('<svg class="cal" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="2"/>'
+            '<path d="M2.5 6.5h11M5.5 2v3M10.5 2v3"/></svg>')
+
+
+BOARD_JS = r'''(function () {
+  var board = document.querySelector('.alert-board');
+  if (!board) return;
+  var status = document.getElementById('board-status');
+  var dragged = null;
+  function say(key) {
+    var source = document.querySelector('[data-msg="' + key + '"]');
+    if (!source || !status) return;
+    status.textContent = source.textContent;
+    status.hidden = false;
+    clearTimeout(say.timer);
+    say.timer = setTimeout(function () { status.hidden = true; }, 7000);
+  }
+  function verdict(column) {
+    if (!dragged) return 'none';
+    var from = dragged.getAttribute('data-from'), to = column.getAttribute('data-column');
+    if (from === to) return 'same';
+    if (from === '0' && to === '1') return 'ok';
+    if (from === '2' || from === '3') return 'locked';
+    if (to === '0') return 'undo';
+    if (to === '2') return 'resolve';
+    if (to === '3') return 'plan';
+    return 'locked';
+  }
+  function clear() {
+    Array.prototype.forEach.call(board.querySelectorAll('.alert-column'), function (c) {
+      c.classList.remove('drop-ok', 'drop-no');
+    });
+  }
+  Array.prototype.forEach.call(board.querySelectorAll('.alert-card[draggable="true"]'), function (card) {
+    card.addEventListener('dragstart', function (event) {
+      dragged = card;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', card.getAttribute('data-alert'));
+      setTimeout(function () { card.classList.add('dragging'); board.classList.add('is-dragging'); }, 0);
+    });
+    card.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+      board.classList.remove('is-dragging');
+      clear();
+      dragged = null;
+    });
+  });
+  Array.prototype.forEach.call(board.querySelectorAll('.alert-column'), function (column) {
+    column.addEventListener('dragover', function (event) {
+      var result = verdict(column);
+      if (result === 'none' || result === 'same') return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = result === 'ok' ? 'move' : 'none';
+      clear();
+      column.classList.add(result === 'ok' ? 'drop-ok' : 'drop-no');
+    });
+    column.addEventListener('dragleave', function (event) {
+      if (!column.contains(event.relatedTarget)) column.classList.remove('drop-ok', 'drop-no');
+    });
+    column.addEventListener('drop', function (event) {
+      event.preventDefault();
+      var result = verdict(column);
+      clear();
+      if (result !== 'ok') { if (result !== 'same' && result !== 'none') say(result); return; }
+      var token = document.querySelector('input[name="csrf_token"]');
+      if (!token) return;
+      var form = document.createElement('form');
+      form.method = 'post';
+      form.action = '/triage/ack';
+      form.hidden = true;
+      var values = {csrf_token: token.value, category: dragged.getAttribute('data-kind'),
+                    alert_id: dragged.getAttribute('data-alert'), view: 'board'};
+      if (board.getAttribute('data-search')) values.q = board.getAttribute('data-search');
+      Object.keys(values).forEach(function (name) {
+        var input = document.createElement('input');
+        input.type = 'hidden'; input.name = name; input.value = values[name];
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      var slot = column.querySelector('.drop-slot');
+      column.insertBefore(dragged, slot);
+      dragged.classList.add('saving');
+      say('saving');
+      form.submit();
+    });
+  });
+})();
+'''
+
+
+def alert_board(rows, filters, page, store=None):
+    # Column ids stay stable (0 review, 1 acknowledged, 2 resolved); 3 is added for planned fixes.
+    columns = {'Needs review': (0, 'open', []), 'Acknowledged': (1, 'triaged', []),
+               'Plan in progress': (3, 'progress', []), 'Resolved': (2, 'resolved', [])}
+    for row in rows:
+        planned = bool(store and row.get('finding_id') and row['state'] != 'resolved'
+                       and store.get_remediation_plan(row['finding_id']))
+        state = 'Resolved' if row['state'] == 'resolved' else (
+            'Plan in progress' if planned else 'Acknowledged' if row['acknowledged'] else 'Needs review')
+        priority = row['urgency']['priority']
+        score = row['urgency'].get('score')
+        name = row['context'].get('hostname') or row['ip']
+        zone = (row['context'].get('zone') or '').upper() or '?'
+        title = row.get('cve_id') or row.get('rule_id', '').replace('_', ' ').title() or row['explanation']
+        url = alert_url(row['alert_id']) if row['category'] == 'network' else (
+            '/triage?' + urlencode({**filters, 'view': 'list', 'history': 'yes', 'page': page, 'case': row['alert_id']})
+            + '#alert-' + row['alert_id'])
+        pair = ''
+        if row.get('rule_id') == ZONE_RULE:
+            policy = row['evidence']['policy']
+            pair = '<span class="card-pair">' + e(zone_pair(policy)) + '</span>'
+        detail = verbatim(name) + (' • ' + e(str(score)) if score is not None else '')
+        columns[state][2].append(
+            '<a class="alert-card" href="' + e(url) + '" draggable="true" data-alert="' + e(row['alert_id'])
+            + '" data-kind="' + e(row['category']) + '" data-from="' + str(columns[state][0]) + '">'
+            '<span class="card-top"><strong><i class="sq ' + e(priority) + '" aria-hidden="true"></i>' + e(title) + '</strong>'
+            '<span class="dots" aria-hidden="true">›</span></span>'
+            '<span class="card-sub">' + detail + '</span>' + pair
+            + '<span class="alert-card-meta"><span class="when">' + CALENDAR + '<time datetime="' + e(row['timestamp']) + '">'
+            + e(row['timestamp'][:10]) + '</time></span>'
+            '<span class="alert-urgency ' + e(priority) + '">' + e(priority.replace('_', ' ').title()) + '</span>'
+            '<span class="zone-badge zone-' + e(zone.lower()) + '" title="' + e(zone) + ' zone">' + e(zone[:3]) + '</span></span></a>')
+    sections = []
+    hints = {'open': 'New. Nobody has looked at these yet.', 'triaged': 'Seen by someone, no fix planned yet.',
+             'progress': 'A fix plan exists and is being worked on.', 'resolved': 'No longer active.'}
+    for label, (index, kind, cards) in columns.items():
+        heading = f'alert-column-{index}'
+        sections.append(
+            f'<section class="alert-column col-{kind}" data-column="{index}" aria-labelledby="{heading}">'
+            f'<h2 id="{heading}"><svg class="state" viewBox="0 0 16 16" aria-hidden="true">{BOARD_ICONS[kind]}</svg>'
+            f'{e(label)} <span class="alert-count">{len(cards)}</span></h2><p class="col-hint">{e(hints[kind])}</p>'
+            + (''.join(cards) or '<p class="muted">No alerts in this column.</p>') + '<div class="drop-slot" aria-hidden="true"></div></section>')
+    legend = ('<p class="board-legend"><span><i class="sq critical"></i>Critical</span><span><i class="sq high"></i>High</span>'
+              '<span><i class="sq medium"></i>Medium</span><span><i class="sq"></i>Low</span>'
+              '<span><b class="zone-badge zone-ot">OT</b>Equipment network</span><span><b class="zone-badge zone-it">IT</b>Office network</span>'
+              '<span><b class="zone-badge zone-dmz">DMZ</b>Buffer zone</span><span class="muted">Number after the device = urgency score out of 12</span></p>')
+    messages = ('<div class="board-msgs" hidden>'
+                '<span data-msg="saving">Marking the alert as acknowledged…</span>'
+                '<span data-msg="undo">An acknowledgement cannot be undone. It stays as a record that someone reviewed the alert.</span>'
+                '<span data-msg="resolve">Alerts move to Resolved by themselves when the evidence no longer shows the problem, for example after a policy change.</span>'
+                '<span data-msg="plan">Open the alert and draft a fix plan. The card moves to Plan in progress once a plan exists.</span>'
+                '<span data-msg="locked">This card cannot be moved by hand. Open it to see its details.</span></div>')
+    tip = ('<p class="board-tip">Tip: drag a card from Needs review to Acknowledged to mark it as seen. '
+           'You can also open a card and use its button.</p>')
+    return (legend + tip + '<p class="board-status" id="board-status" role="status" hidden></p>' + messages
+            + '<div class="alert-board" data-search="' + e(filters.get('q', '')) + '">' + ''.join(sections) + '</div>'
+            + '<script src="/static/board.js" defer></script>')
+
+
 def triage_page(store,query,offset):
     alert_id=query.get('alert',[''])[0]
-    filters={k:query.get(k,[''])[0] for k in ('category','priority','acknowledged','q')}
+    list_keys = ('category', 'priority', 'acknowledged')
+    view = query.get('view', [''])[0]
+    # Preserve bookmarked list filters and case links from before the board became the default.
+    list_request = any(query.get(key, [''])[0] for key in (*list_keys, 'case', 'history'))
+    board = not alert_id and (view == 'board' or (view != 'list' and not list_request))
+    filters = {'q': query.get('q', [''])[0]}
+    if not board:
+        filters.update({key: query.get(key, [''])[0] for key in list_keys})
     if alert_id:
         rows,count=triage(store,alert_id=alert_id,history=True)
         body='<p><a href="/triage">View all alerts</a></p>'
         if not rows:
             return body+'<p class="empty">This network alert could not be found.</p>',count
     else:
-        rows,count=triage(store,limit=50,offset=offset,filters=filters)
-        body=''
-        if not any(filters.values()):
-            _,new=triage(store,limit=1,filters={'category':'','priority':'','acknowledged':'no','q':''})
-            if not count:
-                body+='<section class="hero hero-ok"><div><strong>No active alerts</strong><p>This only covers the data loaded so far. No alerts does not mean the devices are safe.</p></div></section>'
-            elif new:
-                body+=f'<section class="hero hero-bad"><div><strong>{new} alerts need a look</strong><p>Open an alert, read what happened and what to do, then acknowledge it. Acknowledging only records that someone reviewed it. It changes nothing on the device.</p></div><a class="btn primary" href="/triage?acknowledged=no">Show new alerts</a></section>'
-            else:
-                body+=f'<section class="hero hero-ok"><div><strong>All {count} alerts have been reviewed</strong><p>New alerts appear here after new data is imported.</p></div></section>'
-        body+=f'<p>{count} active alert(s)'+(' matching your filters.' if any(filters.values()) else '.')+' Acknowledgement records review; it does not resolve a finding, approve a device or grant scan permission.</p>'
-        body+='<form method="get" class="filter-bar">'+field('q','Search asset, address, CVE or explanation',filters['q'])
+        history = board or query.get('history', [''])[0] == 'yes'
+        rows,count=triage(store,limit=50,offset=offset,filters=filters,history=history)
+        values = {k: v for k, v in filters.items() if v}
+        list_url = '/triage?' + urlencode({**values, 'view': 'list'})
+        board_values = {'q': filters['q']} if filters['q'] else {}
+        board_url = '/triage?' + urlencode({**board_values, 'view': 'board'})
+        body = '<nav class="triage-viewbar" aria-label="Alert views">'
+        for label, url, current, glyph in (('List view', list_url, not board, '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h10"/></svg>'), ('Board view', board_url, board, '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>')):
+            body += '<a class="view-toggle" href="' + e(url) + '"' + (' aria-current="page"' if current else '') + ' title="' + label + '">' + glyph + '<span class="vh">' + label + '</span></a>'
+        body += '<a class="triage-reports" href="/reports">Export</a><a class="triage-download" href="/reports" title="Reports"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg><span class="vh">Reports</span></a></nav>'
+        if board:
+            body += '<p class="muted">Open a card to inspect the alert. Column counts apply to this page.</p>'
+        elif history:
+            body += '<p class="muted">Showing alert history. Acknowledgement records review.</p>'
+        else:
+            body += f'<p>{count} active alert(s)' + (' matching your filters.' if any(filters.values()) else '.') + ' Acknowledgement records review; it does not resolve a finding, approve a device or grant scan permission.</p>'
+        mode = {'view': 'board' if board else 'list'}
+        if not board and history:
+            mode['history'] = 'yes'
+        clear_url = '/triage?' + urlencode(mode)
+        body += '<form method="get" class="filter-bar">' + ''.join(hidden(k, v) for k, v in mode.items()) + field('q','Search asset, address, CVE or explanation',filters['q'])
+        if board:
+            body += '<button>Search</button></form>'
+            if filters['q']:
+                body += ('<div class="filter-chips"><span class="filter-chip">Search <span class="muted">is</span> <b>' + e(filters['q'])
+                         + '</b><a href="' + e(clear_url) + '" aria-label="Clear search">×</a></span></div>')
+            return body + alert_board(rows, values, query.get('page', ['1'])[0], store), count
         body+=select('category','Category',[('','All categories'),('exposure','Vulnerability exposure'),('network','Network policy'),('endpoint','Device management')],filters['category'])
         body+=select('priority','Urgency',[('','All urgency levels')]+[(v,v.replace('_',' ').title()) for v in ('critical','high','medium','low','not_applicable')],filters['priority'])
         body+=select('acknowledged','Review state',[('','All review states'),('no','Unacknowledged'),('yes','Acknowledged')],filters['acknowledged'])
-        body+='<button>Filter alerts</button><a href="/triage">Clear filters</a></form>'
+        body+='<button>Filter alerts</button><a href="' + e(clear_url) + '">Clear filters</a></form>'
         if not rows:
-            return body+('<p class="empty">No alerts match these filters. <a href="/triage">Clear filters</a>.</p>' if any(filters.values()) else '<p class="empty">No active alerts in stored data. <a href="/network">Inspect imported events</a> or <a href="/settings">check source and collector health</a>. No alerts does not establish safety.</p>'),count
+            return body+('<p class="empty">No alerts match these filters. <a href="' + e(clear_url) + '">Clear filters</a>.</p>' if any(filters.values()) else '<p class="empty">No active alerts in stored data. <a href="/network">Inspect imported events</a> or <a href="/settings">check source and collector health</a>. No alerts does not establish safety.</p>'),count
     for row in rows:
         asset=row['context'];ctx=asset.get('operational_context',{});urgency=row['urgency'];ev=row['evidence']
         name=asset.get('hostname') or row['ip'];category={'exposure':'Vulnerability exposure','network':'Network policy','endpoint':'Device management'}[row['category']]
@@ -73,30 +244,25 @@ def triage_page(store,query,offset):
         missing=len(row.get('missing_evidence') or [])
         cue=(str(missing)+' missing evidence item'+('' if missing==1 else 's') if missing else 'No missing evidence recorded') if row['category']=='exposure' else ('Observed policy event' if row['category']=='network' else 'Identity evidence needs review')
         zone_violation=row.get('rule_id')==ZONE_RULE
-        tone={'critical':'crit','high':'high','medium':'info'}.get(urgency['priority'],'none')
-        if row['category']=='exposure':
-            what_to_do='Check that the device\'s make, model and version are correct, then read the finding and create a fix plan if it applies.'
-        elif zone_violation:
-            what_to_do='Find out whether this connection was expected. If it was not, contact the device owner and check the network rules.'
-        elif row['category']=='network':
-            what_to_do='Check whether this network activity was expected, for example a planned maintenance change. If not, review the network rules and ask the device owner.'
-        else:
-            what_to_do='Confirm whether this device should be on this network, then record a decision on the Approvals page.'
         expanded=alert_id or query.get('case',[''])[0]==row['alert_id']
         body+='<details class="triage-case" id="alert-'+e(row['alert_id'])+'"'+(' open' if expanded else '')+'><summary>'
         address=' <span class="mono">'+e(row['ip'])+'</span>' if name!=row['ip'] else ''
-        body+='<span class="case-title">'+verbatim(name)+address+' '+pill(priority.lower(),tone)+'</span><span class="case-subject">'+e(title)+'</span>'
-        body+='<span class="case-state">'+e(priority)+' urgency · '+e(category)+' · '+e(review)+'</span><span class="case-meta">'+e(row['timestamp'])+' UTC · '+e(cue)+'</span><span class="case-inspect">Inspect alert</span></summary><div class="case-detail triage-record"><h3>What to do</h3><p>'+e(what_to_do)+'</p>'
+        body+='<span class="case-title">'+verbatim(name)+address+'</span><span class="case-subject">'+e(title)+'</span>'
+        body+='<span class="case-state">'+e(priority)+' urgency · '+e(category)+' · '+e(review)+'</span><span class="case-meta">'+e(row['timestamp'])+' UTC · '+e(cue)+'</span><span class="case-inspect">Inspect alert</span></summary><div class="case-detail triage-record">'
         back_values={k:v for k,v in filters.items() if v}
-        back_values.update(page=query.get('page',['1'])[0],case=row['alert_id'])
+        if not alert_id and history:
+            back_values['history'] = 'yes'
+        back_values.update(view='list',page=query.get('page',['1'])[0],case=row['alert_id'])
         return_to=alert_url(alert_id) if alert_id else '/triage?'+urlencode(back_values)+'#alert-'+row['alert_id']
-        if row['state']=='resolved':
+        if row['state']=='resolved' and row['category']=='network':
             body+='<p class="notice">This policy alert was resolved after reevaluation.</p>'
+        elif row['state']=='resolved':
+            body+='<p class="notice">This device management alert was resolved.</p>'
         body+='<p>'+assist_link('alert', 'Explain alert', row['alert_id'])+'</p>'
         if zone_violation:
             obs=row['observed'];policy=ev['policy']
             body+='<h3>Observed connection</h3><p class="mono">'+e(obs['source_ip']+' → '+obs['destination_ip'])+'</p>'
-            body+='<p>'+e(plain(row['explanation']))+'</p><ul>'+''.join('<li>'+e(line)+'</li>' for line in policy_lines(policy))+'</ul>'
+            body+='<p>'+e(row['explanation'])+'</p><ul>'+''.join('<li>'+e(line)+'</li>' for line in policy_lines(policy))+'</ul>'
             body+='<div class="record-actions"><a class="btn" href="'+e(evidence_url(ev['event_ref'],return_to))+'">Original event</a>'
             body+='<a href="'+e(alert_topology_url(row['alert_id']))+'">Show on topology</a></div>'
             body+=details_list([('Event / update time UTC',row['timestamp']),('Protocol',obs['protocol']),
@@ -104,7 +270,7 @@ def triage_page(store,query,offset):
                                 ('Evidence confidence',row['evidence_confidence'])])
         else:
             body+='<p class="muted">Owner: '+(verbatim(ctx['owner']) if ctx.get('owner') else e('Unknown'))+' · Supports: '+(verbatim(', '.join(p['name'] for p in asset['processes'])) if asset.get('processes') else e('No confirmed process relationships'))+'</p>'
-            body+='<p>'+e(plain(row['explanation']))+'</p>'
+            body+='<p>'+e(row['explanation'])+'</p>'
             body+=details_list([('Address',row['ip']),('Event / update time UTC',row['timestamp']),('Severity',row['severity']),('Applicability',applicability),('Evidence confidence',row['evidence_confidence']),('Review state',review)])
             body+='<h3>Observed evidence</h3>'
         if row['category']=='network' and not zone_violation:
@@ -145,6 +311,9 @@ def triage_page(store,query,offset):
             if alert_id:
                 fields+=hidden('alert',alert_id)
             else:
+                fields += hidden('view', 'list')
+                if history:
+                    fields += hidden('history', 'yes')
                 fields+=''.join(hidden('filter_category' if k=='category' else k,v) for k,v in filters.items())+hidden('page',query.get('page',['1'])[0])
             body+=form('/triage/ack',fields,'Acknowledge this alert')
         body+='</div>'+raw_record(row)+'</div></details>'

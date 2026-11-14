@@ -6,8 +6,9 @@ import json
 import re
 import urllib.error
 import urllib.request
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
+from .advisory_views import advisory_text
 from .ai import _endpoint, _opener, public_vulnerability_payload
 from .asset_intelligence import collectors
 from .monitoring import active_policy, validate_policy
@@ -19,7 +20,7 @@ OPERATIONS = ('flag', 'remove')
 TITLES = {
     'policy': 'Draft network policy', 'alert': 'Explain alert', 'settings': 'Explain data and settings',
     'identity': 'Explain identity evidence', 'advisory': 'Summarize advisory',
-    'remediation': 'Draft remediation guidance', 'report': 'Draft report summary',
+    'ics-advisory': 'AI summary', 'remediation': 'Draft remediation guidance', 'report': 'Draft report summary',
 }
 TASKS = {
     'policy': 'Translate the request into one directional flag or remove rule. Explain any supplied validation problem. Use empty rule fields when the direction or action is unclear. Never propose addresses or live controls.',
@@ -27,6 +28,7 @@ TASKS = {
     'settings': 'Explain the recorded health and suggest a relevant check. Do not infer causes from missing data or request secrets.',
     'identity': 'Explain what the evidence establishes, what remains uncertain, and what to verify. Do not verify identity or recommend a product mapping as fact.',
     'advisory': 'Summarize advisory scope, including exclusions and unresolved prerequisites. Do not decide local applicability.',
+    'ics-advisory': 'Summarize the cached CISA advisory in plain language. Name affected products and recommended checks only if stated. Do not infer local exposure or repeat exploitation instructions.',
     'remediation': 'Suggest review and verification steps. Respect exclusions and unresolved prerequisites. Do not assert a fix or give execution instructions.',
     'report': 'Draft a concise executive summary of only the selected records, distinguishing observations from applicability and review.',
 }
@@ -183,6 +185,30 @@ def context(store, task, key, fields, hosted):
             back = '/software?' + urlencode({'component_id': key}) + '#review-component'
             links['E1'] = back
         return data, 'Check the original observation and resolve conflicting identity before verifying it.', back, links
+    if task == 'ics-advisory':
+        row = _one(store, 'SELECT * FROM ics_advisories WHERE advisory_id=?', key)
+        back = '/intelligence/ics?' + urlencode({'q': row['advisory_id'][:100]})
+        if hosted:
+            if row['source'] == 'CISA CSAF':
+                from .csaf import official_url
+                try:
+                    official_url(row['link'])
+                except ValueError:
+                    raise ValueError('Hosted AI requires a cached public CISA advisory.') from None
+            else:
+                try:
+                    source = urlsplit(row['link'])
+                    trusted = (row['source'] == 'CISA ICS advisories RSS' and source.scheme == 'https'
+                               and source.netloc in {'www.cisa.gov', 'cisa.gov'}
+                               and source.path.startswith(('/news-events/ics-advisories/', '/uscert/ics/advisories/')))
+                except ValueError:
+                    trusted = False
+                if not trusted:
+                    raise ValueError('Hosted AI requires a cached public CISA advisory.')
+        description = advisory_text(row['summary'])
+        data = {'title': row['title'][:300], 'summary': description[:8000],
+                'scope_truncated': len(description) > 8000, 'published': row['published'][:100]}
+        return {'public_advisory': data}, 'Use the original advisory to confirm scope and recommended actions.', back, {'E1': back}
     if task in {'advisory', 'remediation'}:
         if task == 'remediation':
             row = store.finding(key)

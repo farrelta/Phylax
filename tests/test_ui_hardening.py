@@ -63,7 +63,7 @@ class UIHardeningTests(unittest.TestCase):
         before=dict(self.store.connection.execute("SELECT * FROM assets WHERE asset_id='a'").fetchone())
         h,body=self.post('/assets/save',{'asset_id':'a','ip_address':'bad ip','hostname':'<script>typed العربية</script>','verified':'false'})
         self.assertEqual(h.response_status,400)
-        self.assertIn('action="/assets/save"',body);self.assertIn('Edit device',body)
+        self.assertIn('action="/assets/save"',body);self.assertIn('Edit asset',body)
         self.assertIn('&lt;script&gt;typed العربية&lt;/script&gt;',body);self.assertNotIn('<script>typed',body)
         self.assertIn('id="input-errors" role="alert" tabindex="-1" autofocus',body)
         control=next(attrs for tag,attrs,label in Controls(body).controls if attrs.get('name')=='ip_address')
