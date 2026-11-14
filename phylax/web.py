@@ -95,7 +95,7 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
             else:
                 plan_action = assist_link('remediation', 'Draft fix guidance (AI, for review)', f['finding_id'])
             mitigation = verbatim(f['mitigation']) if f['mitigation'] else html.escape('No verified vendor guidance supplied.')
-            details = (f'<details class="finding-more"><summary>Details</summary>'
+            details = (f'<details class="finding-more"><summary>Details for {html.escape(f["hostname"] or f["ip_address"])}</summary>'
                        f'<p><b>Why this score</b><br><small>{html.escape(priority_detail)}<br>Match confidence: {confidence_label.get(f["status"], "unknown")}</small></p>'
                        f'<p><b>Evidence</b><br>{evidence}</p>'
                        + (f'<p><small>Missing evidence: {missing}</small></p>' if missing else '')
@@ -286,11 +286,11 @@ def page(store: Store, notice: str = "", page_number: int = 1, finding_id: str =
 <section class="cardx"><header><h2>Recent activity</h2><a class="select-pill" href="/triage">Latest first</a></header><ul class="feed">{feed_html}</ul></section>
 </div></div>
 {identity_review_html}
-<section class="cardx wide"><header><h2 id="findings">Exposure findings</h2><a class="aux" href="/reports">Full report {icon("arrow")}</a></header><p class="panel-note">Grouped by advisory. Open Details on a device for evidence and what to do.</p><div class="panel"><table class="findings grouped"><thead><tr><th>Device</th><th>Zone</th><th>Status</th><th>Urgency</th></tr></thead>{finding_table}</table></div></section>
+<section class="cardx wide"><header><h2 id="findings">Exposure findings</h2><a class="aux" href="/reports">Full report {icon("arrow")}</a></header><p class="panel-note">Grouped by advisory. Open Details on a device for evidence and what to do.</p><div class="panel"><table class="findings grouped"><thead><tr><th scope="col">Device</th><th scope="col">Zone</th><th scope="col">Status</th><th scope="col">Urgency</th></tr></thead>{finding_table}</table></div></section>
 <div class="cards three">
-<section class="cardx"><header><h2>Alerts</h2><span class="aux">{data["network_events"]} network events</span></header><div class="panel text-panel">{alert_summary}</div></section>
-<section class="cardx"><header><h2>Intelligence sources</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="panel">{health_html}</div></section>
-<section class="cardx"><header><h2>Recent intelligence updates</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="panel">{updates_html}</div></section>
+<section class="cardx"><header><h2>Alerts</h2><span class="aux">{data["network_events"]} network events</span></header><div class="card-body">{alert_summary}</div></section>
+<section class="cardx"><header><h2>Intelligence sources</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="card-body">{health_html}</div></section>
+<section class="cardx"><header><h2>Recent intelligence updates</h2><a class="aux" href="/intelligence">Open intelligence {icon("arrow")}</a></header><div class="card-body">{updates_html}</div></section>
 </div>
 {import_card}
 <footer>Urgency is a transparent rule-based priority; severity and applicability remain separate. KEV indicates catalog-listed exploitation, not an attack on this asset. Absence of a finding does not mean an asset is safe. Timestamps are stored in UTC. Exports are on the <a href="/reports">Reports</a> page.</footer>"""
