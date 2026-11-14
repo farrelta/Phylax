@@ -30,7 +30,7 @@ class CritiqueFixTests(unittest.TestCase):
 
     def test_triage_is_collapsed_with_stable_case_deep_links(self):
         alert=self.store.connection.execute('SELECT alert_id FROM alerts LIMIT 1').fetchone()[0]
-        text=operator_page(self.store,'/triage',{})
+        text=operator_page(self.store,'/triage',{'view':['list']})
         starts=re.findall(r'<details class="triage-case"[^>]*>',text)
         self.assertTrue(starts);self.assertTrue(all(' open' not in tag for tag in starts))
         self.assertIn('Inspect alert',text)

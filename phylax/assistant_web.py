@@ -35,7 +35,7 @@ def _fields(values):
     selected = list(dict.fromkeys(value[:256] for value in values.get('selected', [])))
     if len(selected) > 12:
         raise ValueError('Select up to 12 findings.')
-    return {'task': task, 'key': _get(values, 'key')[:256], 'identity_type': _get(values, 'identity_type')[:10],
+    return {'task': task, 'key': _get(values, 'key')[:2048 if task == 'ics-advisory' else 256], 'identity_type': _get(values, 'identity_type')[:10],
             'mode': _get(values, 'mode', 'local' if local_config() else 'builtin'),
             'selected': selected,
             'prompt': _get(values, 'prompt')[:1200], 'rule': {key: _get(values, key)[:12] for key in ('source', 'destination', 'action')},
@@ -96,6 +96,9 @@ def _source_info(task, data):
         if data.get('conflicting_observations') or data.get('active_version_count', 0) > 1:
             states += ('Conflicting identity evidence',)
         return '<ul>' + ''.join('<li>' + e(state) + '</li>' for state in states) + '</ul>'
+    if task == 'ics-advisory':
+        record = data['public_advisory']
+        return '<h2 translate="no">' + e(record['title']) + '</h2>'
     if task in {'advisory', 'remediation'}:
         record = data['public_advisory']
         markup = '<p translate="no">' + e(record.get('summary', '')) + '</p>' if record.get('summary') else ''

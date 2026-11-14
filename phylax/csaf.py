@@ -90,8 +90,11 @@ def normalize(document,url,retrieved_at):
             score=scores[0].get('cvss_v3',scores[0].get('cvss_v4',{}))
             record['severity']=str(score.get('baseSeverity','')).lower();record['cvss']=score.get('baseScore')
         records.append(vulnerability(record))
+    description = '\n\n'.join(note['text'] for note in meta.get('notes', [])
+                              if isinstance(note, dict) and note.get('category') == 'summary'
+                              and isinstance(note.get('text'), str) and note['text'].strip())
     advisory={'advisory_id':advisory_id,'title':meta.get('title',advisory_id),'link':url,'published':tracking.get('initial_release_date',''),
-              'summary':'CSAF document retained with complete product statuses; unsupported expressions require review.','source':'CISA CSAF','retrieved_at':retrieved_at}
+              'summary':description,'source':'CISA CSAF','retrieved_at':retrieved_at}
     return records,[advisory]
 
 

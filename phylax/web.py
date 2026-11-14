@@ -23,7 +23,7 @@ from .operator_pages import inventory_form,policy_page,settings_page,reports_pag
 from .theme import layout, ring, status_marker, term, glossary_page
 from .feeds import sync_store
 from .monitoring import ingest_file, infer_zeek_kind, validate_policy, reevaluate_events
-from .sensor_imports import import_suricata, import_wazuh
+from .sensor_imports import import_wazuh
 from .fingerprints import latest_fingerprint
 from . import assistant_web, release_web
 from .ui import verbatim, field, select, table, pager, reference_links, evidence_lines, evidence_url, assist_link
@@ -236,9 +236,14 @@ def intelligence_page(store: Store, search: str = "", page_number: int = 1) -> s
 def ics_advisories_page(store: Store, search: str = '', page_number: int = 1) -> str:
     page_number=max(1,page_number);limit=50
     records,total=store.search_ics_advisories(search,limit=limit,offset=(page_number-1)*limit)
-    rows=''.join(f"<tr><td>{verbatim(row['title'])}</td><td>{html.escape(row['published'] or 'Unknown')}</td><td>{reference_links([row['link']])}</td><td>{advisory_summary(row['summary'])}</td></tr>" for row in records)
-    empty='No advisories match this search. Clear the search to see stored advisories.' if search else 'No CISA ICS advisories stored. Sync public sources to load the advisory feed.'
-    controls=f'''<div class="controls"><form method="get" action="/intelligence/ics"><input name="q" value="{html.escape(search,quote=True)}" placeholder="Search advisory, product or summary" aria-label="Search CISA ICS advisories"> <button>Search</button> <a href="/intelligence/ics">Clear search</a></form><form method="post" action="/sync"><button>Sync public sources</button></form>{_pager('/intelligence/ics',search,page_number,total,limit)}</div>'''
+    rows = ''.join(
+        f"<tr><td>{verbatim(row['title'])}</td><td>{html.escape(row['published'] or 'Unknown')}</td>"
+        f"<td>{reference_links([row['link']])}</td><td>{advisory_summary(row['summary'])}"
+        f"<div class='advisory-actions'>{assist_link('ics-advisory', 'AI summary', row['advisory_id'])}</div></td></tr>"
+        for row in records
+    )
+    empty='No advisories match this search.' if search else 'No CISA ICS advisories stored. Sync public sources to load the advisory feed.'
+    controls=f'''<div class="controls"><form method="get" action="/intelligence/ics"><input name="q" value="{html.escape(search,quote=True)}" placeholder="Search advisory, product or summary" aria-label="Search CISA ICS advisories"> <button>Search</button></form><form method="post" action="/sync"><button>Sync public sources</button></form>{_pager('/intelligence/ics',search,page_number,total,limit)}</div>'''
     content=controls+'<section class="panel"><table><thead><tr><th>Advisory</th><th>Published</th><th>Reference</th><th>Summary</th></tr></thead><tbody>'+(rows or '<tr><td colspan="4" class="empty">'+html.escape(empty)+'</td></tr>')+'</tbody></table></section>'
     return layout('CISA ICS advisories',content,'/intelligence/ics',lead='Cached advisory feed entries for operator review. Affected versions are not inferred from advisory text.')
 
@@ -254,9 +259,8 @@ def network_page(store: Store, page_number: int = 1, notice: str = '') -> str:
     banner = '<p class="notice success" role="status">'+html.escape(notice)+'</p>' if notice else ''
     content = f"""{banner}<div class="controls">{pager}</div>
 <form method="post" action="/network/import" enctype="multipart/form-data"><label>Zeek log<input required name="file" type="file" accept=".log,.json,.jsonl,.tsv"></label>{kind}<button>Analyze Zeek log</button></form>
-<form method="post" action="/network/suricata" enctype="multipart/form-data"><label>Suricata EVE file<input required name="file" type="file" accept=".json,.jsonl,.log"></label><button>Import Suricata flows</button></form>
 <section class="panel"><table><thead><tr><th>Timestamp / event reference</th><th>Source / destination</th><th>Protocol / operation</th><th>Detection / source file</th></tr></thead><tbody>{rows}</tbody></table></section>"""
-    return layout("Network events", content, "/network", lead="Stored Zeek and Suricata observations.", heading="Passive network monitoring")
+    return layout("Network events", content, "/network", lead="Import Zeek logs or review recorded network activity.", heading="Passive network monitoring")
 
 
 def attack_surface_page(store: Store, query=None) -> str:
@@ -612,7 +616,7 @@ class Handler(BaseHTTPRequestHandler):
                 finding_id = form.get("finding_id", [""])[0]
                 self.store.update_remediation_plan(finding_id, form.get("status", [""])[0], reviewer=form.get("reviewer", [""])[0][:120], change_notes=form.get("change_notes", [""])[0][:2000], verification_evidence=form.get("verification_evidence", [""])[0][:4000])
                 notice = "Remediation lifecycle updated and recorded. Finding applicability and risk are unchanged."
-            elif path in {"/assets/import", "/intelligence/import", "/network/import", "/network/suricata", "/software/wazuh"}:
+            elif path in {"/assets/import", "/intelligence/import", "/network/import", "/software/wazuh"}:
                 if parts is None:
                     raise ValueError("Expected a multipart file upload")
                 def upload_text(name):
@@ -644,9 +648,7 @@ class Handler(BaseHTTPRequestHandler):
                     with tempfile.TemporaryDirectory(prefix="phylax-upload-") as temp:
                         uploaded = Path(temp) / 'input'
                         uploaded.write_bytes(body)
-                        if path == '/network/suricata':
-                            result = import_suricata(self.store, uploaded, source_file=original_name)
-                        elif path == '/software/wazuh':
+                        if path == '/software/wazuh':
                             result = import_wazuh(self.store, uploaded, source_file=original_name, **{
                                 key: upload_text(key) for key in ('manager','agent_id','asset_id','kind')})
                         else:
@@ -661,7 +663,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(b"Not found", "text/plain; charset=utf-8", 404)
                 return
             self.send_response(303)
-            destination = {'/network/import':'/network','/network/suricata':'/network','/software/wazuh':'/software'}.get(path,'/')
+            destination = {'/network/import':'/network','/software/wazuh':'/software'}.get(path,'/')
             parameters = {'notice':notice}
             if path == '/remediation/update':
                 destination = '/remediation'

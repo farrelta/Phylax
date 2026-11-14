@@ -9,7 +9,7 @@ from .core import Store
 from .feeds import sync_store, refresh_cve
 from .monitoring import ingest_file, validate_policy, reevaluate_events
 from .pcap import analyze_pcap
-from .sensor_imports import import_suricata, import_wazuh
+from .sensor_imports import import_wazuh
 from .web import serve
 
 
@@ -39,7 +39,6 @@ def main() -> None:
     replay.add_argument('--policy')
     replay.add_argument('--docker-image',help='Explicit installed Zeek image tag/digest; image is never pulled during analysis')
     replay.add_argument('--icsnpp', action='store_true', help='Load the locally installed ICSNPP Modbus package')
-    commands.add_parser('import-suricata', help='Import an offline EVE JSON Lines file').add_argument('file')
     wazuh = commands.add_parser('import-wazuh', help='Import a Wazuh Syscollector export for an existing IT asset')
     wazuh.add_argument('file')
     wazuh.add_argument('--kind', choices=('os', 'packages'), required=True)
@@ -99,8 +98,6 @@ def main() -> None:
             import json
             policy=validate_policy(json.loads(Path(args.policy).read_text(encoding='utf-8'))) if args.policy else None
             print(analyze_pcap(store,args.file,policy=policy,docker_image=args.docker_image,icsnpp=args.icsnpp))
-        elif args.command == 'import-suricata':
-            print(import_suricata(store,args.file))
         elif args.command == 'import-wazuh':
             print(import_wazuh(store,args.file,manager=args.manager,agent_id=args.agent_id,asset_id=args.asset_id,kind=args.kind))
         elif args.command == "analyze-zeek":

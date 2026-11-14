@@ -155,7 +155,7 @@ class LocalizedHTTPTests(unittest.TestCase):
     def test_empty_pages_also_localize(self):
         self.store.close();self.store=Store(':memory:')
         for path,expected in [('/','Mulai dengan inventaris aset Anda'),('/assets','Aset tidak ditemukan.'),
-                ('/triage','Tidak ada peringatan aktif'),('/software','Belum ada bukti perangkat lunak'),
+                ('/triage','Tidak ada peringatan di kolom ini.'),('/triage?view=list','Tidak ada peringatan aktif'),('/software','Belum ada bukti perangkat lunak'),
                 ('/remediation','Belum ada rencana remediasi'),
                 ('/intelligence','Catatan intelijen tidak ditemukan')]:
             with self.subTest(path=path):

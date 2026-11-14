@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from phylax.core import Store
 from phylax.fingerprints import latest_fingerprint, save_mapping
@@ -14,11 +14,11 @@ from phylax.monitoring import ingest_file, reevaluate_events, validate_policy
 from phylax.observations import review_component
 from phylax.pcap import analyze_pcap
 from phylax.release_web import page as operator_page, post
-from phylax.sensor_imports import import_suricata, import_wazuh
+from phylax.sensor_imports import import_wazuh
 from phylax.triage import alert_url, zone_alert
 from phylax.watcher import LogWatcher
 from phylax.web import attack_surface_page, page
-from scripts.prepare_sensor_demo import PLC, IT, DMZ, POLICY, EPOCH, identity_rows, prepare, rehearse, write_jsonl
+from scripts.prepare_sensor_demo import PLC, IT, DMZ, UNKNOWN, POLICY, EPOCH, identity_rows, prepare, rehearse, stage_presentation, write_jsonl
 import test_review_regressions as http_regressions
 
 
@@ -36,7 +36,82 @@ class OfflineSensorTests(unittest.TestCase):
         self.assertEqual(result['before_review'][PLC], 'POTENTIAL_MATCH')
         self.assertEqual(result['after_review'][PLC], 'CONFIRMED_MATCH')
         self.assertEqual(result['zone_alerts'], 1)
-        self.assertEqual(len(result['sources']), 3)
+        self.assertEqual(result['sources'], ['modbus-identity', 'wazuh_inventory'])
+        self.assertFalse((self.directory/'eve.json').exists())
+
+    def test_presentation_populates_navigation_and_retains_live_review(self):
+        self.assertFalse(self.store.assets())
+        self.assertEqual(stage_presentation(self.directory, self.database)[PLC], 'POTENTIAL_MATCH')
+        assets = {asset['ip_address']: asset for asset in self.store.assets()}
+        self.assertEqual(len(assets), 5)
+        self.assertEqual(assets[UNKNOWN]['product'], '')
+
+        http = http_regressions.HTTPAndGuidanceRegressionTests()
+        http.setUp()
+        http.store.close()
+        http.store = self.store
+
+        def get(path):
+            handler = http.handler(path)
+            handler.do_GET()
+            self.assertEqual(handler.response_status, 200, path)
+            return handler.wfile.getvalue().decode()
+
+        for route, expected in {
+            '/': 'Possibly affected',
+            '/assets': 'Simulated DMZ Host',
+            '/approvals': 'Simulated industrial network',
+            '/software': 'Simulated Workstation Linux',
+            '/changes': PLC,
+            '/processes': 'Simulated facility cooling',
+            '/network': 'lab-flow-2',
+            '/attack-surface': PLC,
+            '/intelligence': 'CVE-2021-22800',
+            '/intelligence/ics': 'Rockwell Automation FactoryTalk Activation',
+            '/triage': 'Zone Policy Violation',
+            '/remediation': 'Draft for the simulated support-site investigation',
+            '/reports': 'Markdown report',
+            '/settings': '2 finalized Zeek logs imported',
+            '/policy': '198.51.100.0/24',
+            '/glossary': 'Glossary',
+        }.items():
+            with self.subTest(route=route):
+                self.assertIn(expected, get(route))
+        self.assertIn('Loaded saved Schneider Electric and CISA advisories offline.', get('/settings'))
+        alert = zone_alert(self.store)
+        self.assertEqual((alert['source_ip'], alert['destination_ip']), (IT, PLC))
+        self.assertEqual(len(self.store.dashboard()['network_alerts']), 1)
+        self.assertIn(DMZ, get('/network'))
+        case = get('/triage?' + urlencode({'alert': alert['alert_id']}))
+        evidence_link = unescape(case.split('href="/evidence?', 1)[1].split('"', 1)[0])
+        self.assertIn('lab-flow-2', get('/evidence?' + evidence_link))
+
+        report = json.loads(get('/report.json'))
+        software = report['asset_intelligence']['software_components']
+        self.assertEqual({row['raw_name'] for row in software if row['asset_id'] == assets[IT]['asset_id']},
+                         {'Wazuh OS: Simulated Workstation Linux', 'Wazuh package: Example Lab Package'})
+        self.assertIn('CVE-2021-22800', get('/report.csv'))
+        self.assertIn('CVE-2021-22800', get('/report.md'))
+
+        finding_id = next(row['finding_id'] for row in report['findings'] if row['ip_address'] == PLC)
+        finding_path = '/?' + urlencode({'finding_id': finding_id})
+        self.assertIn('Possibly affected', get(finding_path))
+        component_id = self.store.connection.execute(
+            'SELECT component_id FROM modbus_identity_components WHERE asset_id=?',
+            (assets[PLC]['asset_id'],),
+        ).fetchone()[0]
+        review = http.handler('/software/review', urlencode({
+            'csrf_token': http.Handler.csrf_token, 'component_id': component_id,
+            'verified': 'true', 'active': 'true', 'actor': 'Demo operator',
+            'note': 'Verified against the simulated controller identity',
+        }))
+        review.do_POST()
+        self.assertEqual(review.response_status, 303, review.wfile.getvalue().decode())
+        self.assertIn('Confirmed affected', get(finding_path))
+
+        fresh_directory = self.directory.parent / 'new-presentation'
+        fresh_database = prepare(fresh_directory)
+        self.assertEqual(stage_presentation(fresh_directory, fresh_database)[PLC], 'POTENTIAL_MATCH')
 
     def test_fingerprint_dedup_change_conflict_and_separate_transactions(self):
         log = self.directory/'modbus_read_device_identification.log'
@@ -85,13 +160,42 @@ class OfflineSensorTests(unittest.TestCase):
         policy = json.loads(alert['policy_evidence'])
         self.assertEqual((policy['source_zone'], policy['destination_zone']), ('IT', 'OT'))
         self.assertTrue(policy['policy_id'])
-        import_suricata(self.store, self.directory/'eve.json')
         self.assertEqual(reevaluate_events(self.store, POLICY)['alerts_created'], 0)
         reevaluate_events(self.store, POLICY | {'denied_zone_pairs': [['OT', 'IT']]})
         self.assertEqual(self.store.connection.execute('SELECT state FROM network_alert_lifecycle').fetchone()[0],
                          'resolved')
         with self.assertRaisesRegex(ValueError, 'must not overlap'):
             validate_policy(POLICY | {'zone_subnets': {'IT': ['192.0.2.0/24'], 'OT': ['192.0.2.10/32']}})
+
+    def test_alert_board_tracks_review_and_resolution(self):
+        ingest_file(self.store, self.directory/'conn.log')
+        alert_id = zone_alert(self.store)['alert_id']
+
+        default_board = operator_page(self.store, '/triage', {})
+        self.assertIn('class="alert-board"', default_board)
+        self.assertIn('name="q"', default_board)
+        filtered_list = {'category': ['endpoint'], 'priority': ['critical'], 'acknowledged': ['yes']}
+        explicit_board = operator_page(self.store, '/triage', {**filtered_list, 'view': ['board']})
+        self.assertIn(alert_url(alert_id), explicit_board)
+        self.assertNotIn(alert_url(alert_id), operator_page(self.store, '/triage', {'q': ['does not match']}))
+        list_page = operator_page(self.store, '/triage', {'view': ['list']})
+        for key in filtered_list:
+            self.assertNotIn(f'name="{key}"', default_board)
+            self.assertNotIn(f'name="{key}"', explicit_board)
+            self.assertIn(f'name="{key}"', list_page)
+        self.assertNotIn('class="alert-board"', operator_page(self.store, '/triage', filtered_list))
+
+        def board_column(column):
+            board = operator_page(self.store, '/triage', {})
+            return board.split(f'id="alert-column-{column}"', 1)[1].split('</section>', 1)[0]
+
+        self.assertIn(alert_url(alert_id), board_column(0))
+        post(self.store, '/triage/ack', {'category': ['network'], 'alert_id': [alert_id]})
+        self.assertIn(alert_url(alert_id), board_column(1))
+        reevaluate_events(self.store, POLICY | {'denied_zone_pairs': []})
+        self.assertIn(alert_url(alert_id), board_column(2))
+        self.assertIn('resolved after reevaluation',
+                      operator_page(self.store, '/triage', {'alert': [alert_id]}))
 
     def test_zone_alert_links_to_exact_topology_case_and_original_event(self):
         log = self.directory/'conn.log'
@@ -130,16 +234,30 @@ class OfflineSensorTests(unittest.TestCase):
         self.assertNotIn('Show on topology', page(self.store))
         self.assertIn('resolved after reevaluation', operator_page(self.store, '/triage', {'alert': [alert_id]}))
 
-    def test_sensor_rollback_and_wazuh_binding(self):
-        eve = self.directory/'eve.json'
-        original = eve.read_text()
-        eve.write_text(original+'bad json\n')
-        with self.assertRaisesRegex(ValueError, 'row 2'):
-            import_suricata(self.store, eve)
-        self.assertFalse(self.store.assets())
-        eve.write_text(original)
-        self.assertEqual(import_suricata(self.store, eve)['events_inserted'], 1)
-        self.assertEqual(import_suricata(self.store, eve)['duplicates_skipped'], 1)
+    def test_historical_suricata_evidence_remains_available(self):
+        source = 'Suricata EVE: archived.json'
+        event_ref = 'historical-flow'
+        timestamp = '2026-11-12T09:00:00.000000Z'
+        self.store.connection.execute(
+            'INSERT INTO network_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+            (event_ref, event_ref, timestamp, IT, 40002, PLC, 502, 'tcp', '',
+             'suricata_flow', source, '{"event_type":"flow"}'),
+        )
+        self.store.observe_ip(IT, timestamp, source='suricata_passive')
+        self.store.connection.commit()
+        reopened = Store(self.database)
+        try:
+            report = json.loads(reopened.report('json'))
+            self.assertIn({
+                'kind': 'suricata_flow', 'ip': IT, 'observed_at': timestamp,
+                'source_file': source, 'event_ref': event_ref,
+            }, report['asset_intelligence']['sensor_evidence'])
+            self.assertEqual(reopened.assets()[0]['identification_source'], 'suricata_passive')
+            self.assertIn(source, operator_page(reopened, '/evidence', {'event_ref': [event_ref]}))
+        finally:
+            reopened.close()
+
+    def test_wazuh_inventory_deduplication_and_binding(self):
         self.store.import_csv(io.StringIO(f'ip_address,asset_id,zone\n{IT},it,IT\n{DMZ},other,IT\n'))
         wazuh = self.directory/'wazuh-packages.json'
         args = {'manager': 'lab', 'agent_id': '001', 'asset_id': 'it', 'kind': 'packages'}
@@ -183,7 +301,7 @@ class OfflineSensorTests(unittest.TestCase):
         http.store.close()
         http.store = self.store
 
-        def upload(route, path, **fields):
+        def upload(route, path, *, status=303, **fields):
             boundary = 'PhylaxDemoBoundary'
             parts = []
             for key, value in (fields | {'csrf_token': http.Handler.csrf_token}).items():
@@ -193,10 +311,17 @@ class OfflineSensorTests(unittest.TestCase):
             handler = http.handler(route, ''.join(parts))
             handler.headers.replace_header('Content-Type', f'multipart/form-data; boundary="{boundary}"')
             handler.do_POST()
-            self.assertEqual(handler.response_status, 303, handler.wfile.getvalue().decode())
+            self.assertEqual(handler.response_status, status, handler.wfile.getvalue().decode())
 
         upload('/network/import', self.directory/'modbus_read_device_identification.log')
-        upload('/network/suricata', self.directory/'eve.json')
+        upload('/network/suricata', self.directory/'conn.log', status=404)
+        for language in ('en', 'id'):
+            handler = http.handler('/network')
+            handler.headers['Accept-Language'] = language
+            handler.do_GET()
+            monitoring = handler.wfile.getvalue().decode()
+            self.assertIn('action="/network/import"', monitoring)
+            self.assertNotIn('action="/network/suricata"', monitoring)
         self.store.import_csv(io.StringIO(f'ip_address,asset_id,zone\n{IT},it,IT\n'))
         upload('/software/wazuh', self.directory/'wazuh-packages.json', manager='lab', agent_id='001',
                asset_id='it', kind='packages')
