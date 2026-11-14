@@ -19,3 +19,10 @@ verification/
 # Local product briefs and development release history.
 PRODUCT.md
 RELEASE_NOTES.md
+
+# AI tool folders
+.claude/
+.agent/
+.gemini/
+.opencode/
+scratchpad/
