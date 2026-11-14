@@ -289,7 +289,7 @@ button.primary,.btn.primary{color:var(--accent-ink);font-weight:700}
 input,select,textarea{border-radius:10px;padding:8px 12px}
 .panel{border-radius:14px}
 .stats,.workflow,.record,.editor,.triage-case,.plan-review,.notice,.headline,.setup-start,.alert-topology,.topology-toolbar,.advisory-text{border-radius:14px}
-.notice{border-left-width:1px}
+.notice{border-left-width:3px}
 .headline{border:1px solid var(--line);border-left:1px solid var(--accent);background:var(--surface)}
 .zone-alert{border-left-color:var(--crit)}
 .pill,.st{border-radius:999px}
@@ -426,7 +426,7 @@ h1{font:600 26px/1.2 var(--display);margin:4px 0 6px}
 .triage-viewbar a{border-radius:8px;border-color:var(--line-2)}
 .secondary-navigation{border-bottom-color:var(--line-2)}
 .panel{border-color:var(--line-2);background:#0e100bcc}
-th{background:var(--overlay-1)}
+th{background:#ffffff06}
 
 /* ---- TNI palette, restrained: olive is the only brand colour, gold marks the current place, signal colours only carry meaning ---- */
 :root{--olive:#556b2f;--olive-hover:#61793a;--olive-soft:#a3b35c;--gold:#c9a646;--blue:#5aa9d6;--amber:#e39b3a;--red:#e5534b;--crit:#e5534b;--high:#e39b3a;--info:#5aa9d6;--ok:#8fa84a;--link:#c2cf8a}
@@ -462,7 +462,7 @@ button.primary:hover,.btn.primary:hover{background:var(--olive-hover)}
 .steps-next li:first-child .btn{background:var(--olive);border-color:var(--olive);color:#f3f5e6}
 .feed .ico.crit{background:#e5534b1a;color:var(--red)}
 .bars .bar i{background:var(--olive-soft);box-shadow:none}.bars .bar i.high{background:var(--amber);box-shadow:none}.bars .bar i.crit{background:var(--red);box-shadow:none}
-.notice{border:1px solid var(--line-2);border-left:1px solid var(--gold);background:#ffffff08;color:var(--text)}
+.notice{border:1px solid var(--line-2);border-left:1px solid var(--gold);background:var(--overlay-2);color:var(--text)}
 .notice.success{border-left-color:var(--ok)}.notice.error{border-left-color:var(--red)}
 .st-crit::before{background:var(--red)}.st-high::before{background:var(--amber)}.st-info::before{background:var(--blue)}
 .secondary-navigation a[aria-current]{border-bottom-color:var(--gold)}
@@ -609,7 +609,7 @@ details.more .kv{max-width:420px}details.more .kv>div{padding:5px 0}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 main:has(.alert-board) .triage-viewbar{position:absolute;top:58px;right:18px;margin:0;gap:6px;align-items:center}
 main:has(.alert-board){position:relative}
-.triage-viewbar a{display:inline-grid;place-items:center;min-width:36px;height:34px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;background:#ffffff08;color:var(--text-2)}
+.triage-viewbar a{display:inline-grid;place-items:center;min-width:36px;height:34px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--overlay-2);color:var(--text-2)}
 .triage-viewbar a[aria-current]{background:#ffffff17;border-color:#ffffff26;color:#fff}
 .triage-viewbar a:hover{text-decoration:none;background:#ffffff12}
 .triage-viewbar svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
