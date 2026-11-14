@@ -73,14 +73,6 @@ small{font-size:13px}
 .stats dt{color:var(--muted);font-size:13px}
 .stats dd{margin:0;font:500 20px var(--mono)}
 .stats .hot dd{color:var(--crit)}
-.steps{margin:0 0 22px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:12px}
-.steps li{flex:1 1 260px;border:1px solid var(--line);background:var(--surface);padding:10px 12px}
-.steps b{display:block;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}
-.steps form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 6px}
-form.overview-import{display:grid;gap:12px;align-items:start;justify-items:start}
-.steps .overview-import + .overview-import{margin-top:14px}
-.overview-import>div{min-width:0;max-width:100%}
-.overview-import label{margin:0 0 4px}.overview-import small{display:block;margin-top:4px}
 .assistance-request{white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto;padding:12px;border:1px solid var(--line)}
 button,.btn{font:inherit;background:var(--raised);color:var(--text);border:1px solid var(--control-line);border-radius:2px;padding:4px 10px;cursor:pointer;text-decoration:none;display:inline-block}
 button:hover,.btn:hover{background:var(--control-hover);text-decoration:none}
@@ -177,12 +169,10 @@ footer{color:var(--muted);font-size:12px;margin-top:28px;max-width:100ch}
 .advisory-preview,.advisory-text{max-width:65ch;line-height:1.6;margin-block:8px}
 .advisory-text{white-space:pre-wrap}.advisory-content>summary{color:var(--link);cursor:pointer}
 .advisory-content[open]+.advisory-preview,.advisory-content[open] .advisory-expand,.advisory-content:not([open]) .advisory-collapse{display:none}
-.advisory-actions{margin-top:10px}
 button,.btn{flex-shrink:0;overflow-wrap:normal;word-break:normal;max-width:100%}
 .triage-viewbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
 .triage-viewbar a{padding:7px 12px;border:1px solid var(--line);border-radius:6px;color:var(--muted)}
 .triage-viewbar a[aria-current]{background:var(--raised);color:var(--text);border-color:var(--control-line)}
-.triage-reports{margin-inline-start:auto}
 .alert-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-block:20px}
 .alert-column{padding:12px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(160deg,#38271e42,var(--surface) 135px);min-width:0}
 .alert-column h2{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:0;border:0;text-transform:none;font:600 15px var(--sans);letter-spacing:normal}

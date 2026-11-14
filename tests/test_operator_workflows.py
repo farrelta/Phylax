@@ -120,7 +120,7 @@ class OperatorWorkflowTests(unittest.TestCase):
         s=Store(':memory:')
         try:
             html=overview(s)
-            self.assertIn('Add your first asset',html);self.assertNotIn('0/0',html)
+            self.assertIn('Open asset inventory',html);self.assertNotIn('0/0',html)
             self.assertIn('Skip to main content',html);self.assertIn('mobile-navigation',html)
             self.assertNotIn('<details class="site-navigation mobile-navigation" open',html)
             self.assertIn('aria-label="Workspace"',html);self.assertNotIn('<p class="eyebrow">',html)

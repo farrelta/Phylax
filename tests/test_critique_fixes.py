@@ -75,9 +75,10 @@ class CritiqueFixTests(unittest.TestCase):
         self.assertIn('a=1&amp;b=2',text)
         for bad in ('https://evil.test/','//evil.test/','/triage\\evil','/settings','/triage\n'):
             self.assertEqual(local_return(bad),'/network')
-        back='/triage?category=network&case=abc#alert-abc'
-        self.assertEqual(local_return(back),back)
-        self.assertEqual(parse_qs(urlsplit(evidence_url('ref',back)).query)['return_to'],[back])
+        for back in ('/triage?category=network&case=abc#alert-abc',
+                     '/software?component_id=abc#review-component', '/?finding_id=abc', '/assets', '/policy'):
+            self.assertEqual(local_return(back),back)
+            self.assertEqual(parse_qs(urlsplit(evidence_url('ref',back)).query)['return_to'],[back])
 
     def test_original_evidence_labels_observation_and_safe_return(self):
         from phylax.asset_intelligence import observe

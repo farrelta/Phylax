@@ -7,7 +7,7 @@ Phylax is a local dashboard for tracking IT and operational technology (OT) asse
 - Import device inventory and offline Zeek and Wazuh exports. Review observed identities and software before verifying them.
 - Match inventory against cached vulnerability advisories and investigate observed traffic that violates a configured network policy.
 - Trace alerts back to their source evidence and export JSON, CSV, or Markdown reports.
-- Optionally use local and hosted AI to draft explanations, policies, and reports for review.
+- Create a Markdown investigation report from selected findings. Optional Local or Hosted AI organizes the report using recorded statuses and evidence counts. Hosted requests require confirmation.
 
 ## Getting started
 
@@ -23,8 +23,8 @@ The dashboard runs on loopback for one local operator. Basic use requires no pac
 
 ## Usage
 
-1. On **Overview**, add a device or import a CSV with an `ip_address` column. Leave unknown identity fields blank.
-2. Use **Monitoring** to import recorded Zeek logs. To check devices against public advisories, sync from **Intelligence** or load a saved advisory JSON from **Overview → Import data**.
+1. In **Assets → Inventory**, add a device or import a CSV with an `ip_address` column. Leave unknown identity fields blank.
+2. Use **Monitoring** to import recorded Zeek logs. To check devices against public advisories, sync public sources or import a saved advisory JSON in **Intelligence → CVEs**.
 3. Open **Triage** to review an alert and its evidence. Use **Reports** to export the results.
 
 Network alerts describe traffic seen by the sensor. Vulnerability matches describe which advisories may apply to a device. Open the source evidence to investigate further.

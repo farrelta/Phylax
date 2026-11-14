@@ -31,7 +31,6 @@ def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='')
     body+='<p>Enter operator-supplied identity evidence. Confirmed matches require verified high-confidence identity; an IP address never establishes a model or version.</p>'
     if row:
         body+='<nav class="controls" aria-label="This asset"><a href="/processes?'+e(urlencode({'asset_id':row['asset_id']}))+'">Operational context for this asset</a><a href="/approvals?'+e(urlencode({'ip':row['ip_address']}))+'">Management decisions for '+e(row['ip_address'])+'</a></nav>'
-        body+='<p>'+assist_link('identity', 'Explain identity evidence', row['asset_id'], identity_type='asset')+'</p>'
     body+='<form method="post" action="/assets/save">'
     groups=(
         ('Address and identity',('asset_id','ip_address','mac_address','hostname','asset_type')),
@@ -79,7 +78,7 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     text=submitted.get('policy_json','') if submitted is not None else json.dumps(policy if policy is not None else {},indent=2)
     body=error_summary(error,[('policy-json','Review policy JSON')]) if error else ''
     body+='<p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
-    body+='<p>'+assist_link('policy', 'Draft network policy')+'</p>'
+    body+='<p>'+assist_link('policy', 'Edit zone rules')+'</p>'
     body+='<p>Keys: protected_assets, allowed_communications, authorized_writers, maintenance_windows_utc. Day numbers: Monday 0 through Sunday 6. Times are UTC.</p>'
     body+='<section aria-labelledby="current-policy-summary"><h2 id="current-policy-summary">Current saved policy</h2>'
     if policy is None:
@@ -123,12 +122,11 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     return shell('Passive network policy',body)
 
 
-def settings_page(store: Store) -> str:
+def settings_page(store: Store, *, notice: str = "") -> str:
     config=AIConfig.from_env()
     local = local_config()
     description=f'Configured: {config.provider} · requested model {config.model} · timeout {config.timeout_seconds} seconds' if config else 'Hosted AI disabled: configure a provider, model and key in the server environment or project .env.'
-    body='<p>'+assist_link('settings', 'Explain data and settings')+'</p><h2>Local AI</h2><p>'+e(local.model if local else 'Local AI is not configured.')+'</p>'
-    body+='<h2>Hosted guidance</h2><p>'+html.escape(description)+'</p><p>Hosted requests require confirmation of the redacted request. Returned guidance remains unverified.</p><h2>Public intelligence sources</h2>'
+    body='<h2>Public intelligence sources</h2>'
     body+=(''.join('<p>'+html.escape(f"{r['source']} · {r['health']} · last success {r['last_success_at'] or 'never'} · {r['message']}")+'</p>' for r in store.source_health()) or '<p>No feed synchronization recorded.</p>')
     body+='<p>Source health is based on stored attempts and becomes stale after 24 hours. Opening this page performs no connectivity check.</p>'
     from .ui import form,field,select,table
@@ -139,8 +137,11 @@ def settings_page(store: Store) -> str:
     body+='<h2>Collection health</h2>'+table(collectors(store),[(k,k.replace('_',' ').title()) for k in ('kind','status','heartbeat','last_success','message')])
     body+='<h2>Recent finalized-log imports</h2>'+table([dict(r) for r in store.connection.execute('SELECT path,status,message,processed_at FROM ingestion_files ORDER BY processed_at DESC LIMIT 50')],[('path','Local file'),('status','Outcome'),('message','Diagnostics'),('processed_at','Processed UTC')])
     body+='<details class="workflow"><summary>Advanced assessment tools</summary><p>Inventory and intelligence imports reassess findings automatically. Use manual correlation to rebuild assessments from stored evidence when troubleshooting.</p>'+form('/correlate','','Reassess stored findings')+'</details>'
-    return shell('Settings and data sources',body)
+    body+='<details class="workflow"><summary>Report AI providers</summary><h2>Local AI</h2><p>'+e(local.model if local else 'Local AI is not configured.')+'</p>'
+    body+='<h2>Hosted AI</h2><p>'+e(description)+'</p><p>Hosted requests require confirmation of the redacted request.</p></details>'
+    banner = '<p class="notice" role="status">' + e(notice) + '</p>' if notice else ''
+    return shell('Settings and data sources', banner + body)
 
 
 def reports_page(store: Store) -> str:
-    return shell('Reports','<p>Exports contain locally stored evidence. Findings do not establish compromise.</p><p>'+assist_link('report', 'Draft report summary')+'</p><h2>Investigation reports</h2><p>JSON contains the complete report structure, including findings, uncertainty, provenance, source health and remediation plans. CSV organizes evidence as typed records for analysis. Markdown presents findings and operational context for reading and sharing.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a></p><h2>Inventory only</h2><p>Asset identity and classification fields for inventory exchange. This CSV excludes vulnerability findings, alerts and remediation plans.</p><p><a class="btn" href="/assets.csv">Inventory CSV</a></p>')
+    return shell('Reports','<p>Exports contain locally stored evidence. Findings do not establish compromise.</p><p>'+assist_link('report', 'Create investigation report')+'</p><p>Choose findings, optionally use AI to organize the review, and download a Markdown report.</p><h2>Full evidence exports</h2><p>JSON contains the complete report structure, including findings, uncertainty, provenance, source health and remediation plans. CSV organizes evidence as typed records for analysis. Markdown presents findings and operational context for reading and sharing.</p><p><a class="btn" href="/report.json">JSON report</a> <a class="btn" href="/report.csv">CSV report</a> <a class="btn" href="/report.md">Markdown report</a></p><h2>Inventory only</h2><p>Asset identity and classification fields for inventory exchange. This CSV excludes vulnerability findings, alerts and remediation plans.</p><p><a class="btn" href="/assets.csv">Inventory CSV</a></p>')

@@ -20,6 +20,53 @@ QUERY_KEYS = {'subnet','zone','criticality','management_status','since','until',
               'page','selected','q','zoom','processes'}
 
 
+VIEWPORT_SCRIPT = """// Keep the visible diagram steady when a node link opens its details.
+const viewport = document.querySelector('.topology-scroll');
+const storageKey = 'phylax.topology.viewport';
+
+if (viewport) {
+    viewport.addEventListener('click', (event) => {
+        const link = event.target.closest('a.topology-node');
+        if (!link || event.defaultPrevented || event.button !== 0 ||
+            event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+        try {
+            sessionStorage.setItem(storageKey, JSON.stringify({
+                destination: new URL(link.getAttribute('href'), location.href).href,
+                left: viewport.scrollLeft,
+                top: viewport.scrollTop,
+                viewportTop: viewport.getBoundingClientRect().top,
+                keyboard: event.detail === 0,
+            }));
+        } catch {
+            // The link still opens the selected endpoint when storage is unavailable.
+        }
+    });
+
+    window.addEventListener('pageshow', () => {
+        let saved;
+        try {
+            saved = JSON.parse(sessionStorage.getItem(storageKey));
+            sessionStorage.removeItem(storageKey);
+        } catch {
+            return;
+        }
+        if (saved?.destination !== location.href) return;
+
+        requestAnimationFrame(() => {
+            if (saved.keyboard) {
+                viewport.querySelector('a.topology-node[aria-current]')?.focus({preventScroll: true});
+            }
+            viewport.scrollLeft = saved.left;
+            viewport.scrollTop = saved.top;
+            // On narrow screens, the details above the diagram can change height.
+            window.scrollBy(0, viewport.getBoundingClientRect().top - saved.viewportTop);
+        });
+    });
+}
+"""
+
+
 def values(query):
     return {key: str(value[0]) for key,value in query.items() if key in QUERY_KEYS and value}
 
@@ -270,4 +317,5 @@ def render_topology(store,data,query):
     if not stats['nodes']:legend=''
     canvas=('<div class="topology-scale" style="width:'+f'{stats["width"]*zoom:g}'+'px">'+graph+'</div>') if stats['nodes'] else graph
     return ('<h2 id="topology">Topology overview</h2>'+toolbar+status+'<div class="topology-workspace">'+detail+'<div class="topology-canvas"><div class="topology-scroll" tabindex="0" role="region" aria-label="Topology diagram; scroll to explore">'
-            +canvas+'</div><p class="topology-caption">'+e(caption+guidance)+'</p>'+legend+'</div></div>')
+            +canvas+'</div><p class="topology-caption">'+e(caption+guidance)+'</p>'+legend+'</div></div>'
+            + ('<script src="/static/topology.js" defer></script>' if stats['nodes'] else ''))

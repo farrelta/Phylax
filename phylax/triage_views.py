@@ -1,6 +1,6 @@
 """Decision evidence first; original records remain inspectable separately."""
 from urllib.parse import urlencode
-from .ui import verbatim, e,field,select,form,hidden,raw_record,evidence_lines,evidence_url,assist_link
+from .ui import verbatim, e,field,select,form,hidden,raw_record,evidence_lines,evidence_url
 from .triage import ZONE_RULE, alert_url, triage, zone_pair
 from .theme import PLAIN_STATUS
 from .topology import alert_topology_url
@@ -85,7 +85,7 @@ def triage_page(store,query,offset):
         body = '<nav class="triage-viewbar" aria-label="Alert views">'
         for label, url, current in (('List view', list_url, not board), ('Board view', board_url, board)):
             body += '<a href="' + e(url) + '"' + (' aria-current="page"' if current else '') + '>' + label + '</a>'
-        body += '<a class="triage-reports" href="/reports">Reports</a></nav>'
+        body += '</nav>'
         if board:
             body += '<p class="muted">Open a card to inspect the alert. Column counts apply to this page.</p>'
         elif history:
@@ -131,7 +131,6 @@ def triage_page(store,query,offset):
             body+='<p class="notice">This policy alert was resolved after reevaluation.</p>'
         elif row['state']=='resolved':
             body+='<p class="notice">This device management alert was resolved.</p>'
-        body+='<p>'+assist_link('alert', 'Explain alert', row['alert_id'])+'</p>'
         if zone_violation:
             obs=row['observed'];policy=ev['policy']
             body+='<h3>Observed connection</h3><p class="mono">'+e(obs['source_ip']+' → '+obs['destination_ip'])+'</p>'

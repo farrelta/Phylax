@@ -34,7 +34,7 @@ def context_page(store,query,offset,submitted=None):
     fields+=select('lifecycle','Lifecycle',[(v,v.title()) for v in ('unknown','acquisition','deployed','commissioned','maintenance','decommissioned')],values.get('lifecycle','unknown'))
     fields+=field('tags','Tags (comma separated)',values.get('tags',''))+field('criticality_rationale','Criticality rationale',values.get('criticality_rationale',''))+'</div>'
     body+=form('/processes/context',fields,'Save context for '+(asset['hostname'] or asset['ip_address']))
-    body+='<p><a href="/processes?'+e(urlencode({'asset_id':aid}))+'">Reload current context</a> · <a href="/assets/edit?'+e(urlencode({'asset_id':aid}))+'">Edit inventory identity / criticality</a></p></section>'
+    body+='</section>'
     rows=[dict(r) for r in store.connection.execute('SELECT c.*,a.hostname,a.ip_address FROM asset_context c JOIN assets a USING(asset_id) ORDER BY a.ip_address LIMIT 50 OFFSET ?',(offset,))]
     for row in rows:row['asset']=asset_label(row)
     body+='<h2>Saved asset context</h2>'+table(rows,[('asset','Asset'),('owner','Owner'),('site','Site'),('location','Location'),('lifecycle','Lifecycle')],

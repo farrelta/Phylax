@@ -10,7 +10,7 @@ def finding_case(store,finding,kev_label,notice=''):
     f=finding;fid=f['finding_id'];score=prioritize(f,f,f['status'])
     plan=store.get_remediation_plan(fid)
     body=('<p class="notice" role="status">'+e(notice)+'</p>') if notice else ''
-    body+='<p><a href="/">Return to overview</a> · <a href="/triage?'+e(urlencode({'q':f['cve_id']}))+'">Related alerts in triage</a></p>'
+    body+='<p><a href="/#findings">Return to exposure findings</a></p>'
     body+='<article class="finding-case" id="finding-'+e(fid)+'"><h2>'+e(f['cve_id'])+' · '+verbatim(f['hostname'] or f['ip_address'])+'</h2>'
     body+='<p>'+status_marker(f['status'])+' · '+e(f['severity'] or 'Unknown')+' severity · '+e(score['priority'].replace('_',' '))+' urgency</p>'
     if f['synthetic']:body+='<p class="notice">Synthetic demonstration fixture; not a public CVE or real incident.</p>'

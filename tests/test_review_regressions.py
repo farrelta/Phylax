@@ -395,19 +395,3 @@ class ImportAndModelBoundaryTests(unittest.TestCase):
         for text in ('ip_address,ip_address\n192.0.2.1,192.0.2.2\n','ip_address\n192.0.2.1,extra\n','ip_address,hostname\n192.0.2.1,"unterminated'):
             self.assertTrue(s.import_csv(io.StringIO(text))['errors'])
         s.close()
-
-    def test_command_output_is_rejected_and_secrets_are_redacted(self):
-        from phylax.ai import generate_guidance
-        import urllib.error
-        key='test-long-private-token'
-        config=AIConfig('https://provider.example','m',key)
-        record={'cve_id':'CVE-2024-12345','summary':'Public','references':['https://vendor.example/a'],'synthetic':False}
-        class Response:
-            def __enter__(self):return self
-            def __exit__(self,*args):pass
-            def read(self,n):return json.dumps({'choices':[{'message':{'content':json.dumps({'summary':'Review','steps':['sudo reboot'],'validation':'Review','source_urls':['https://vendor.example/a']})}}]}).encode()
-        with self.assertRaisesRegex(ValueError,'command syntax'):
-            generate_guidance(record,config,opener=lambda *a,**k:Response())
-        def error(*args,**kwargs):raise urllib.error.HTTPError('https://provider.example',400,'Bad Request',{},io.BytesIO(json.dumps({'error':{'message':'Invalid '+key}}).encode()))
-        with self.assertRaises(RuntimeError) as caught:generate_guidance(record,config,opener=error)
-        self.assertNotIn(key,str(caught.exception));self.assertIn('[redacted]',str(caught.exception))

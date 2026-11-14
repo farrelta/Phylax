@@ -1,7 +1,7 @@
 """Escaped native controls and bounded navigation shared by operator views."""
 import html
 import json
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 
 def e(value):
@@ -132,5 +132,10 @@ def local_return(value):
     if not isinstance(value,str) or len(value)>4096 or '\\' in value or any(ord(c)<32 for c in value):return '/network'
     try:parsed=urlsplit(value)
     except ValueError:return '/network'
-    if parsed.scheme or parsed.netloc or parsed.path not in {'/network','/triage','/attack-surface'}:return '/network'
+    if parsed.scheme or parsed.netloc:
+        return '/network'
+    if parsed.path == '/' and parse_qs(parsed.query).get('finding_id'):
+        return value
+    if parsed.path not in {'/network', '/triage', '/attack-surface', '/assets', '/software', '/policy'}:
+        return '/network'
     return value

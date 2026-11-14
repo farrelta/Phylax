@@ -1,7 +1,7 @@
 """Compact, inert presentation of cached advisory text; never a new assessment."""
 import re
 from html.parser import HTMLParser
-from .ui import e
+from .ui import e, reference_links
 
 
 class _AdvisoryText(HTMLParser):
@@ -52,3 +52,57 @@ def advisory_summary(value):
         '</summary>' + full_markup + '</details>'
         '<p translate="no" class="advisory-preview">' + e(first) + '</p>'
     )
+
+
+
+def passages(records, *, ics=False):
+    """Present explicit cached version boundaries and source recommendations."""
+    facts = {}
+    scopes = {}
+    for record in records:
+        source = record.get('source') or 'Unknown source'
+        url = record.get('source_url')
+        paragraphs = advisory_text(record.get('summary')).split('\n\n')
+        sentences = [sentence for paragraph in paragraphs
+                     for sentence in re.split(r'(?<=[.!?])\s+', paragraph)]
+        affected = []
+        for product in record.get('affected_products') or []:
+            if product.get('conditions_unresolved') or product.get('version_semantics_unknown'):
+                continue
+            name = product.get('product') or product.get('vendor') or ''
+            versions = list(product.get('versions') or [])
+            for bounds in product.get('version_ranges') or []:
+                limits = [symbol + ' ' + bounds[key] for key, symbol in
+                          (('start_including', '>='), ('start_excluding', '>'),
+                           ('end_including', '<='), ('end_excluding', '<')) if bounds.get(key)]
+                if limits:
+                    versions.append(' and '.join(limits))
+            if versions:
+                scope = ', '.join(versions)
+                if product.get('excluded_versions'):
+                    scope += ' (excluding ' + ', '.join(product['excluded_versions']) + ')'
+                affected.append(name + ' · ' + scope)
+                scopes.setdefault((product.get('vendor', ''), name), {}).setdefault(source, set()).add(scope)
+        if ics:
+            affected.extend(sentence for sentence in sentences
+                            if re.search(r'(?:<=|>=|≤|≥)\s*\d|\b\d+(?:\.\d+)+\s+and (?:earlier|prior)\b', sentence, re.I))
+        actions = [sentence for sentence in sentences if re.search(
+            r'\b(?:fixed in|addressed in|update to|upgrade to)\b', sentence, re.I)]
+        if record.get('mitigation'):
+            actions.insert(0, advisory_text(record['mitigation']))
+        for label, entries in (('Affected versions', affected), ('Fixed versions or recommended action', actions)):
+            for entry in dict.fromkeys(entries):
+                facts[f'E{len(facts)+1}'] = (label, entry, source, url)
+    if not any(fact[0] == 'Affected versions' for fact in facts.values()):
+        facts[f'E{len(facts)+1}'] = ('Affected version boundaries need verification', '', '', '')
+    if any(len({frozenset(entries) for entries in by_source.values()}) > 1 for by_source in scopes.values()):
+        facts[f'E{len(facts)+1}'] = ('Sources list different affected version statements', '', '', '')
+    return facts
+
+
+def render_facts(facts):
+    return ''.join(
+        '<section id="advisory-' + e(ref) + '"><h3>' + e(label) + '</h3>'
+        + ('<p translate="no">' + e(value) + '</p>' if value else '')
+        + ('<p>' + e(source) + (' · ' + reference_links([url]) if url else '') + '</p>' if source else '')
+        + '</section>' for ref, (label, value, source, url) in facts.items())

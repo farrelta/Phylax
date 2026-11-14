@@ -1,7 +1,7 @@
 """Contextual management and software review actions bound to their records."""
 import json
 from urllib.parse import urlencode
-from .ui import verbatim, e,field,select,hidden,form,actor_fields,table,raw_record,evidence_url,assist_link
+from .ui import verbatim, e,field,select,hidden,form,actor_fields,table,raw_record,evidence_url
 from .configuration_pages import asset_label
 
 
@@ -49,9 +49,8 @@ def software_page(store,query,offset,submitted=None):
         row=dict(row)
         body+='<section class="editor" id="review-component"><h2>Review '+verbatim(row['raw_name'])+' '+(verbatim(row['version']) if row['version'] else e('unknown version'))+'</h2><p>'+verbatim(asset_label(row))+'</p>'
         body+='<p>First observed '+e(row['first_seen'])+' · last observed '+e(row['last_seen'])+'</p>'
-        body+='<p>'+assist_link('identity', 'Explain identity evidence', cid)+'</p>'
         if store.connection.execute('SELECT 1 FROM observations WHERE event_ref=? LIMIT 1',(row['event_ref'],)).fetchone():
-            body+='<p>'+verbatim(row['source_file'])+' · <a href="'+e(evidence_url(row['event_ref'],'/software'))+'">Original event</a></p>'
+            body+='<p>'+verbatim(row['source_file'])+' · <a href="'+e(evidence_url(row['event_ref'],'/software?'+urlencode({'component_id': cid})+'#review-component'))+'">Original event</a></p>'
         fields=hidden('component_id',cid)+select('verified','Identity and version verified',[('false','Unverified'),('true','Verified')],values.get('verified','true' if row['verified'] else 'false'))
         fields+=select('active','Evidence state',[('true','Active evidence'),('false','Retired evidence')],values.get('active','true' if row['active'] else 'false'))+actor_fields(values)
         body+=form('/software/review',fields,'Save review for this component')+raw_record(row,'Original software evidence and identifiers')+'</section>'

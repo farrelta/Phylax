@@ -5,6 +5,7 @@ import html
 import json
 from io import StringIO
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote, urlsplit
 from .prioritization import prioritize
 from .validation import csv_value
 from .i18n import translate_text
@@ -71,6 +72,53 @@ def report_data(store: Store) -> dict[str, Any]:
             'evaluation_diagnostics':diagnostics,'remediation_plans':data['remediation_plans'],
             'source_health':data['source_health'],'priority_rule_version':'2',
             'archived_plans':[dict(r) | {'snapshot':json.loads(r['snapshot_json'])} for r in store.connection.execute('SELECT * FROM archived_plans ORDER BY created_at DESC')]}
+
+
+def selected_report_markdown(rows, focus, links, language, dataset_label):
+    def text(value):
+        safe = html.escape(' '.join(str(value).split()), quote=False)
+        for char in ('\\', '`', '*', '_', '[', ']', '#', '|', '~', '$'):
+            safe = safe.replace(char, '\\' + char)
+        return safe
+
+    def t(value):
+        return translate_text(value, language)
+
+    lines = [t('# Phylax investigation report'), '', t('Scope: Selected vulnerability findings.'), '']
+    if dataset_label:
+        lines += [text(dataset_label), '']
+    if focus:
+        lines += [t('AI-organized review'), t(focus), '']
+    for row in rows:
+        ref = row['evidence']
+        lines += [f"## {text(row['advisory'])} · {text(row['name'])}",
+                  f"{t('Applicability')} · {text(t(row['applicability']))}",
+                  f"{t('Urgency')} · {text(t(row['priority']))}",
+                  f"[{t('Open vulnerability finding')} · {ref}](<{links[ref]}>)", '']
+        if row['synthetic']:
+            lines += [t('Simulated finding'), '']
+        for title, items in (
+            ('Evidence', row['recorded_evidence']), ('Missing evidence', row['missing_evidence']),
+        ):
+            if items:
+                lines += [t(title)] + ['- ' + text(item) for item in items] + ['']
+        if row['references']:
+            lines += [t('References')]
+            for value in row['references']:
+                try:
+                    url = urlsplit(value)
+                    public_link = url.scheme in {'http', 'https'} and url.hostname and not url.username and not url.password
+                except ValueError:
+                    public_link = False
+                if public_link:
+                    target = quote(value, safe=":/?#@!$&'()*+,;=%[]")
+                    lines += [f"- [{text(value)}](<{target}>)"]
+                else:
+                    lines += ['- ' + text(value)]
+            lines += ['']
+    lines += [t('## Known limitations'), '- ' + t('A vulnerability finding does not establish compromise.'),
+              '- ' + t('A missing match does not establish that an asset is safe.')]
+    return '\n'.join(lines) + '\n'
 
 
 def export_report(store: Store, format: str, *, language: str = 'en') -> str:

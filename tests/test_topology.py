@@ -102,7 +102,9 @@ class TopologyTests(unittest.TestCase):
         html=render_topology(self.store,data,{'q':['"><script>evil</script>'],'selected':['192.0.2.10']})
         self.assertNotIn('<script>',html);self.assertNotIn('<img',html)
         self.assertIn('&lt;',html);self.assertNotIn('javascript:',html)
-        self.assertNotIn('<script',attack_surface_page(self.store))
+        page = attack_surface_page(self.store)
+        self.assertIn('<script src="/static/topology.js" defer></script>', page)
+        self.assertNotIn('<script', page.replace('<script src="/static/topology.js" defer></script>', ''))
 
     def test_selecting_visible_nodes_preserves_diagram_positions(self):
         data = self.store.attack_surface()

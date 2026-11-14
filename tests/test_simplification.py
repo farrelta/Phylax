@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import Request
 
 import test_review_regressions as regressions
@@ -59,6 +59,40 @@ class SimplifiedWorkflowTests(unittest.TestCase):
         settings=settings_page(self.store)
         self.assertIn('Advanced assessment tools',settings)
         self.assertIn('action="/correlate"',settings)
+
+    def test_data_actions_live_on_the_pages_that_own_them(self):
+        owners = {'/assets/import': '/assets', '/intelligence/import': '/intelligence',
+                  '/network/import': '/network', '/software/wazuh': '/software', '/sync': '/intelligence'}
+        for route in ('/', '/assets', '/network', '/intelligence', '/intelligence/ics',
+                      '/software', '/reports', '/settings', '/triage'):
+            handler = self.http.handler(route)
+            handler.do_GET()
+            self.assertEqual(handler.response_status, 200, route)
+            markup = handler.wfile.getvalue().decode()
+            for action, owner in owners.items():
+                self.assertEqual(f'action="{action}"' in markup, route == owner, (route, action))
+        cases = {
+            '/assets/import': ('inventory.csv', b'ip_address\n192.0.2.19\n'),
+            '/intelligence/import': ('advisory.json', b'{"vulnerabilities":[]}'),
+        }
+        for action, (filename, contents) in cases.items():
+            boundary = 'testPhylaxBoundary'
+            payload = (
+                f'--{boundary}\r\nContent-Disposition: form-data; name="csrf_token"\r\n\r\n'
+                f'{self.http.Handler.csrf_token}\r\n'
+                f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n\r\n'
+                + contents.decode() + f'\r\n--{boundary}--\r\n'
+            )
+            handler = self.http.handler(action, payload)
+            handler.headers.replace_header('Content-Type', f'multipart/form-data; boundary={boundary}')
+            handler.do_POST()
+            self.assertEqual(handler.response_status, 303, action)
+            self.assertEqual(urlsplit(handler.response_headers['Location']).path, owners[action])
+        for action in cases:
+            invalid = self.http.handler(action, urlencode({'csrf_token': self.http.Handler.csrf_token}))
+            invalid.do_POST()
+            self.assertEqual(invalid.response_status, 400, action)
+            self.assertIn(f'action="{action}"'.encode(), invalid.wfile.getvalue())
 
     def test_one_plan_review_view_preserves_source_action_and_history(self):
         item=self.make_plan()
