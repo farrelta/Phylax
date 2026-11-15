@@ -12,4 +12,4 @@ RUN python scripts/prepare_sensor_demo.py --presentation --output-dir data/prese
 
 USER 10001:10001
 ENV PHYLAX_PUBLIC=1 PYTHONUNBUFFERED=1
-CMD ["sh", "-c", "exec python -m phylax --db data/presentation/phylax-demo.db --host 0.0.0.0 --port \"${PORT:-8765}\""]
+CMD ["sh", "-c", "exec python -m phylax --db data/presentation/phylax-demo.db serve --host 0.0.0.0 --port \"${PORT:-8765}\""]
