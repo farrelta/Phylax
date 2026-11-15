@@ -1,7 +1,7 @@
 """Decision evidence first; original records remain inspectable separately."""
 from urllib.parse import urlencode
 from .ui import verbatim, e,field,select,form,hidden,raw_record,evidence_lines,evidence_url
-from .triage import ZONE_RULE, alert_url, triage, zone_pair
+from .triage import ZONE_RULE, triage, zone_pair
 from .theme import PLAIN_STATUS
 from .topology import alert_topology_url
 
@@ -107,6 +107,7 @@ BOARD_JS = r'''(function () {
       form.hidden = true;
       var values = {csrf_token: token.value, category: dragged.getAttribute('data-kind'),
                     alert_id: dragged.getAttribute('data-alert'), view: 'board'};
+      values.page = board.getAttribute('data-page');
       if (board.getAttribute('data-search')) values.q = board.getAttribute('data-search');
       Object.keys(values).forEach(function (name) {
         var input = document.createElement('input');
@@ -139,14 +140,18 @@ def alert_board(rows, filters, page, store=None):
         name = row['context'].get('hostname') or row['ip']
         zone = (row['context'].get('zone') or '').upper() or '?'
         title = row.get('cve_id') or row.get('rule_id', '').replace('_', ' ').title() or row['explanation']
-        url = alert_url(row['alert_id']) if row['category'] == 'network' else (
-            '/triage?' + urlencode({**filters, 'view': 'list', 'history': 'yes', 'page': page, 'case': row['alert_id']})
-            + '#alert-' + row['alert_id'])
+        url = '/triage?' + urlencode({'alert': row['alert_id'], 'view': 'board', 'page': page, **filters})
+        url += '#alert-' + row['alert_id']
         pair = ''
         if row.get('rule_id') == ZONE_RULE:
             policy = row['evidence']['policy']
             pair = '<span class="card-pair">' + e(zone_pair(policy)) + '</span>'
         detail = verbatim(name) + (' • ' + e(str(score)) if score is not None else '')
+        acknowledge_card = ''
+        if state == 'Needs review':
+            fields = hidden('alert_id', row['alert_id']) + hidden('category', row['category'])
+            fields += hidden('view', 'board') + hidden('page', page) + hidden('q', filters.get('q', ''))
+            acknowledge_card = '<div class="board-ack">' + form('/triage/ack', fields, 'Acknowledge this alert') + '</div>'
         columns[state][2].append(
             '<a class="alert-card" href="' + e(url) + '" draggable="true" data-alert="' + e(row['alert_id'])
             + '" data-kind="' + e(row['category']) + '" data-from="' + str(columns[state][0]) + '">'
@@ -156,7 +161,7 @@ def alert_board(rows, filters, page, store=None):
             + '<span class="alert-card-meta"><span class="when">' + CALENDAR + '<time datetime="' + e(row['timestamp']) + '">'
             + e(row['timestamp'][:10]) + '</time></span>'
             '<span class="alert-urgency ' + e(priority) + '">' + e(priority.replace('_', ' ').title()) + '</span>'
-            '<span class="zone-badge zone-' + e(zone.lower()) + '" title="' + e(zone) + ' zone">' + e(zone[:3]) + '</span></span></a>')
+            '<span class="zone-badge zone-' + e(zone.lower()) + '" title="' + e(zone) + ' zone">' + e(zone[:3]) + '</span></span></a>' + acknowledge_card)
     sections = []
     hints = {'open': 'New. Nobody has looked at these yet.', 'triaged': 'Seen by someone, no fix planned yet.',
              'progress': 'A remediation plan exists.', 'resolved': 'No longer active.'}
@@ -177,10 +182,12 @@ def alert_board(rows, filters, page, store=None):
                 '<span data-msg="resolve">Alerts move to Resolved by themselves when the evidence no longer shows the problem, for example after a policy change.</span>'
                 '<span data-msg="plan">Open the alert and draft a fix plan. The card moves to Plan in progress once a plan exists.</span>'
                 '<span data-msg="locked">This card cannot be moved by hand. Open it to see its details.</span></div>')
-    tip = ('<p class="board-tip">Tip: drag a card from Needs review to Acknowledged to mark it as seen. '
-           'You can also open a card and use its button.</p>')
+    tip = ('<p class="board-tip board-tip-drag">Tip: drag a card from Needs review to Acknowledged to mark it as seen. '
+           'You can also open a card and use its button.</p>'
+           '<p class="board-tip board-tip-touch">Tap Acknowledge this alert to move a card to Acknowledged. '
+           'Tap the card to read its details first.</p>')
     return (legend + tip + '<p class="board-status" id="board-status" role="status" hidden></p>' + messages
-            + '<div class="alert-board" data-search="' + e(filters.get('q', '')) + '">' + ''.join(sections) + '</div>'
+            + '<div class="alert-board" data-search="' + e(filters.get('q', '')) + '" data-page="' + e(page) + '">' + ''.join(sections) + '</div>'
             + '<script src="/static/board.js" defer></script>')
 
 
@@ -195,10 +202,14 @@ def triage_page(store,query,offset):
     if not board:
         filters.update({key: query.get(key, [''])[0] for key in list_keys})
     if alert_id:
+        board_context = {'view': 'board'} if view == 'board' else {}
+        if board_context:
+            board_context.update({key: query[key][0] for key in ('q', 'page') if query.get(key) and query[key][0]})
+        back = '/triage' + ('?' + urlencode(board_context) if board_context else '')
         rows,count=triage(store,alert_id=alert_id,history=True)
-        body='<p><a href="/triage">View all alerts</a></p>'
+        body='<p><a href="'+e(back)+'">Back to alerts</a></p>'
         if not rows:
-            return body+'<p class="empty">This network alert could not be found.</p>',count
+            return body+'<p class="empty">This alert could not be found.</p>',count
     else:
         history = board or query.get('history', [''])[0] == 'yes'
         rows,count=triage(store,limit=50,offset=offset,filters=filters,history=history)
@@ -206,16 +217,18 @@ def triage_page(store,query,offset):
         list_url = '/triage?' + urlencode({**values, 'view': 'list'})
         board_values = {'q': filters['q']} if filters['q'] else {}
         board_url = '/triage?' + urlencode({**board_values, 'view': 'board'})
-        body = '<nav class="triage-viewbar" aria-label="Alert views">'
+        view_controls = '<nav class="triage-viewbar" aria-label="Alert views">'
         for label, url, current, glyph in (('List view', list_url, not board, '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h10"/></svg>'), ('Board view', board_url, board, '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>')):
-            body += '<a class="view-toggle" href="' + e(url) + '"' + (' aria-current="page"' if current else '') + ' title="' + label + '">' + glyph + '<span class="vh">' + label + '</span></a>'
-        body += '<a class="triage-reports" href="/reports">Reports</a></nav>'
+            view_controls += '<a class="view-toggle" href="' + e(url) + '"' + (' aria-current="page"' if current else '') + ' title="' + label + '">' + glyph + '<span class="vh">' + label + '</span></a>'
+        view_controls += '</nav>'
         if board:
-            body += '<p class="muted">Open a card to inspect the alert. Column counts apply to this page.</p>'
+            intro = 'Open a card to inspect the alert. Column counts apply to this page.'
         elif history:
-            body += '<p class="muted">Showing alert history. Acknowledgement records review.</p>'
+            intro = 'Showing alert history. Acknowledgement records review.'
         else:
-            body += f'<p>{count} active alert(s)' + (' matching your filters.' if any(filters.values()) else '.') + ' Acknowledgement records review; it does not resolve a finding, approve a device or grant scan permission.</p>'
+            intro = f'{count} active alert(s)' + (' matching your filters.' if any(filters.values()) else '.')
+            intro += ' Acknowledgement records review; it does not resolve a finding, approve a device or grant scan permission.'
+        body = '<div class="triage-toolbar"><p class="muted">' + intro + '</p>' + view_controls + '</div>'
         mode = {'view': 'board' if board else 'list'}
         if not board and history:
             mode['history'] = 'yes'
@@ -253,7 +266,8 @@ def triage_page(store,query,offset):
         if not alert_id and history:
             back_values['history'] = 'yes'
         back_values.update(view='list',page=query.get('page',['1'])[0],case=row['alert_id'])
-        return_to=alert_url(alert_id) if alert_id else '/triage?'+urlencode(back_values)+'#alert-'+row['alert_id']
+        case_values = {'alert': alert_id, **board_context} if alert_id else back_values
+        return_to = '/triage?' + urlencode(case_values) + '#alert-' + row['alert_id']
         if row['state']=='resolved' and row['category']=='network':
             body+='<p class="notice">This policy alert was resolved after reevaluation.</p>'
         elif row['state']=='resolved':
@@ -295,9 +309,8 @@ def triage_page(store,query,offset):
             body+='<li>'+e(factor['input'])+': '+e(value)+' · +'+e(factor['points'])+'</li>'
         body+='</ul>'+''.join('<p class="muted">'+e(v)+'</p>' for v in urgency.get('uncertainty',[]))+'</details>'
         links=[]
-        if asset.get('asset_id'):
-            links+=['<a href="/assets/edit?'+e(urlencode({'asset_id':asset['asset_id']}))+'">Review asset</a>',
-                    '<a href="/processes?'+e(urlencode({'asset_id':asset['asset_id']}))+'">Operational context</a>']
+        if asset.get('asset_id') and not row.get('finding_id') and row['category'] != 'endpoint':
+            links.append('<a href="/assets/edit?'+e(urlencode({'asset_id':asset['asset_id']}))+'">Review device identity</a>')
         if row.get('finding_id'):links.append('<a href="/?'+e(urlencode({'finding_id':row['finding_id']}))+'#finding-'+e(row['finding_id'])+'">Open vulnerability finding</a>')
         if row['category']=='network':
             if not zone_violation:
@@ -308,9 +321,9 @@ def triage_page(store,query,offset):
         if not row['acknowledged'] and row['state']=='active':
             fields=hidden('category',row['category'])+hidden('alert_id',row['alert_id'])
             if alert_id:
-                fields+=hidden('alert',alert_id)
+                fields += hidden('alert', alert_id) + ''.join(hidden(k, v) for k, v in board_context.items())
             else:
-                fields += hidden('view', 'list')
+                fields += hidden('view', 'list') + hidden('case', row['alert_id'])
                 if history:
                     fields += hidden('history', 'yes')
                 fields+=''.join(hidden('filter_category' if k=='category' else k,v) for k,v in filters.items())+hidden('page',query.get('page',['1'])[0])

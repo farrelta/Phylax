@@ -86,8 +86,15 @@ class AssistanceTests(unittest.TestCase):
                 self.assertEqual(page.response_status, 200)
                 for text in (b'AI summary', b'Summarize advisory', b'Local AI', b'Hosted AI'):
                     self.assertNotIn(text, page.wfile.getvalue())
-            for task, key in (('advisory', 'CVE-2024-99999'), ('ics-advisory', 'demo-ics'), ('policy', '')):
-                self.assertEqual(self.post(task=task, key=key, mode='hosted').response_status, 200)
+            for task, key, expected in (('advisory', 'CVE-2024-99999', '/intelligence?q=CVE-2024-99999'),
+                                        ('ics-advisory', 'demo-ics', '/intelligence/ics?q=demo-ics')):
+                response = self.post(task=task, key=key, mode='hosted')
+                self.assertEqual(response.response_status, 303)
+                self.assertEqual(response.response_headers['Location'], expected)
+                page = self.http.handler(expected)
+                page.do_GET()
+                self.assertIn(b'Version and source details', page.wfile.getvalue())
+            self.assertEqual(self.post(task='policy', mode='hosted').response_status, 200)
             model.assert_not_called()
 
     def test_report_modes_preview_and_download(self):
@@ -161,13 +168,21 @@ class AssistanceTests(unittest.TestCase):
             for task, fields in cases.items():
                 with self.subTest(task=task):
                     response = self.post(task=task, mode='hosted', **fields)
-                    self.assertEqual(response.response_status, 200)
-                    body = response.wfile.getvalue().decode()
-                    self.assertIn('Review steps' if task == 'remediation' else 'Built-in explanation', body)
-                    self.assertNotIn('Confirm and send to Hosted AI', body)
+                    self.assertEqual(response.response_status, 303)
+                    destination = response.response_headers['Location']
+                    expected = {'alert': '/triage', 'settings': '/settings', 'identity': '/assets/edit', 'remediation': '/'}
+                    self.assertEqual(urlsplit(destination).path, expected[task])
+                    legacy = self.http.handler('/assist?' + urlencode({'task': task, **fields}))
+                    legacy.do_GET()
+                    self.assertEqual(legacy.response_headers['Location'], destination)
             model.assert_not_called()
         response = self.post(task='alert', **cases['alert'])
-        self.assertIn('event_ref=', response.wfile.getvalue().decode())
+        page = self.http.handler(response.response_headers['Location'])
+        page.do_GET()
+        self.assertIn(self.alerts[0]['event_ref'], page.wfile.getvalue().decode())
+        finding = self.http.handler('/?' + urlencode({'finding_id': self.finding}))
+        finding.do_GET()
+        self.assertIn(b'action="/remediation/create"', finding.wfile.getvalue())
 
     def test_ai_timeout_keeps_selected_report_evidence(self):
         with patch('phylax.assistant_web.local_config', return_value=LOCAL), patch(

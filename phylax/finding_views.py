@@ -1,7 +1,7 @@
 """Focused assessment view shared by narrow and wide browser layouts."""
 import json
 from urllib.parse import urlencode
-from .ui import verbatim, e,evidence_lines,reference_links,evidence_url,assist_link
+from .ui import verbatim, e,evidence_lines,reference_links,evidence_url,form,hidden
 from .theme import layout,status_marker,icon
 from .prioritization import prioritize
 
@@ -47,8 +47,7 @@ def finding_case(store,finding,kev_label,notice=''):
                         ('Urgency',(str(score['score'])+' / 12') if score['score'] is not None else 'Not scored'),
                         ('Published',f['published'] or 'Unknown'),('Last update',f['modified'] or 'Unknown')]:
         body+='<div><dt>'+e(label)+'</dt><dd>'+(verbatim(value) if label=='Device' else e(value))+'</dd></div>'
-    body+=('</dl><nav class="tabs" aria-label="Sections"><a class="on" href="#case-overview">Overview</a><a href="#case-evidence">Evidence</a>'
-           '<a href="#case-fix">Fix</a><a href="#case-sources">Sources</a><a href="/triage?'+e(urlencode({'q':f['cve_id']}))+'">Related alerts</a></nav></section>')
+    body+='</dl><p><a href="/triage?'+e(urlencode({'q':f['cve_id']}))+'">Related alerts</a></p></section>'
     if f['synthetic']:body+='<p class="notice">Synthetic demonstration fixture; not a public CVE or real incident.</p>'
     body+='<div class="case-grid" id="case-overview"><section class="cardx"><h3>Information</h3><p>'+verbatim(f['summary'])+'</p><dl class="kv">'
     for label,value in [('Address',f['ip_address']),('Product / version',' '.join(v for v in (f['vendor'],f['product'],f['version']) if v) or 'Unknown'),('Identity confidence',f['identity_confidence']),('Criticality',f['criticality']),('Zone',f['zone'])]:
@@ -77,11 +76,10 @@ def finding_case(store,finding,kev_label,notice=''):
     body+='<section class="cardx" id="case-fix"><h3>Stored mitigation guidance</h3><p>'+(verbatim(f['mitigation']) if f['mitigation'] else e('No verified vendor guidance supplied.'))+'</p><div class="record-actions">'
     if plan:
         body+='<span>Plan status: '+e(plan['status'])+'</span><a class="btn primary" href="/remediation?'+e(urlencode({'finding_id':fid}))+'">Review plan</a>'
-    else:body+=assist_link('remediation', 'Prepare remediation plan', fid)
+    else:body+=form('/remediation/create', hidden('finding_id', fid), 'Create remediation plan')
     body+='</div></section></div>'
     refs=json.loads(f['references_json'])
     body+='<section class="cardx" id="case-sources"><details><summary>Source provenance and references</summary><p>'+e(f['source'])+' · published '+e(f['published'] or 'Unknown')+' · modified '+e(f['modified'] or 'Unknown')+'</p><p>'+(reference_links(refs) or 'No references supplied.')+'</p></details></section>'
     body+='</article><footer>Applicability and urgency are deterministic assessments. A vulnerability match does not establish compromise. No infrastructure changes are performed here.</footer>'
-    actions='<a class="btn" href="/reports">Reports</a>'
     return layout('Vulnerability finding',body,'/',heading='Vulnerability finding',
-                  crumbs=[('/','Dashboard'),(None,'<span translate="no">'+e(f['cve_id'])+'</span>')],actions=actions)
+                  crumbs=[('/#findings','Exposure findings'),(None,'<span translate="no">'+e(f['cve_id'])+'</span>')])

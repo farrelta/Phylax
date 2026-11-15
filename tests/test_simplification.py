@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import Request
 
 import test_review_regressions as regressions
@@ -52,7 +52,9 @@ class SimplifiedWorkflowTests(unittest.TestCase):
 
     def test_overview_summarizes_alerts_and_imports_reassess_automatically(self):
         text=page(self.store)
-        self.assertIn('Review new alerts in Triage',text)
+        self.assertIn('New alerts to review',text)
+        self.assertNotIn('>Latest first</a>', text)
+        self.assertNotIn('>Add devices</a>', text)
         self.assertIn(str(self.store.dashboard()['unacknowledged_alerts'])+' unacknowledged alerts',text)
         self.assertNotIn('action="/ack"',text)
         self.assertNotIn('action="/correlate"',text)
@@ -136,6 +138,51 @@ class SimplifiedWorkflowTests(unittest.TestCase):
         h=self.http.handler('/triage/ack',urlencode({'csrf_token':self.http.Handler.csrf_token,'category':'exposure','alert_id':row['alert_id']})); h.do_POST()
         self.assertEqual(h.response_status,303)
         self.assertEqual(self.store.connection.execute('SELECT acknowledged FROM alerts').fetchone()[0],1)
+
+    def test_alert_board_opens_exact_exposure_and_returns_to_same_search(self):
+        alert_id = self.store.connection.execute('SELECT alert_id FROM alerts').fetchone()[0]
+        search = 'CVE-2024-12345'
+        board = self.http.handler('/triage?' + urlencode({'q': search}))
+        board.do_GET()
+        cards = [a for a in Links(board.wfile.getvalue().decode()).links if a.get('class') == 'alert-card']
+        self.assertEqual(len(cards), 1)
+        url = urlsplit(cards[0]['href'])
+        selection = parse_qs(url.query)
+        self.assertEqual(selection['alert'], [alert_id])
+        self.assertEqual(selection['view'], ['board'])
+        case = self.http.handler(cards[0]['href'])
+        case.do_GET()
+        html = case.wfile.getvalue().decode()
+        self.assertIn('id="alert-' + alert_id + '" open', html)
+        self.assertIn('Open vulnerability finding', html)
+        back = next(a['href'] for a in Links(html).links if a['href'].startswith('/triage?') and 'alert' not in parse_qs(urlsplit(a['href']).query))
+        self.assertEqual(parse_qs(urlsplit(back).query), {'q': [search], 'page': ['1'], 'view': ['board']})
+        fields = {key: values[0] for key, values in selection.items()}
+        fields.update(csrf_token=self.http.Handler.csrf_token, category='exposure', alert_id=alert_id)
+        ack = self.http.handler('/triage/ack', urlencode(fields))
+        ack.do_POST()
+        self.assertEqual(ack.response_status, 303)
+        self.assertEqual(parse_qs(urlsplit(ack.response_headers['Location']).query)['alert'], [alert_id])
+
+    def test_settings_error_and_device_edit_stay_with_the_record(self):
+        csrf = self.http.Handler.csrf_token
+        invalid_url = 'https://example.invalid/advisory.json'
+        failed = self.http.handler('/sources/csaf', urlencode({'csrf_token': csrf, 'url': invalid_url, 'enabled': 'false'}))
+        failed.do_POST()
+        self.assertEqual(failed.response_status, 400)
+        self.assertIn(b'id="advisory-sources"', failed.wfile.getvalue())
+        self.assertIn(invalid_url.encode(), failed.wfile.getvalue())
+        finding = self.store.finding(self.fid)
+        fields = {'csrf_token': csrf, 'asset_id': finding['asset_id'], 'ip_address': finding['ip_address']}
+        saved = self.http.handler('/assets/save', urlencode(fields))
+        saved.do_POST()
+        self.assertEqual(saved.response_status, 303)
+        destination = urlsplit(saved.response_headers['Location'])
+        self.assertEqual(destination.path, '/assets/edit')
+        self.assertEqual(parse_qs(destination.query)['asset_id'], [finding['asset_id']])
+        editor = self.http.handler(saved.response_headers['Location'])
+        editor.do_GET()
+        self.assertIn(b'href="/assets">Return to inventory</a>', editor.wfile.getvalue())
 
     def test_existing_legacy_guidance_table_survives_reopen(self):
         with tempfile.TemporaryDirectory() as root:

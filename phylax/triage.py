@@ -102,11 +102,12 @@ def _triage(store,*,limit=None,offset=0,history=False,filters=None,alert_id=None
     for key,choices in [('category',{'exposure','network','endpoint'}),('priority',{'critical','high','medium','low','not_applicable'}),('acknowledged',{'yes','no'})]:
         if filters.get(key) and filters[key] not in choices:raise ValueError('Invalid triage '+key+' filter')
     policy=active_policy(store) or {};protected=set(policy.get('protected_assets',[]));items=[]
-    ack=filters.get('acknowledged');category='network' if alert_id else filters.get('category')
+    ack=filters.get('acknowledged');category=filters.get('category')
     where=' WHERE a.acknowledged='+('1' if ack=='yes' else '0') if ack else ''
     if category in (None,'','exposure'):
         sql='SELECT a.alert_id,a.acknowledged,a.explanation,f.finding_id,f.status,a.updated_at,s.ip_address,s.criticality,s.zone,v.severity,v.kev,v.cve_id FROM alerts a JOIN findings f USING(finding_id) JOIN assets s USING(asset_id) JOIN vulnerabilities v USING(cve_id)'+where
-        for row in store.connection.execute(sql):
+        if alert_id:sql+=(' AND ' if where else ' WHERE ')+'a.alert_id=?'
+        for row in store.connection.execute(sql, (alert_id,) if alert_id else ()):
             row=dict(row);urgency=prioritize(row,row,row['status'])
             items.append({'category':'exposure','alert_id':row['alert_id'],'ip':row['ip_address'],'severity':row['severity'] or 'unknown',
                           'applicability':row['status'],'acknowledged':bool(row['acknowledged']),'state':'active','timestamp':row['updated_at'],
@@ -126,9 +127,11 @@ def _triage(store,*,limit=None,offset=0,history=False,filters=None,alert_id=None
                           'event_id':row['event_id'],'rule_id':row['rule_id'],'observed':{k:row[k] for k in ('source_ip','destination_ip','source_port','destination_port','protocol','operation')}})
     if category in (None,'','endpoint'):
         sql='SELECT a.alert_id,a.ip,a.severity,a.acknowledged,a.state,a.last_seen,a.status FROM endpoint_alerts a'+where
-        if not history:sql+=(" AND " if where else " WHERE ")+"a.state='active'"
+        conditions = ["a.state='active'"] if not history else []
+        if alert_id:conditions.append('a.alert_id=?')
+        if conditions:sql+=(' AND ' if where else ' WHERE ')+' AND '.join(conditions)
         labels={'unmanaged':'Unmanaged endpoint—needs review','unauthorized':'Unauthorized endpoint—explicitly blocked','needs_identity_review':'Endpoint identity needs review','approved':'Approved endpoint'}
-        for row in store.connection.execute(sql):
+        for row in store.connection.execute(sql, (alert_id,) if alert_id else ()):
             row=dict(row)
             items.append({'category':'endpoint','alert_id':row['alert_id'],'ip':row['ip'],'severity':row['severity'],'applicability':'not_assessed',
                           'acknowledged':bool(row['acknowledged']),'state':row['state'],'timestamp':row['last_seen'],'explanation':labels[row['status']]})

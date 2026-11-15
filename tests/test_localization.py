@@ -25,8 +25,8 @@ class Markup(HTMLParser):
     def handle_starttag(self, tag, attrs):
         # These attributes drive behavior; labels and tooltips are presentation.
         values={k:v for k,v in attrs if k not in {'lang','title','aria-label','placeholder'}}
-        if tag=='option' and values.get('value') in {'en','id'}:
-            values.pop('selected',None)
+        if tag == 'button' and values.get('name') == 'language':
+            values.pop('aria-pressed', None)
         self.wire.append((tag,values))
 
     def handle_data(self, text):
@@ -147,7 +147,8 @@ class LocalizedHTTPTests(unittest.TestCase):
                 self.assertEqual(re.search(r'<h1>(.*?)</h1>',body)[1],title)
                 self.assertIn('lang="id"',body)
                 self.assertIn('name="language"',body);self.assertIn('name="csrf_token"',body)
-                self.assertIn('value="id" selected',body)
+                self.assertIn('value="id" lang="id" aria-label="Bahasa Indonesia" aria-pressed="true"',body)
+                self.assertIn('value="en" lang="en" aria-label="English" aria-pressed="false"',body)
                 self.assertEqual(handler.response_headers['Content-Language'],'id')
                 self.assertEqual(handler.response_headers['Content-Length'],str(len(body.encode())))
                 self.assertEqual(Markup(body).wire,Markup(english).wire)

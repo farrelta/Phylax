@@ -212,10 +212,12 @@ def language_control(destination: str, language: str) -> str:
         destination = action_views[path]
     elif path.count('/') > 1 and path.split('/')[1] in {'processes','approvals','software','triage','sources'}:
         destination = '/settings' if path.startswith('/sources/') else '/'+path.split('/')[1]
-    options = ''.join('<option value="'+code+'"'+(' selected' if code == language else '')+'>'+label+'</option>'
-                      for code, label in LANGUAGES.items())
-    return ('<form class="language-control" method="post" action="/language">'
+    buttons = ''.join(
+        f'<button type="submit" name="language" value="{code}" lang="{code}" '
+        f'aria-label="{html.escape(label, quote=True)}" '
+        f'aria-pressed="{str(code == language).lower()}" translate="no"><span>{code.upper()}</span></button>'
+        for code, label in LANGUAGES.items()
+    )
+    return ('<form class="language-control" method="post" action="/language" aria-label="Language">'
             '<input type="hidden" name="next" value="'+html.escape(destination, quote=True)+'">'
-            '<label for="interface-language">'+translate_text('Language', language)+'</label>'
-            '<select id="interface-language" name="language" translate="no">'+options+'</select>'
-            '<button>'+translate_text('Apply language', language)+'</button></form>')
+            + buttons + '</form>')

@@ -1,6 +1,6 @@
 """Protected operator routing; presentation lives in focused view modules."""
 import json
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from .theme import layout
 from .ui import e,table,pager,raw_record,error_summary
 from .asset_intelligence import save_context,save_process,unlink_process,add_subnet,endpoint_decision,revoke_decision
@@ -37,13 +37,17 @@ def page(store,path,query,submitted=None,error=''):
     notice=query.get('notice',[''])[0]
     prefix=('<p class="notice success" role="status">'+e(notice)+'</p>') if notice else ''
     if error:prefix=error_summary(error)+prefix
-    return layout(TITLES[path],prefix+body+pager(path,query,page_number,total),path,asset_id=query.get('asset_id',[''])[0])
+    return layout(TITLES[path],prefix+body+pager(path,query,page_number,total),path)
 
 
 def error_page(store,path,values,error):
+    if path == '/sources/csaf':
+        from .operator_pages import settings_page
+        return settings_page(store, source_values={key: items[0] for key, items in values.items() if items},
+                             source_error=str(error))
     base='/'+path.split('/')[1]
     if base not in PAGES:return layout('Input needs attention','<p class="notice error" role="alert">'+e(error)+'</p><p><a href="/settings">Return to settings</a></p>','/settings')
-    query={k:[v[0]] for k,v in values.items() if v and k in {'asset_id','component_id','ip','category','priority','acknowledged','q','page','view','history'}}
+    query={k:[v[0]] for k,v in values.items() if v and k in {'asset_id','component_id','ip','category','priority','acknowledged','q','page','view','history','alert','case'}}
     try:return page(store,base,query,{k:v[0] for k,v in values.items()},str(error))
     except ValueError:return layout('Input needs attention','<p class="notice error" role="alert">'+e(error)+'</p><p><a href="'+base+'">Reload the current records</a></p>',base)
 
@@ -60,7 +64,7 @@ def post(store,path,form_values):
         '/processes/context':'Asset context saved. Inventory identity and criticality were not changed.',
         '/processes/link':'Process support relationship recorded.',
         '/processes/unlink':'Process support relationship removed.',
-        '/triage/ack':'Alert acknowledged. Its finding, permission and remediation state are unchanged.',
+        '/triage/ack':'Alert acknowledged.',
         '/sources/csaf':'CSAF source configuration saved.'}
     if path=='/approvals/subnet':add_subnet(store,f.get('name',''),f.get('cidr',''))
     elif path=='/approvals/decide':endpoint_decision(store,f.get('subnet_id',''),f.get('ip',''),f.get('mac',''),f.get('decision',''),actor,note)
@@ -88,8 +92,15 @@ def post(store,path,form_values):
         acknowledge(store,f.get('category',''),f.get('alert_id',''))
         query={k:f[k] for k in ('priority','acknowledged','q','page','view','history') if f.get(k)}
         if f.get('filter_category'):query['category']=f['filter_category']
-        if f.get('alert') and f['alert']==f.get('alert_id') and f.get('category')=='network':
-            query={'alert':f['alert']}
+        alert_id = f.get('alert_id')
+        if alert_id and f.get('alert') == alert_id:
+            query = {key: f[key] for key in ('alert', 'q', 'page', 'view') if f.get(key)}
+        elif alert_id and f.get('case') == alert_id:
+            query['case'] = alert_id
+            if f.get('acknowledged') == 'no':
+                query.pop('acknowledged', None)
     elif path=='/sources/csaf':configure(store,f.get('url',''),f.get('enabled')=='true')
     destination='/settings' if path=='/sources/csaf' else '/'+path.split('/')[1]
-    return destination+'?'+urlencode({**query,'notice':messages[path]})
+    anchor = '#alert-' + quote(query.get('alert') or query['case'], safe='') if ('alert' in query or 'case' in query) else ''
+    anchor = {'/sources/csaf': '#advisory-sources', '/software/review': '#review-component'}.get(path, anchor)
+    return destination+'?'+urlencode({**query,'notice':messages[path]})+anchor

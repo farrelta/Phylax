@@ -54,20 +54,8 @@ def template_guidance(finding: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_plan(finding: dict[str, Any], public_record: dict[str, Any], hosted_guidance: dict[str, Any] | None = None) -> dict[str, Any]:
+def compose_plan(finding: dict[str, Any], public_record: dict[str, Any]) -> dict[str, Any]:
     plan = template_guidance(finding)
-    if hosted_guidance:
-        guidance = hosted_guidance["guidance"]
-        # Model text is an explicitly unverified supplement. Keep all local
-        # evidence, priority, uncertainty, and workflow decisions deterministic.
-        plan["provider_note"] = f"AI-generated, unverified public-advisory supplement from model {hosted_guidance['model']}. Local asset evidence was not sent."
-        plan["ai_summary"] = guidance["summary"]
-        plan["ai_steps"] = guidance["steps"]
-        plan["ai_validation"] = guidance["validation"]
-        plan["ai_source_references"] = list(guidance["source_urls"])
-        plan["requested_model"] = hosted_guidance.get("requested_model",hosted_guidance["model"])
-        plan["returned_model"] = hosted_guidance["model"]
-        plan["source_references"] = list(dict.fromkeys(plan["source_references"] + hosted_guidance["source_urls"]))
     if public_record.get("cisa_required_action"):
         plan["cisa_required_action"] = public_record["cisa_required_action"]
     if not public_record.get("mitigation"):

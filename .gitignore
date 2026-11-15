@@ -8,6 +8,10 @@ report.json
 skills-lock.json
 .codex/
 .impeccable/
+.agent/
+.agents/
+.claude/
+
 
 # Generated lab state and local verification artifacts.
 demo/runtime/

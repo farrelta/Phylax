@@ -174,14 +174,16 @@ class OfflineSensorTests(unittest.TestCase):
         default_board = operator_page(self.store, '/triage', {})
         self.assertIn('class="alert-board"', default_board)
         self.assertIn('name="q"', default_board)
+        self.assertIn('class="board-ack"><form method="post" action="/triage/ack"', default_board)
         filtered_list = {'category': ['endpoint'], 'priority': ['critical'], 'acknowledged': ['yes']}
         explicit_board = operator_page(self.store, '/triage', {**filtered_list, 'view': ['board']})
-        self.assertIn(alert_url(alert_id), explicit_board)
-        self.assertNotIn(alert_url(alert_id), operator_page(self.store, '/triage', {'q': ['does not match']}))
+        card = f'/triage?alert={alert_id}&amp;view=board&amp;page=1#alert-{alert_id}'
+        self.assertIn(card, explicit_board)
+        self.assertNotIn(f'data-alert="{alert_id}"', operator_page(self.store, '/triage', {'q': ['does not match']}))
         list_page = operator_page(self.store, '/triage', {'view': ['list']})
         for key in filtered_list:
-            self.assertNotIn(f'name="{key}"', default_board)
-            self.assertNotIn(f'name="{key}"', explicit_board)
+            self.assertNotIn(f'<select name="{key}"', default_board)
+            self.assertNotIn(f'<select name="{key}"', explicit_board)
             self.assertIn(f'name="{key}"', list_page)
         self.assertNotIn('class="alert-board"', operator_page(self.store, '/triage', filtered_list))
 
@@ -189,11 +191,11 @@ class OfflineSensorTests(unittest.TestCase):
             board = operator_page(self.store, '/triage', {})
             return board.split(f'id="alert-column-{column}"', 1)[1].split('</section>', 1)[0]
 
-        self.assertIn(alert_url(alert_id), board_column(0))
+        self.assertIn(card, board_column(0))
         post(self.store, '/triage/ack', {'category': ['network'], 'alert_id': [alert_id]})
-        self.assertIn(alert_url(alert_id), board_column(1))
+        self.assertIn(card, board_column(1))
         reevaluate_events(self.store, POLICY | {'denied_zone_pairs': []})
-        self.assertIn(alert_url(alert_id), board_column(2))
+        self.assertIn(card, board_column(2))
         self.assertIn('resolved after reevaluation',
                       operator_page(self.store, '/triage', {'alert': [alert_id]}))
 

@@ -11,7 +11,7 @@ from unittest.mock import mock_open, patch
 from phylax.ai import AIConfig
 from phylax.core import Store
 from phylax.remediation import compose_plan, template_guidance
-from phylax.web import attack_surface_page
+from phylax.web import attack_surface_page, remediation_page
 
 
 class PassiveSurfaceAndAITests(unittest.TestCase):
@@ -92,14 +92,16 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         finding = self.store.finding(finding_id)
         for key in ('evidence', 'missing_evidence'):
             finding[key] = json.loads(finding[key])
-        hosted = {"model": "test-model", "guidance": guidance, "source_urls": guidance["source_urls"]}
-        plan = compose_plan(finding, self.store.public_vulnerability_for_finding(finding_id), hosted)
+        plan = compose_plan(finding, self.store.public_vulnerability_for_finding(finding_id))
+        plan.update(ai_summary=guidance["summary"], ai_steps=guidance["steps"],
+                    ai_validation=guidance["validation"], ai_source_references=guidance["source_urls"])
         self.store.create_remediation_plan(finding_id, "test-provider", "test-model", plan, guidance["source_urls"])
         stored = self.store.get_remediation_plan(finding_id)
         self.assertEqual(stored["plan"]["ai_summary"], guidance["summary"])
         self.assertEqual(stored["plan"]["ai_steps"], guidance["steps"])
         self.assertEqual(stored["source_urls"], guidance["source_urls"])
         self.assertEqual(stored["model"], "test-model")
+        self.assertIn(guidance["summary"], remediation_page(self.store, finding_id=finding_id))
         after = dict(self.store.connection.execute("SELECT status,priority FROM findings WHERE finding_id=?", (finding_id,)).fetchone())
         alert_after = self.store.connection.execute("SELECT alert_id,acknowledged FROM alerts WHERE finding_id=?", (finding_id,)).fetchone()
         self.assertEqual(before, after)

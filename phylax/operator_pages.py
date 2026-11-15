@@ -13,13 +13,13 @@ ASSET_LABELS={name:name.replace('_',' ').capitalize() for name in ASSET_FIELDS}
 ASSET_LABELS.update(asset_id='Asset ID',ip_address='IP address',mac_address='MAC address',last_seen='Last seen (UTC)')
 
 
-def shell(title: str, body: str, *, asset_id: str = '') -> str:
+def shell(title: str, body: str) -> str:
     active={'Edit asset':'/assets','Add asset':'/assets','Passive network policy':'/policy','Settings and data sources':'/settings','Reports':'/reports'}.get(title,'')
-    return layout(title,body,active,asset_id=asset_id)
+    return layout(title,body,active)
 
 
 
-def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='') -> str:
+def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='',notice='') -> str:
     row=store.connection.execute('SELECT * FROM assets WHERE asset_id=?',(asset_id,)).fetchone() if asset_id else None
     if asset_id and not row and submitted is None:raise ValueError('Asset not found')
     asset=dict(row) if row else {}
@@ -28,6 +28,7 @@ def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='')
     for name,label in ASSET_LABELS.items():error=error.replace(name,label)
     options={'asset_type':ASSET_TYPES,'zone':ZONES,'criticality':CRITICALITIES,'identity_confidence':CONFIDENCES,'verified':{'true','false'}}
     body=error_summary(error,[('asset-'+error_field,'Review '+ASSET_LABELS[error_field])] if error_field else []) if error else ''
+    if notice:body+='<p class="notice" role="status">'+e(notice)+'</p>'
     body+='<p>Enter operator-supplied identity evidence. Confirmed matches require verified high-confidence identity; an IP address never establishes a model or version.</p>'
     if row:
         body+='<nav class="controls" aria-label="This asset"><a href="/processes?'+e(urlencode({'asset_id':row['asset_id']}))+'">Operational context for this asset</a><a href="/approvals?'+e(urlencode({'ip':row['ip_address']}))+'">Management decisions for '+e(row['ip_address'])+'</a></nav>'
@@ -69,8 +70,8 @@ def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='')
         return result+'</label>'
     for title,names in groups:
         body+='<fieldset class="editor"><legend>'+e(title)+'</legend><div class="form-grid">'+''.join(control(name) for name in names)+'</div></fieldset>'
-    body+='<button class="primary">Save inventory and reassess findings</button></form>'
-    return shell('Edit asset' if row else 'Add asset',body,asset_id=row['asset_id'] if row else '')
+    body+='<button class="primary">Save device</button> <a href="/assets">Return to inventory</a></form>'
+    return shell('Edit asset' if row else 'Add asset',body)
 
 
 def policy_page(store: Store,*,submitted=None,error='') -> str:
@@ -109,6 +110,7 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
             body+='<li>Denied zone pair: '+e(source)+' → '+e(destination)+'</li>'
         body+='</ul><p class="muted">This summary describes the saved policy. Edits below take effect only after saving and reevaluating stored events.</p>'
     body+='</section>'
+    body+='<details class="workflow"'+(' open' if error else '')+'><summary>Advanced policy editor (JSON)</summary>'
     example={'protected_assets':['192.0.2.10'],'allowed_communications':[{'source_ip':'192.0.2.30','destination_ip':'192.0.2.10','protocol':'tcp','destination_port':502}],'authorized_writers':{'192.0.2.10':['192.0.2.30']},'maintenance_windows_utc':[{'days':[0,1,2,3,4],'start':'01:00','end':'02:00'}]}
     example.update(zone_subnets={'IT':['198.51.100.0/24'],'DMZ':['203.0.113.0/24'],'OT':['192.0.2.0/24']},
                    denied_zone_pairs=[['IT','OT']])
@@ -117,22 +119,26 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     body+=f'<form method="post" action="/policy/apply"><label><span id="policy-json-label">Policy JSON</span><textarea id="policy-json" aria-labelledby="policy-json-label" name="policy_json" rows="24" maxlength="100000"{attrs}>{html.escape(text)}</textarea>'
     if error:body+='<small class="field-error" id="policy-json-error">'+e(error)+'</small>'
     body+='</label><button class="primary">Save policy and reevaluate stored events</button></form>'
+    body+='</details>'
     rows=store.connection.execute('SELECT policy_id,created_at FROM network_policies ORDER BY created_at DESC LIMIT 20').fetchall()
     body+='<h2>Stored policy versions</h2><ul>'+''.join(f'<li>{r["policy_id"]} · {r["created_at"]}</li>' for r in rows)+'</ul>'
     return shell('Passive network policy',body)
 
 
-def settings_page(store: Store, *, notice: str = "") -> str:
+def settings_page(store: Store, *, notice: str = "", source_values=None, source_error='') -> str:
     config=AIConfig.from_env()
     local = local_config()
     description=f'Configured: {config.provider} · requested model {config.model} · timeout {config.timeout_seconds} seconds' if config else 'Hosted AI disabled: configure a provider, model and key in the server environment or project .env.'
-    body='<h2>Public intelligence sources</h2>'
+    body='<h2 id="data-sources">Public intelligence sources</h2>'
     body+=(''.join('<p>'+html.escape(f"{r['source']} · {r['health']} · last success {r['last_success_at'] or 'never'} · {r['message']}")+'</p>' for r in store.source_health()) or '<p>No feed synchronization recorded.</p>')
     body+='<p>Source health is based on stored attempts and becomes stale after 24 hours. Opening this page performs no connectivity check.</p>'
     from .ui import form,field,select,table
     from .asset_intelligence import collectors
-    body+='<h2>Selected structured CISA advisories</h2><p>Configure official CSAF document URLs. Synchronization checks only these documents, using local cache and conditional requests.</p>'
-    body+=form('/sources/csaf',field('url','Official CSAF document HTTPS URL',required=True)+select('enabled','Source',[('true','Enabled'),('false','Disabled')]),'Save advisory source')
+    source_values = source_values or {}
+    body+='<h2 id="advisory-sources">Selected structured CISA advisories</h2><p>Configure official CSAF document URLs. Synchronization checks only these documents, using local cache and conditional requests.</p>'
+    if source_error:body+=error_summary(source_error, [('advisory-url', 'Review advisory URL')])
+    body+=form('/sources/csaf',field('url','Official CSAF document HTTPS URL',source_values.get('url',''),required=True,control_id='advisory-url')
+               +select('enabled','Source',[('true','Enabled'),('false','Disabled')],source_values.get('enabled','true')),'Save advisory source')
     body+=table([dict(r) for r in store.connection.execute('SELECT url,enabled,retrieved_at FROM csaf_documents')],[('url','Document'),('enabled','Enabled'),('retrieved_at','Retrieved UTC')])
     body+='<h2>Collection health</h2>'+table(collectors(store),[(k,k.replace('_',' ').title()) for k in ('kind','status','heartbeat','last_success','message')])
     body+='<h2>Recent finalized-log imports</h2>'+table([dict(r) for r in store.connection.execute('SELECT path,status,message,processed_at FROM ingestion_files ORDER BY processed_at DESC LIMIT 50')],[('path','Local file'),('status','Outcome'),('message','Diagnostics'),('processed_at','Processed UTC')])
@@ -148,9 +154,8 @@ def reports_page(store: Store) -> str:
     down=icon('download')
     cards=[('Readable report','Best for reading, printing or sharing with your team.','/report.md','Markdown report'),
            ('Spreadsheet','Open in Excel to sort and filter the evidence.','/report.csv','CSV report'),
-           ('Complete data','Everything, including uncertainty and sources, for other tools or archiving.','/report.json','JSON report'),
-           ('Device list only','Just the devices, without findings, alerts or fix plans.','/assets.csv','Inventory CSV')]
+           ('Complete data','Everything, including uncertainty and sources, for other tools or archiving.','/report.json','JSON report')]
     body='<section class="cardx wide"><header><h2>Selected findings report</h2></header><p>Choose findings, optionally use AI to organize the review, and download a Markdown report.</p><p>'+assist_link('report', 'Create investigation report')+'</p></section>'
-    body+='<div class="report-grid">'+''.join('<section class="cardx"><h2>'+e(title)+'</h2><p>'+e(text)+'</p><a class="btn" href="'+href+'">'+down+e(label)+'</a></section>' for title,text,href,label in cards)+'</div>'
+    body+='<h2>Full investigation exports</h2><div class="report-grid">'+''.join('<section class="cardx"><h2>'+e(title)+'</h2><p>'+e(text)+'</p><a class="btn" href="'+href+'">'+down+e(label)+'</a></section>' for title,text,href,label in cards)+'</div>'
     body+='<p class="muted">Exports contain locally stored evidence. Findings do not establish compromise.</p>'
     return shell('Reports',body)

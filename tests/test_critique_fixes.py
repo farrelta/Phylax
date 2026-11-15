@@ -28,6 +28,58 @@ class CritiqueFixTests(unittest.TestCase):
         plan=compose_plan(finding,self.store.public_vulnerability_for_finding(self.fid))
         return self.store.create_remediation_plan(self.fid,'template-fallback','',plan,plan['source_references'])
 
+    def test_exposure_islands_scale_and_connect_observed_devices(self):
+        from phylax.web import exposure_map
+
+        assets = [
+            {'asset_id': 'a', 'ip_address': '192.0.2.1', 'zone': 'IT', 'hostname': ''},
+            {'asset_id': 'b', 'ip_address': '192.0.2.2', 'zone': 'OT', 'hostname': ''},
+            {'asset_id': 'c', 'ip_address': '192.0.2.3', 'zone': 'OT', 'hostname': ''},
+        ]
+        graph = exposure_map(assets, {}, [('192.0.2.1', '192.0.2.2'), ('192.0.2.2', '192.0.2.1'),
+                                          ('192.0.2.3', '192.0.2.99')])
+        def island_scales(svg):
+            shapes = svg.split('<clipPath id="exposure-islands">')[1].split('</clipPath>')[0]
+            return [float(value) for value in re.findall(r'scale\(([\d.]+)\)', shapes)]
+
+        centers = re.findall(r'<path transform="translate\((\d+) (\d+)\) scale', graph)
+        self.assertEqual(len({y for _, y in centers}), 4)
+        x_positions = [int(x) for x, _ in centers]
+        gaps = [right - left for left, right in zip(x_positions, x_positions[1:])]
+        self.assertGreater(len(set(gaps)), 1)
+        self.assertEqual(centers, re.findall(r'<path transform="translate\((\d+) (\d+)\) scale', exposure_map(assets[:2], {})))
+        scales = island_scales(graph)
+        self.assertEqual(len(scales), 4)
+        self.assertGreater(scales[2], scales[0])
+        self.assertGreater(scales[2], island_scales(exposure_map(assets[:2], {}))[2])
+        self.assertIn('<pattern id="island-dots" width="8" height="8" patternUnits="userSpaceOnUse">', graph)
+        self.assertIn('fill="url(#island-dots)" clip-path="url(#exposure-islands)"', graph)
+        self.assertEqual(graph.count('class="map-connection"'), 1)
+        self.assertIn('192.0.2.1 · 192.0.2.2', graph)
+
+    def test_exposure_map_scores_are_global_and_bound_to_asset_id(self):
+        finding = self.store.finding(self.fid)
+        self.store.import_csv(io.StringIO(
+            f"asset_id,ip_address,hostname,zone\nother,192.0.2.222,{finding['hostname']},DMZ\n"
+            "unmapped,192.0.2.223,,unknown\n"))
+        titles = []
+        for number in (1, 2):
+            markup = page(self.store, page_number=number)
+            graph = re.search(r'<svg class="map".*?</svg>', markup).group()
+            markers = re.findall(r'<g><title>([^<]+)</title><circle class="mk mk-([^"]+)" cx="(\d+)"', graph)
+            titles.append(markers)
+            self.assertIn('>Unknown zone</text>', graph)
+        self.assertEqual(titles[0], titles[1])
+        self.assertEqual(len(titles[0]), 3)
+        match = next(m for m in titles[0] if finding['ip_address'] in m[0])
+        self.assertIn('Urgency ', match[0])
+        other = next(m for m in titles[0] if '192.0.2.222' in m[0])
+        self.assertIn('DMZ · No urgency score', other[0])
+        self.assertEqual(other[1], 'unscored')
+        unknown = next(m for m in titles[0] if '192.0.2.223' in m[0])
+        self.assertIn('Unknown zone · No urgency score', unknown[0])
+        self.assertGreater(int(unknown[2]), 490)
+
     def test_triage_is_collapsed_with_stable_case_deep_links(self):
         alert=self.store.connection.execute('SELECT alert_id FROM alerts LIMIT 1').fetchone()[0]
         text=operator_page(self.store,'/triage',{'view':['list']})
@@ -43,6 +95,9 @@ class CritiqueFixTests(unittest.TestCase):
         text=page(self.store,finding_id=self.fid)
         self.assertIn('class="finding-case"',text)
         self.assertNotIn('<table',text)
+        for section in ('overview', 'evidence', 'fix', 'sources'):
+            self.assertNotIn(f'href="#case-{section}"', text)
+        self.assertIn('Related alerts</a>', text)
         for label in ('Applicability evidence','Missing evidence','Review plan','Why this urgency','Source provenance'):
             self.assertIn(label,text)
         self.assertIn('id="finding-'+self.fid+'"',text)
@@ -55,9 +110,10 @@ class CritiqueFixTests(unittest.TestCase):
         self.assertEqual(count,1);self.assertEqual(selected[0]['asset_id'],'review-extra')
         self.assertEqual(self.store.search_assets('Review Extra',identity_review=True,offset=1)[0],[])
         text=assets_page(self.store,identity_review=True)
-        self.assertIn('value="yes" checked',text)
+        self.assertIn('type="hidden" name="identity_review" value="yes"',text)
+        self.assertIn('href="/assets?identity_review=yes" class="on" aria-current="page"',text)
         self.assertIn('identity_review=yes',page(self.store))
-        # The review banner is global even beyond its inventory-list offset.
+        # The dashboard can still open the identity-review filter from another page.
         self.assertIn('identity_review=yes',page(self.store,page_number=2))
 
     def test_inventory_groups_keep_labels_and_record_context(self):
@@ -110,7 +166,7 @@ class CritiqueFixTests(unittest.TestCase):
         plan_before=self.store.get_remediation_plan(self.fid)
         text=remediation_page(self.store,finding_id=self.fid)
         self.assertIn('class="plan-review"',text)
-        self.assertIn('href="#plan-'+self.fid+'-review"',text)
+        self.assertNotIn('href="#plan-'+self.fid+'-review"',text)
         self.assertLess(text.index('class="plan-review"'),text.index('Prerequisites and approvals'))
         self.assertNotIn("&#x27;identity_confidence&#x27;",text)
         self.assertNotIn('CONFIRMED_MATCH',text)

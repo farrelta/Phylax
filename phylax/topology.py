@@ -104,7 +104,7 @@ def render_alert_topology(store, alert):
             '<span>Open alert</span><span class="alert-topology-arrow" aria-hidden="true"></span>'
             '<span class="mono">'+e(protocol)+'</span></a>'+endpoint('destination')+'</div>'
             '<p class="muted">Zones from the saved policy. Arrow shows the observed connection direction.</p>'
-            '<p><a href="/attack-surface#topology">View full topology</a> · <a href="/">Return to overview</a></p></section>')
+            '<p><a href="/attack-surface#topology">View full network map</a></p></section>')
 
 
 def short(text, length):

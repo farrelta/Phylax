@@ -235,19 +235,39 @@ class HTTPAndGuidanceRegressionTests(unittest.TestCase):
         self.assertEqual(part.get_filename(), 'asset.log')
         self.assertEqual(part.get_payload(decode=True), payload)
 
-    def test_existing_plan_post_saves_builtin_without_contacting_provider(self):
+    def test_create_and_review_replacement_use_built_in_remediation(self):
         before=dict(self.store.connection.execute('SELECT status,priority FROM findings').fetchone())
         with patch('phylax.assistant_web.complete') as provider:
             h=self.handler('/remediation/create','csrf_token='+self.Handler.csrf_token+'&finding_id='+self.fid);h.do_POST()
             provider.assert_not_called()
         self.assertEqual(h.response_status,303)
-        self.assertEqual(h.response_headers['Location'],'/jobs/testjob')
+        self.assertTrue(h.response_headers['Location'].startswith('/remediation?finding_id='+self.fid))
         saved=self.store.get_remediation_plan(self.fid)
+        legacy = self.handler('/assist?task=remediation&key='+self.fid)
+        legacy.do_GET()
+        self.assertEqual(legacy.response_status, 303)
+        self.assertTrue(legacy.response_headers['Location'].endswith('#replace-plan-'+self.fid))
+        review = self.handler(legacy.response_headers['Location'])
+        review.do_GET()
+        self.assertIn(('id="replace-plan-'+self.fid+'"').encode(), review.wfile.getvalue())
+        self.assertIn(b'name="replace_plan_version"', review.wfile.getvalue())
         self.assertEqual(saved['provider'],'template-fallback')
         self.assertEqual(before,dict(self.store.connection.execute('SELECT status,priority FROM findings').fetchone()))
         report=json.loads(self.store.report('json'))
         self.assertEqual(report['remediation_plans'][0]['provider'],'template-fallback')
         self.assertIsInstance(report['findings'][0]['evidence'],list)
+        params = 'csrf_token='+self.Handler.csrf_token+'&finding_id='+self.fid
+        denied = self.handler('/remediation/create', params)
+        denied.do_POST()
+        self.assertEqual(denied.response_status, 400)
+        self.assertEqual(self.store.get_remediation_plan(self.fid), saved)
+        replace = params + '&replace_plan_id='+saved['plan_id']+'&replace_plan_version='+str(len(saved['history']))
+        confirmed = self.handler('/remediation/create', replace)
+        confirmed.do_POST()
+        self.assertEqual(confirmed.response_status, 303)
+        repeated = self.handler('/remediation/create', replace)
+        repeated.do_POST()
+        self.assertEqual(repeated.response_status, 400)
 
     def test_csv_contains_context_and_neutralizes_formulas(self):
         self.store.connection.execute("UPDATE assets SET hostname='=1+1'");self.store.connection.commit()

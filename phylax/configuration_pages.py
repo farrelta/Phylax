@@ -6,7 +6,7 @@ from .asset_intelligence import context_revision
 
 
 def asset_label(asset):
-    return f"{asset['hostname'] or asset['ip_address']} · {asset['ip_address']}"
+    return f"{asset['hostname']} · {asset['ip_address']}" if asset['hostname'] else asset['ip_address']
 
 
 def context_page(store,query,offset,submitted=None):
@@ -23,7 +23,7 @@ def context_page(store,query,offset,submitted=None):
     values={**current,'tags':', '.join(json.loads(current.get('tags_json','[]')))}
     if submitted:values.update(submitted)
     body='<p>Record ownership and confirmed process support. These relationships do not automatically change criticality or establish disruption.</p>'
-    body+='<form method="get" class="controls">'+select('asset_id','Asset to review',choices,aid)+'<button>Load asset context</button></form>'
+    body+='<form method="get" class="controls">'+select('asset_id','Asset to review',choices,aid)+'<button>Open device context</button></form>'
     body+='<section class="editor"><h2>Context for '+verbatim(asset_label(asset))+'</h2>'
     body+='<p class="muted">'+('Last saved '+e(current['updated_at']) if current else 'No operational context saved for this asset.')+'</p>'
     body+='<p>Existing values are loaded below. An empty value clears that field. Inventory identity and criticality are edited separately.</p>'

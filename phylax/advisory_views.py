@@ -102,7 +102,7 @@ def passages(records, *, ics=False):
 
 def render_facts(facts):
     return ''.join(
-        '<section id="advisory-' + e(ref) + '"><h3>' + e(label) + '</h3>'
+        '<section><h3>' + e(label) + '</h3>'
         + ('<p translate="no">' + e(value) + '</p>' if value else '')
         + ('<p>' + e(source) + (' · ' + reference_links([url]) if url else '') + '</p>' if source else '')
-        + '</section>' for ref, (label, value, source, url) in facts.items())
+        + '</section>' for label, value, source, url in facts.values())

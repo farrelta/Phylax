@@ -622,6 +622,22 @@ class Store:
     def _priority(asset: dict[str, Any], vuln: dict[str, Any], status: str) -> str:
         return prioritize(asset,vuln,status)['priority']
 
+    def exposure_urgency(self) -> dict[str, tuple[int, str]]:
+        """Highest scored vulnerability finding for each asset across the inventory."""
+        scores = {}
+        findings = self.connection.execute("""
+            SELECT f.asset_id, f.status, a.criticality, a.zone, v.severity, v.kev
+            FROM findings f JOIN assets a USING(asset_id) JOIN vulnerabilities v USING(cve_id)
+            WHERE f.status IN ('CONFIRMED_MATCH', 'POTENTIAL_MATCH')
+        """)
+        for record in findings:
+            row = dict(record)
+            urgency = prioritize(row, row, row['status'])
+            asset_id, score = row['asset_id'], urgency['score']
+            if score is not None and (asset_id not in scores or score > scores[asset_id][0]):
+                scores[asset_id] = (score, urgency['priority'])
+        return scores
+
     def dashboard(self, *, limit: int | None = None, offset: int = 0) -> dict[str, Any]:
         paging = f' LIMIT {min(100,max(1,limit))} OFFSET {max(0,offset)}' if limit is not None else ''
         network_alerts = [dict(r) for r in self.connection.execute("""SELECT a.*,e.event_ref,e.timestamp AS event_timestamp,e.source_ip,e.destination_ip,e.source_file,asset.asset_id AS destination_asset_id,asset.hostname AS destination_hostname FROM network_alerts a JOIN network_events e USING(event_id) LEFT JOIN assets asset ON asset.asset_id=(SELECT asset_id FROM assets WHERE ip_address=e.destination_ip ORDER BY verified DESC,identity_confidence DESC LIMIT 1) LEFT JOIN network_alert_lifecycle l ON l.alert_id=a.alert_id WHERE COALESCE(l.state,'active')='active' ORDER BY a.created_at DESC""" + paging)]

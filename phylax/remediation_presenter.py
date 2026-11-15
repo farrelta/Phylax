@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 from .remediation_views import lifecycle_form
 from .theme import PLAIN_STATUS
-from .ui import e, reference_links, verbatim, assist_link
+from .ui import e, reference_links, verbatim, form, hidden
 
 
 def _text(value) -> str:
@@ -144,7 +144,7 @@ def plan_card(item, submitted=None, error='') -> str:
              ('Current priority', _text(priority).replace('_', ' ').capitalize()),
              ('Current identity confidence', item.get('current_identity_confidence') or 'Unknown'),
              ('Human approval required:', plan.get('human_approval_required', True))]
-    body = '<article class="panel plan" id="' + e(prefix) + '"><header class="plan-header"><h2>' + e(item.get('cve_id', 'Finding')) + ' · ' + verbatim(asset) + '</h2><p><a class="btn" href="#' + e(prefix) + '-review">Review plan</a></p></header>'
+    body = '<article class="panel plan" id="' + e(prefix) + '"><header class="plan-header"><h2>' + e(item.get('cve_id', 'Finding')) + ' · ' + verbatim(asset) + '</h2></header>'
     body += '<div class="plan-summary"><dl class="facts">' + ''.join(
         '<div><dt>' + e(label) + '</dt><dd>' + _content(value) + '</dd></div>'
         for label, value in facts) + '</dl>'
@@ -217,7 +217,9 @@ def plan_card(item, submitted=None, error='') -> str:
     source += '<h3>Source references</h3>' + _references(plan.get('source_references'))
     body += _section('Provenance and source references', source)
     body += _section('Lifecycle history', _history(item.get('history')))
-    replacement = '<p>Generating a replacement archives this plan and clears its review and verification state. A failed hosted request keeps the prior hosted plan.</p>'
-    replacement += assist_link('remediation', 'Generate replacement plan', item['finding_id'])
-    body += _section('Regenerate plan', replacement)
+    replacement = '<p>Generating a replacement archives this plan and clears its review and verification state.</p>'
+    replacement += form('/remediation/create', hidden('finding_id', item['finding_id'])
+                        + hidden('replace_plan_id', item['plan_id']) + hidden('replace_plan_version', len(item['history'])),
+                        'Generate replacement plan')
+    body += _section('Replace plan', replacement, section_id='replace-plan-'+item['finding_id'])
     return body + '</div></article>'

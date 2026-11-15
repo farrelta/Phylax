@@ -4,9 +4,13 @@ import json
 from .remediation import compose_plan
 
 
-def generate_plan(store, finding_id):
+def generate_plan(store, finding_id, *, expected_plan_id, expected_plan_version):
     with store.atomic('reviewed_plan'):
         store.connection.execute('UPDATE findings SET updated_at=updated_at WHERE finding_id=?', (finding_id,))
+        existing = store.get_remediation_plan(finding_id)
+        current = (existing['plan_id'], str(len(existing['history']))) if existing else ('', '')
+        if current != (expected_plan_id, expected_plan_version):
+            raise ValueError('The remediation plan changed. Review it before generating a replacement.')
         finding = store.finding(finding_id)
         public = store.public_vulnerability_for_finding(finding_id)
         if finding is None or public is None:

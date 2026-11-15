@@ -2,20 +2,15 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
-from .advisory_views import render_facts
 from .ai import AIConfig, _endpoint, local_config
-from .assistant_workflows import (ADVISORY_TASKS, BUILTIN_TASKS, REPORT_FOCUSES, TITLES, ZONES, complete, context,
-                                  merge_zone_policy, request_body)
+from .assistant_workflows import (REPORT_FOCUSES, ZONES, complete, merge_zone_policy,
+                                  report_context, request_body)
 from .monitoring import active_policy, policy_version, preview_policy, reevaluate_events
 from .reports import selected_report_markdown
 from .theme import PLAIN_STATUS, layout
 from .ui import e, evidence_url, hidden, select
-
-POLICY_ERRORS = ('Network ranges overlap.', 'A network range is invalid.', 'A rule refers to an unconfigured zone.',
-                 'The rule or network ranges failed validation.')
-
 
 def _provider(mode):
     if mode == 'local':
@@ -29,147 +24,94 @@ def _get(values, key, default=''):
     return values.get(key, [default])[0]
 
 
-def _fields(values):
-    task = _get(values, 'task')
-    if task == 'policy' or task in BUILTIN_TASKS:
-        values = values | {'mode': ['builtin']}
-    if task not in TITLES:
-        raise ValueError('Unknown assistance workflow.')
-    selected = list(dict.fromkeys(value[:256] for value in values.get('selected', [])))
-    if len(selected) > 12:
+def legacy_destination(store, values):
+    task, key = _get(values, 'task'), _get(values, 'key')[:2048]
+    if task == 'alert':
+        return '/triage?' + urlencode({'alert': key}) + '#alert-' + quote(key, safe='')
+    if task == 'settings':
+        return '/settings#data-sources'
+    if task == 'identity':
+        if _get(values, 'identity_type') == 'asset':
+            return '/assets/edit?' + urlencode({'asset_id': key})
+        return '/software?' + urlencode({'component_id': key}) + '#review-component'
+    if task in {'advisory', 'ics-advisory'}:
+        path = '/intelligence/ics' if task == 'ics-advisory' else '/intelligence'
+        return path + '?' + urlencode({'q': key[:100]})
+    if task == 'remediation':
+        if store.get_remediation_plan(key):
+            return '/remediation?' + urlencode({'finding_id': key}) + '#replace-plan-' + quote(key, safe='')
+        return '/?' + urlencode({'finding_id': key}) + '#case-fix'
+    return None
+
+
+def _report_fields(values):
+    selected = list(dict.fromkeys(values.get('selected', [])))
+    if len(selected) > 12 or any(len(key) > 256 for key in selected):
         raise ValueError('Select up to 12 findings.')
-    return {'task': task, 'key': _get(values, 'key')[:2048 if task == 'ics-advisory' else 256], 'identity_type': _get(values, 'identity_type')[:10],
-            'mode': _get(values, 'mode', 'local' if local_config() else 'builtin'),
-            'selected': selected,
-            'rule': {key: _get(values, key)[:12] for key in ('source', 'destination', 'action')},
-            'ranges': {zone: _get(values, zone)[:6000] for zone in ZONES},
-            'policy_error': _get(values, 'policy_error') if _get(values, 'policy_error') in POLICY_ERRORS else ''}
+    return {'mode': _get(values, 'mode', 'local' if local_config() else 'builtin'), 'selected': selected}
 
 
-def _controls(fields, *, base=True):
-    markup = hidden('task', fields['task']) + hidden('key', fields['key']) + hidden('identity_type', fields['identity_type'])
-    if base:
+def _policy_fields(values):
+    return {'rule': {key: _get(values, key)[:12] for key in ('source', 'destination', 'action')},
+            'ranges': {zone: _get(values, zone)[:6000] for zone in ZONES}}
+
+
+def _policy_form(rule, ranges, version):
+    zones = [('', 'Choose zone'), *((zone, zone) for zone in ZONES)]
+    markup = hidden('task', 'policy') + hidden('policy_preview', 'yes') + hidden('version', version)
+    markup += '<fieldset><legend>Network rule</legend>'
+    markup += select('source', 'From zone', zones, rule['source'])
+    markup += select('destination', 'To zone', zones, rule['destination'])
+    markup += select('action', 'Rule action', [('', 'Choose action'), ('flag', 'Flag this direction'),
+                                               ('remove', 'Remove this directional rule')], rule['action'])
+    markup += '<p>Enter one network range per line in CIDR format.</p>'
+    for zone in ZONES:
+        markup += '<label>' + e(zone + ' network ranges') + '<textarea name="' + zone + '" maxlength="6000">' + e(ranges[zone]) + '</textarea></label>'
+    return '<form method="post" action="/assist">' + markup + '</fieldset><button>Preview on saved traffic</button></form>'
+
+
+def _policy_page(fields, version, error=''):
+    markup = '<p class="notice error" role="alert">' + e(error) + '</p>' if error else ''
+    markup += '<p>Review network ranges and choose a rule direction before previewing.</p>'
+    markup += _policy_form(fields['rule'], fields['ranges'], version)
+    return layout('Edit zone rules', markup + '<p><a href="/policy">Return to network policy</a></p>', '/policy')
+
+
+def assistance_page(store, values, *, error=''):
+    task = _get(values, 'task')
+    if task == 'policy':
+        fields = _policy_fields(values)
+        if not _get(values, 'policy_preview'):
+            saved = (active_policy(store) or {}).get('zone_subnets', {})
+            fields['ranges'] = {zone: '\n'.join(saved.get(zone, [])) for zone in ZONES}
+        return _policy_page(fields, policy_version(store), error)
+    if task != 'report':
+        raise ValueError('Unknown assistance workflow.')
+
+    fields = _report_fields(values)
+    selected = fields['selected']
+    placeholders = ','.join('?' for _ in selected) or 'NULL'
+    rows = list(store.connection.execute(f"""SELECT f.finding_id,f.cve_id,f.status,a.ip_address,a.hostname FROM findings f
+        JOIN assets a USING(asset_id) ORDER BY f.finding_id IN ({placeholders}) DESC,
+        f.updated_at DESC,f.finding_id LIMIT 30""", selected))
+    markup = '<p class="notice error" role="alert">' + e(error) + '</p>' if error else ''
+    if rows:
         options = [('builtin', 'Built-in report')]
         if local_config():
             options.append(('local', 'Local AI'))
         if AIConfig.from_env():
             options.append(('hosted', 'Hosted AI'))
-        if len(options) > 1:
-            markup += select('mode', 'Report method', options, fields['mode'])
-        else:
-            markup += hidden('mode', 'builtin')
-    return markup
-
-
-def _form(fields, *, policy=False, ranges=None):
-    markup = _controls(fields, base=not policy)
-    if fields['task'] == 'policy':
-        rule = fields['rule']
-        markup += '<fieldset><legend>Network rule</legend>'
-        markup += select('source', 'From zone', [('', 'Choose zone'), *((z, z) for z in ZONES)], rule['source'])
-        markup += select('destination', 'To zone', [('', 'Choose zone'), *((z, z) for z in ZONES)], rule['destination'])
-        markup += select('action', 'Rule action', [('', 'Choose action'), ('flag', 'Flag this direction'), ('remove', 'Remove this directional rule')], rule['action'])
-        if policy:
-            markup += '<p>Enter one network range per line in CIDR format.</p>'
-            for zone in ZONES:
-                markup += '<label>' + e(zone + ' network ranges') + '<textarea name="' + zone + '" maxlength="6000">' + e(ranges[zone]) + '</textarea></label>'
-        markup += '</fieldset>'
-    if fields['task'] == 'report' and not policy:
-        for key in fields['selected']:
-            markup += hidden('selected', key)
-    return markup
-
-
-def _links(links):
-    return ''.join('<p><a href="' + e(url) + '">Open supporting evidence · ' + e(ref) + '</a></p>' for ref, url in links.items())
-
-
-def _source_info(task, data):
-    if task == 'settings':
-        markup = '<ul>'
-        for source in data['feeds']:
-            status = 'Cached advisory data' if source['health'] == 'cached' else source['health']
-            markup += '<li>' + e(source['source']) + ' · ' + e(status)
-            if source['health'] != 'cached':
-                markup += ' · ' + e(source.get('last_success') or 'No synchronization recorded')
-            markup += '</li>'
-        for sensor in data['collectors']:
-            markup += '<li>' + e(sensor['type']) + ' · ' + e(sensor['status']) + ' · ' + e(sensor.get('last_success') or 'No data received yet') + '</li>'
-        return markup + '</ul><p>Failed imports · ' + str(data['failed_imports']) + '</p>'
-    if task == 'alert':
-        if data.get('category') == 'vulnerability exposure':
-            return '<p>' + e(data['advisory']) + ' · ' + e(data['applicability']) + '</p>'
-        if data.get('category') == 'device management':
-            label = {'unmanaged': 'Unmanaged endpoint', 'approved': 'Approved endpoint',
-                     'unauthorized': 'Explicitly blocked in device management',
-                     'needs_identity_review': 'Identity needs review'}.get(data['management_status'], 'Unknown')
-            return '<p>' + e(label) + '</p>'
-    if task == 'report':
-        return '<ol>' + ''.join(
-            '<li>' + e(row['device']) + ' · ' + e(row['advisory']) + ' · ' + e(row['applicability']) + ' · ' + e(row['evidence']) + '</li>'
-            for row in data['findings']
-        ) + '</ol>'
-    if task == 'identity':
-        states = ('Identity checked' if data['verified'] else 'Identity needs review',
-                  'Product mapping recorded' if data['mapping_present'] else 'No product mapping recorded')
-        if data.get('conflicting_observations') or data.get('active_version_count', 0) > 1:
-            states += ('Conflicting identity evidence',)
-        markup = '<ul>' + ''.join('<li>' + e(state) + '</li>' for state in states)
-        if data.get('reported_version'):
-            markup += '<li>Reported version · <span translate="no">' + e(data['reported_version']) + '</span></li>'
-        return markup + '</ul>'
-    if task in ADVISORY_TASKS:
-        return '<h2 translate="no">' + e(data['title']) + '</h2>' + render_facts(data['passages'])
-    if task == 'remediation':
-        record = data['public_advisory']
-        markup = '<p translate="no">' + e(record.get('summary', '')) + '</p>' if record.get('summary') else ''
-        markup = '<p>Recorded applicability · ' + e(data['applicability']['applicability']) + '</p>' + markup
-        for product in (record.get('affected_products') or [])[:4]:
-            markup += '<p translate="no"><strong>' + e(' '.join((product.get('vendor', ''), product.get('product', '')))) + '</strong></p>'
-            if (product.get('versions') or []):
-                markup += '<p>Affected versions · ' + e(', '.join((product.get('versions') or []))) + '</p>'
-            if (product.get('excluded_versions') or []):
-                markup += '<p>Excluded versions · ' + e(', '.join((product.get('excluded_versions') or []))) + '</p>'
-            if product.get('conditions_unresolved') or product.get('version_semantics_unknown'):
-                markup += '<p>Applicability conditions require review.</p>'
-        return markup
-    return ''
-
-
-def assistance_page(store, values, *, error=''):
-    fields = _fields(values)
-    task = fields['task']
-    data, fallback, back, links = context(store, task, fields['key'], fields)
-    markup = ('<p class="notice error" role="alert">' + e(error) + '</p>') if error else ''
-    if task == 'policy':
-        policy = active_policy(store) or {}
-        result = {'fields': fields, 'message': fallback, 'back': '/policy', 'links': {},
-                  'version': policy_version(store), 'policy': policy, 'context': ''}
-        return layout(TITLES[task], markup + result_content(result, ''))
-    markup += '<p>' + e(fallback) + '</p>' + _links(links) + _source_info(task, data)
-    if task in BUILTIN_TASKS:
-        title = 'Review steps' if task == 'remediation' else 'Built-in explanation'
-        if task == 'remediation':
-            action = '<form method="post" action="/remediation/create">'
-            markup += action + hidden('finding_id', fields['key']) + '<button>Save built-in plan</button></form>'
-        return layout(title, markup + '<p><a href="' + e(back) + '">Return to source</a></p>')
-    form = _form(fields)
-    if task == 'report':
-        form = _controls(fields) + '<fieldset><legend>Select up to 12 findings</legend>'
-        selected = fields['selected']
-        placeholders = ','.join('?' for _ in selected) or 'NULL'
-        rows = list(store.connection.execute(f'''SELECT f.finding_id,f.cve_id,f.status,a.ip_address,a.hostname FROM findings f
-            JOIN assets a USING(asset_id) ORDER BY f.finding_id IN ({placeholders}) DESC,
-            f.updated_at DESC,f.finding_id LIMIT 30''', selected))
-        if not rows:
-            return layout(TITLES[task], markup + '<p>No findings are available for this report.</p><p><a href="/reports">Return to reports</a></p>', '/reports')
+        form = hidden('task', 'report')
+        form += select('mode', 'Report method', options, fields['mode']) if len(options) > 1 else hidden('mode', 'builtin')
+        form += '<fieldset><legend>Select up to 12 findings</legend>'
         for row in rows:
-            checked = ' checked' if row['finding_id'] in fields['selected'] else ''
-            form += '<label class="inline-check"><input type="checkbox" name="selected" value="' + e(row['finding_id']) + '"' + checked + '>' + e(row['cve_id'] + ' · ' + (row['hostname'] or row['ip_address']) + ' · ' + PLAIN_STATUS.get(row['status'], row['status'])) + '</label>'
-        form += '</fieldset>'
-    label = 'Create report'
-    markup += '<form method="post" action="/assist">' + form + '<button>' + label + '</button></form>'
-    return layout(TITLES[task], markup + '<p><a href="' + e(back) + '">Return to reports</a></p>', '/reports')
+            checked = ' checked' if row['finding_id'] in selected else ''
+            label = row['cve_id'] + ' · ' + (row['hostname'] or row['ip_address']) + ' · ' + PLAIN_STATUS.get(row['status'], row['status'])
+            form += '<label class="inline-check"><input type="checkbox" name="selected" value="' + e(row['finding_id']) + '"' + checked + '>' + e(label) + '</label>'
+        markup += '<form method="post" action="/assist">' + form + '</fieldset><button>Create report</button></form>'
+    else:
+        markup += '<p>No findings are available for this report.</p>'
+    return layout('Create investigation report', markup + '<p><a href="/reports">Return to reports</a></p>', '/reports')
 
 
 def error_page(store, values, error):
@@ -183,17 +125,16 @@ def error_page(store, values, error):
 
 
 def _prepare(store, fields, language):
-    task, mode = fields['task'], fields['mode']
-    key = fields['key']
+    mode = fields['mode']
     if mode not in {'local', 'hosted', 'builtin'}:
         raise ValueError('Choose an assistance provider.')
-    if task == 'report' and not fields['selected']:
+    if not fields['selected']:
         raise ValueError('Select at least one finding.')
     config = _provider(mode)
     with store.atomic('assistance_snapshot'):
-        data, fallback, back, links = context(store, task, key, fields)
+        data, links = report_context(store, fields['selected'])
         label = store.connection.execute("SELECT value FROM schema_meta WHERE key='dataset_label'").fetchone()
-    result = {'fields': fields, 'message': fallback, 'back': back, 'links': links,
+    result = {'fields': fields, 'message': 'Review the selected findings and download the report.', 'links': links,
               'findings': data['findings'], 'language': language, 'dataset_label': label[0] if label else ''}
     body = request_body(config, data, links, language, mode == 'local') if config else None
     return result, config, body
@@ -201,7 +142,7 @@ def _prepare(store, fields, language):
 
 def _queue(jobs, fields, language, prepared):
     result, config, body = prepared
-    task, mode = fields['task'], fields['mode']
+    mode = fields['mode']
 
     def work(store, update):
         if config is None:
@@ -216,21 +157,23 @@ def _queue(jobs, fields, language, prepared):
         except (ValueError, RuntimeError, OSError) as exc:
             return result | {'error': str(exc)}
 
-    return '/jobs/' + jobs.submit(TITLES[task], work, deduplicate=False)
+    return '/jobs/' + jobs.submit('Create investigation report', work, deduplicate=False)
 
 
 def submit_assistance(store, jobs, values, language):
     if _get(values, 'confirm'):
         kind, fields, language, prepared = jobs.consume(_get(values, 'confirm'))
-        if kind != 'hosted' or fields['mode'] != 'hosted' or fields['task'] != 'report':
+        if kind != 'hosted':
             raise ValueError('This preview cannot authorize a hosted request.')
         return _queue(jobs, fields, language, prepared), None
-    fields = _fields(values)
-    if fields['task'] in BUILTIN_TASKS:
-        return None, assistance_page(store, values)
-    if _get(values, 'policy_preview'):
-        if fields['task'] != 'policy':
-            raise ValueError('This is not a policy draft.')
+    destination = legacy_destination(store, values)
+    if destination:
+        return destination, None
+    task = _get(values, 'task')
+    if task == 'policy':
+        if not _get(values, 'policy_preview'):
+            return None, assistance_page(store, values)
+        fields = _policy_fields(values)
         version = _get(values, 'version')
         if policy_version(store) != version:
             raise ValueError('The saved policy changed. Start a new preview.')
@@ -239,13 +182,7 @@ def submit_assistance(store, jobs, values, language):
             policy = merge_zone_policy(active_policy(store), fields['ranges'], rule)
             changes = preview_policy(store, policy, version)
         except ValueError as exc:
-            message = str(exc)
-            category = next((index for index, term in enumerate(('overlap', 'network', 'configured zone')) if term in message), 3)
-            fields['policy_error'] = POLICY_ERRORS[category]
-            result = {'fields': fields, 'message': 'Correct the network ranges or rule and preview again.', 'back': '/policy',
-                      'links': {}, 'context': '', 'policy': active_policy(store), 'version': version}
-            return None, layout('Review network policy', '<p class="notice error" role="alert">' + e(exc) + '</p>'
-                                + result_content(result, '', ranges=fields['ranges']))
+            return None, _policy_page(fields, version, str(exc))
         token = jobs.prepare(('policy', policy, version))
         body = '<p>This preview evaluates saved traffic. Saving changes how Phylax flags observations.</p>'
         body += '<ul>' + ''.join('<li>' + e(label) + ' · ' + str(changes[key]) + '</li>' for key, label in
@@ -255,12 +192,11 @@ def submit_assistance(store, jobs, values, language):
                 body += '<p>' + e(status) + ' · <a href="' + e(evidence_url(ref, '/policy')) + '">' + e(rule_id.replace('_', ' ')) + '</a></p>'
         body += '<details><summary>Proposed policy JSON</summary><pre>' + e(json.dumps(policy, indent=2)) + '</pre></details>'
         body += '<form method="post" action="/policy/apply">' + hidden('preview', token) + '<button>Save reviewed policy</button></form>'
-        body += ('<details><summary>Edit this draft</summary><form method="post" action="/assist">'
-                 + hidden('policy_preview', 'yes') + hidden('version', version) + _form(fields, policy=True, ranges=fields['ranges'])
-                 + '<button>Preview on saved traffic</button></form></details>')
-        return None, layout('Preview network policy', body + '<p><a href="/assist?task=policy">Start a new draft</a></p>')
-    if fields['task'] == 'policy':
-        return None, assistance_page(store, values)
+        body += '<details><summary>Edit this draft</summary>' + _policy_form(fields['rule'], fields['ranges'], version) + '</details>'
+        return None, layout('Preview network policy', body + '<p><a href="/policy">Return to network policy</a></p>', '/policy')
+    if task != 'report':
+        raise ValueError('Unknown assistance workflow.')
+    fields = _report_fields(values)
     prepared = _prepare(store, fields, language)
     result, config, body = prepared
     if fields['mode'] == 'hosted' and config is not None:
@@ -274,7 +210,7 @@ def submit_assistance(store, jobs, values, language):
         preview += '<details open><summary>View exact outgoing request</summary>'
         preview += '<pre class="assistance-request" translate="no">' + e(body.decode()) + '</pre></details>'
         preview += '<form method="post" action="/assist">' + hidden('confirm', token) + '<button>Confirm and send to Hosted AI</button></form>'
-        back = '/assist?' + urlencode({'task': fields['task'], 'key': fields['key'],
+        back = '/assist?' + urlencode({'task': 'report',
                                       'mode': fields['mode'], 'selected': fields['selected']}, doseq=True)
         return None, layout('Review hosted request', preview + '<p><a href="' + e(back) + '">Return to report selection</a></p>')
     return _queue(jobs, fields, language, prepared), None
@@ -288,15 +224,8 @@ def apply_preview(jobs, token):
     return jobs.submit('Reevaluate passive network policy', lambda store, update: str(reevaluate_events(store, policy, expected_version=version)), deduplicate=False)
 
 
-def result_content(result, job_id, *, ranges=None):
+def result_content(result, job_id):
     fields = result['fields']
-    if fields['task'] == 'policy':
-        if ranges is None:
-            ranges = {zone: '\n'.join(result['policy'].get('zone_subnets', {}).get(zone, [])) for zone in ZONES}
-        return ('<p>' + e(result['message']) + '</p><form method="post" action="/assist">'
-                + hidden('policy_preview', 'yes') + hidden('version', result['version'])
-                + _form(fields, policy=True, ranges=ranges)
-                + '<button>Preview on saved traffic</button></form><p><a href="/policy">Return to network policy</a></p>')
     rows, focus = report_sections(result)
     draft = result.get('draft')
     body = '<p>' + e(result['message']) + '</p>'
@@ -331,7 +260,7 @@ def report_sections(result):
 def report_download(jobs, job_id, origin):
     job = jobs.get(job_id) or {}
     result = job.get('result', {})
-    if result.get('fields', {}).get('task') != 'report':
+    if 'findings' not in result:
         raise ValueError('This report is unavailable. Create a new report.')
     rows, focus = report_sections(result)
     links = {ref: origin + link for ref, link in result['links'].items()}

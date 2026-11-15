@@ -17,8 +17,8 @@ def hidden(name,value):
     return f'<input type="hidden" name="{e(name)}" value="{e(value)}">'
 
 
-def assist_link(task, label, key='', **fields):
-    return '<a class="btn" href="/assist?' + e(urlencode({'task': task, 'key': key, **fields})) + '">' + e(label) + '</a>'
+def assist_link(task, label):
+    return '<a class="btn" href="/assist?' + e(urlencode({'task': task})) + '">' + e(label) + '</a>'
 
 
 def field(name,label,value='',required=False,kind='text',*,maxlength=4000,control_id='',help_text='',error=''):
@@ -58,25 +58,49 @@ def error_summary(message,links=()):
             +'<p>Your entries are retained below. Correct the values and retry.</p></section>')
 
 
+def record_row(headings, cells, *, row_id='', cell_classes=()):
+    """Use the table headings as visible field labels in narrow layouts."""
+    identifier = ' id="' + e(row_id) + '"' if row_id else ''
+    markup = '<tr role="row"' + identifier + '>'
+    for column, (heading, cell) in enumerate(zip(headings, cells, strict=True)):
+        css = cell_classes[column] if column < len(cell_classes) else ''
+        style = ' class="' + e(css) + '"' if css else ''
+        markup += ('<td role="cell"' + style + '><span class="record-label" aria-hidden="true">' + e(heading)
+                   + '</span><div class="record-value">' + cell + '</div></td>')
+    return markup + '</tr>'
+
+
+def record_table(headings, body, *, classes=''):
+    header = ''.join('<th role="columnheader" scope="col">' + e(label) + '</th>' for label in headings)
+    return (f'<table class="record-table {e(classes)}" role="table"><thead role="rowgroup">'
+            f'<tr role="row">{header}</tr></thead>{body}</table>')
+
+
+def record_body(headings, rows, empty):
+    return ('<tbody role="rowgroup">' + (rows or '<tr role="row"><td role="cell" colspan="'
+            + str(len(headings)) + '" class="empty">' + e(empty) + '</td></tr>') + '</tbody>')
+
+
 def table(rows,columns,actions=None,empty='No records yet.'):
     translated_fields={'status','kind','decision','severity','priority','lifecycle','permission_state',
                        'management_status','identity_confidence','criticality','zone','visibility',
                        'relationship_type','state','interval','message','explanation','diagnostics','enabled',
                        'decision_label','mac_label','verification'}
-    body=''
-    def cell(row,key):
-        value=row.get(key,'')
-        localized=key in translated_fields or (key=='identity' and value in ('Any IP matching MAC','Unmapped identity'))
-        text=json.dumps(value,ensure_ascii=False) if isinstance(value,(list,dict)) else value
-        return '<td>'+(e(text) if localized else verbatim(text))+'</td>'
+    headings = [label for _, label in columns] + (['Actions'] if actions else [])
+
+    def cell(row, key):
+        value = row.get(key, '')
+        localized = key in translated_fields or (key == 'identity' and value in ('Any IP matching MAC', 'Unmapped identity'))
+        text = json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else value
+        return e(text) if localized else verbatim(text)
+
+    body = ''
     for row in rows:
-        cells=''.join(cell(row,key) for key,label in columns)
-        if actions:cells+='<td>'+actions(row)+'</td>'
-        body+='<tr>'+cells+'</tr>'
-    headings=''.join('<th scope="col">'+e(label)+'</th>' for key,label in columns)
-    if actions:headings+='<th scope="col">Actions</th>'
-    return ('<section class="panel"><table><thead><tr>'+headings+'</tr></thead><tbody>'
-            +(body or f'<tr><td colspan="{len(columns)+bool(actions)}" class="empty">{e(empty)}</td></tr>')+'</tbody></table></section>')
+        cells = [cell(row, key) for key, _ in columns]
+        if actions:
+            cells.append(actions(row))
+        body += record_row(headings, cells)
+    return '<section class="panel">' + record_table(headings, record_body(headings, body, empty)) + '</section>'
 
 
 def pager(path,query,number,total,size=50):
