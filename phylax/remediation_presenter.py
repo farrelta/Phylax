@@ -139,15 +139,12 @@ def plan_card(item, submitted=None, error='') -> str:
     applicability = item.get('finding_status') or 'NEEDS_REVIEW'
     questions = confidence.get('unresolved', [])
     priority = item.get('priority') or 'unknown'
-    facts = [('Plan status', item.get('status', 'Unknown')),
-             ('Current applicability', _text(applicability)),
-             ('Current priority', _text(priority).replace('_', ' ').capitalize()),
+    facts = [('Current priority', _text(priority).replace('_', ' ').capitalize()),
              ('Current identity confidence', item.get('current_identity_confidence') or 'Unknown'),
              ('Human approval required:', plan.get('human_approval_required', True))]
-    body = '<article class="panel plan" id="' + e(prefix) + '"><header class="plan-header"><h2>' + e(item.get('cve_id', 'Finding')) + ' · ' + verbatim(asset) + '</h2></header>'
-    body += '<div class="plan-summary"><dl class="facts">' + ''.join(
-        '<div><dt>' + e(label) + '</dt><dd>' + _content(value) + '</dd></div>'
-        for label, value in facts) + '</dl>'
+    body = '<article class="panel plan" id="' + e(prefix) + '"><header class="plan-header"><h2>' + verbatim(asset) + '</h2>'
+    body += '<p class="mono">' + e(item.get('cve_id', 'Finding')) + '</p></header><div class="plan-summary">'
+    body += _paragraph('Plan status', item.get('status', 'Unknown'))
     evidence_changed = stored_applicability is not None and stored_applicability != applicability
     if evidence_changed or item.get('status') == 'Needs More Evidence':
         warning = ('Supporting finding evidence has changed since this plan was generated.'
@@ -156,8 +153,7 @@ def plan_card(item, submitted=None, error='') -> str:
         body += '<div class="notice"><p><b>Evidence review required.</b> ' + e(warning)
         body += ' The guidance and assessment snapshot below describe the plan at generation; they may be outdated.</p><p><a href="' + e(finding_url) + '">Review current finding</a></p></div>'
     body += _paragraph('Recommended action', plan.get('preferred_remediation'),source=str(plan.get('vendor_guidance_status','')).startswith('source-provided'))
-    body += _paragraph('Operational impact', plan.get('operational_impact'))
-    body += '<h3>Current missing evidence</h3>' + _list(item.get('current_missing_evidence'), 'No missing evidence is recorded for the current finding.')
+    body += _paragraph('Current applicability', _text(applicability))
     body += '</div>'
 
     matching = submitted and submitted.get('finding_id') == item['finding_id']
@@ -165,8 +161,13 @@ def plan_card(item, submitted=None, error='') -> str:
               + _paragraph('Recorded change notes', item.get('change_notes') or 'None',source=bool(item.get('change_notes')))
               + _paragraph('Recorded verification evidence', item.get('verification_evidence') or 'Not recorded',source=bool(item.get('verification_evidence')))
               + lifecycle_form(item, submitted if matching else None, error if matching else ''))
-    body += _section('Review plan · ' + str(item.get('status', 'Unknown')), review,
+    body += _section('Review plan', review,
                      opened=bool(matching and error), css='plan-review', section_id=prefix+'-review')
+    current_details = '<dl class="facts">' + ''.join(
+        '<div><dt>' + e(label) + '</dt><dd>' + _content(value) + '</dd></div>'
+        for label, value in facts) + '</dl>' + _paragraph('Operational impact', plan.get('operational_impact'))
+    current_details += '<h3>Current missing evidence</h3>' + _list(item.get('current_missing_evidence'), 'No missing evidence is recorded for the current finding.')
+    body += _section('Current finding details', current_details)
 
     guidance = _paragraph('Vendor guidance status', plan.get('vendor_guidance_status'))
     guidance += '<h3>Alternative controls</h3>' + _list(plan.get('alternative_controls'))

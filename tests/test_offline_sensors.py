@@ -9,6 +9,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from phylax.core import Store
+from phylax.email_alerts import preview_url
 from phylax.fingerprints import latest_fingerprint, save_mapping
 from phylax.monitoring import ingest_file, reevaluate_events, validate_policy
 from phylax.observations import review_component
@@ -41,6 +42,7 @@ class OfflineSensorTests(unittest.TestCase):
 
     def test_presentation_populates_navigation_and_retains_live_review(self):
         self.assertFalse(self.store.assets())
+        self.assertNotIn('See the connection', page(self.store))
         self.assertEqual(stage_presentation(self.directory, self.database)[PLC], 'POTENTIAL_MATCH')
         assets = {asset['ip_address']: asset for asset in self.store.assets()}
         self.assertEqual(len(assets), 5)
@@ -68,7 +70,7 @@ class OfflineSensorTests(unittest.TestCase):
             '/attack-surface': PLC,
             '/intelligence': 'CVE-2021-22800',
             '/intelligence/ics': 'Rockwell Automation FactoryTalk Activation',
-            '/triage': 'Zone Policy Violation',
+            '/triage': 'Simulated IT Workstation</span> connected to <span translate="no">Simulated Cooling Controller',
             '/remediation': 'Draft for the simulated support-site investigation',
             '/reports': 'Markdown report',
             '/settings': '2 finalized Zeek logs imported',
@@ -77,7 +79,18 @@ class OfflineSensorTests(unittest.TestCase):
         }.items():
             with self.subTest(route=route):
                 self.assertIn(expected, get(route))
-        self.assertIn('Loaded saved Schneider Electric and CISA advisories offline.', get('/settings'))
+        settings = get('/settings')
+        self.assertIn('Loaded saved Schneider Electric and CISA advisories offline.', settings)
+        self.assertIn('Cached advisory records available', settings)
+        self.assertIn('Preview only', settings)
+        self.assertLess(settings.index('Network data received'), settings.index('Network collectors'))
+        software_page = get('/software')
+        self.assertLess(software_page.index('Simulated Workstation Linux'), software_page.index('Import Wazuh inventory'))
+        self.assertLess(software_page.index('Import Wazuh inventory'), software_page.index('Advanced mappings'))
+        self.assertIn('href="/attack-surface" aria-current="page"', get('/network'))
+        reports_page = get('/reports')
+        self.assertLess(reports_page.index('Download Markdown report'), reports_page.index('Create investigation report'))
+        self.assertLess(reports_page.index('Create investigation report'), reports_page.index('Data exports'))
         board = get('/triage')
         self.assertIn('Fix plan recorded', board)
         self.assertIn('data-kind="exposure" data-from="3"', board)
@@ -87,9 +100,21 @@ class OfflineSensorTests(unittest.TestCase):
         self.assertEqual((alert['source_ip'], alert['destination_ip']), (IT, PLC))
         self.assertEqual(len(self.store.dashboard()['network_alerts']), 1)
         self.assertIn(DMZ, get('/network'))
-        case = get('/triage?' + urlencode({'alert': alert['alert_id']}))
+        overview = get('/')
+        topo = f'/attack-surface?alert={alert["alert_id"]}#topology'
+        self.assertIn(f'href="{topo}">See the connection', overview)
+        self.assertIn('Simulated IT Workstation</span> connected to <span translate="no">Simulated Cooling Controller', overview)
+        self.assertIn('Your network rule disallows this connection.', overview)
+        self.assertIn('>Vulnerability alert</b>', overview)
+        self.assertIn('>Advisory update</b>', overview)
+        case_path = alert_url(alert['alert_id'])
+        self.assertIn(f'href="{case_path}"', get(topo.split('#')[0]))
+        case = get(case_path.split('#')[0])
         evidence_link = unescape(case.split('href="/evidence?', 1)[1].split('"', 1)[0])
         self.assertIn('lab-flow-2', get('/evidence?' + evidence_link))
+        preview_path = preview_url(alert['alert_id'])
+        self.assertIn(f'href="{preview_path}">Preview email', case)
+        self.assertIn(f'href="{case_path}">Open the alert in Phylax', get(preview_path))
 
         report = json.loads(get('/report.json'))
         software = report['asset_intelligence']['software_components']
@@ -100,6 +125,13 @@ class OfflineSensorTests(unittest.TestCase):
 
         finding_id = next(row['finding_id'] for row in report['findings'] if row['ip_address'] == PLC)
         finding_path = '/?' + urlencode({'finding_id': finding_id})
+        self.assertIn('<span class="mono">CVE-2021-22800</span>', overview)
+        for row in report['findings']:
+            row_id = 'finding-' + row['finding_id']
+            target = '/?' + urlencode({'finding_id': row['finding_id']})
+            self.assertIn(f'href="{target}#{row_id}" aria-describedby="{row_id}-device">Review finding</a>', overview)
+            self.assertIn(row['ip_address'], get(target))
+        self.assertEqual(overview.count('>Review finding</a>'), 2)
         self.assertIn('Possibly affected', get(finding_path))
         component_id = self.store.connection.execute(
             'SELECT component_id FROM modbus_identity_components WHERE asset_id=?',
@@ -216,7 +248,9 @@ class OfflineSensorTests(unittest.TestCase):
         alert_id = current['alert_id']
         self.assertNotEqual(alert_id, first_id)
         path = f'/attack-surface?alert={alert_id}#topology'
-        self.assertIn(f'href="{path}">Show on topology', page(self.store))
+        overview = page(self.store)
+        self.assertIn(f'href="{path}">See the connection', overview)
+        self.assertIn(f'{IT}</span> (IT) connected to <span translate="no">{PLC}</span> (OT)', overview)
 
         topology = attack_surface_page(self.store, parse_qs(urlsplit(path).query))
         self.assertIn(f'class="alert-topology-edge" href="{alert_url(alert_id)}"', topology)
@@ -238,7 +272,7 @@ class OfflineSensorTests(unittest.TestCase):
         self.assertEqual(parse_qs(urlsplit(redirect).query)['alert'], [alert_id])
         self.assertEqual(zone_alert(self.store)['alert_id'], first_id)
         reevaluate_events(self.store, POLICY | {'denied_zone_pairs': []})
-        self.assertNotIn('Show on topology', page(self.store))
+        self.assertNotIn('See the connection', page(self.store))
         self.assertIn('resolved after reevaluation', operator_page(self.store, '/triage', {'alert': [alert_id]}))
 
     def test_historical_suricata_evidence_remains_available(self):

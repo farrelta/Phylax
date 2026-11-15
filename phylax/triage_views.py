@@ -1,9 +1,10 @@
 """Decision evidence first; original records remain inspectable separately."""
 from urllib.parse import urlencode
 from .ui import verbatim, e,field,select,form,hidden,raw_record,evidence_lines,evidence_url
-from .triage import ZONE_RULE, triage, zone_pair
+from .triage import ZONE_RULE, asset_index, triage, zone_pair
 from .theme import PLAIN_STATUS
 from .topology import alert_topology_url
+from .email_views import preview_link
 
 
 def details_list(pairs):
@@ -126,10 +127,24 @@ BOARD_JS = r'''(function () {
 '''
 
 
+def zone_endpoint_names(store, rows):
+    if store is None:
+        return {}
+    return asset_index(store, (row['observed'][side] for row in rows if row.get('rule_id') == ZONE_RULE
+                               for side in ('source_ip', 'destination_ip')))
+
+
+def connection_title(observed, names):
+    endpoints = [verbatim(names.get(observed[side], {}).get('hostname') or observed[side])
+                 for side in ('source_ip', 'destination_ip')]
+    return ' connected to '.join(endpoints)
+
+
 def alert_board(rows, filters, page, store=None):
     # Column ids stay stable (0 review, 1 acknowledged, 2 resolved); 3 is added for planned fixes.
     columns = {'Needs review': (0, 'open', []), 'Acknowledged': (1, 'triaged', []),
                'Fix plan recorded': (3, 'progress', []), 'Resolved': (2, 'resolved', [])}
+    names = zone_endpoint_names(store, rows)
     for row in rows:
         plan = None
         if store and row.get('finding_id') and row['state'] != 'resolved':
@@ -144,14 +159,16 @@ def alert_board(rows, filters, page, store=None):
         score = row['urgency'].get('score')
         name = row['context'].get('hostname') or row['ip']
         zone = (row['context'].get('zone') or '').upper() or '?'
-        title = row.get('cve_id') or row.get('rule_id', '').replace('_', ' ').title() or row['explanation']
+        title = e(row.get('cve_id') or row.get('rule_id', '').replace('_', ' ').title() or row['explanation'])
         url = '/triage?' + urlencode({'alert': row['alert_id'], 'view': 'board', 'page': page, **filters})
         url += '#alert-' + row['alert_id']
         pair = ''
         if row.get('rule_id') == ZONE_RULE:
+            title = '<span>' + connection_title(row['observed'], names) + '</span>'
             policy = row['evidence']['policy']
             pair = '<span class="card-pair">' + e(zone_pair(policy)) + '</span>'
-        detail = verbatim(name) + (' • ' + e(str(score)) if score is not None else '')
+        detail = ('' if pair else '<span class="card-sub">' + verbatim(name)
+                  + (' • ' + e(str(score)) if score is not None else '') + '</span>')
         acknowledge_card = ''
         if state == 'Needs review':
             fields = hidden('alert_id', row['alert_id']) + hidden('category', row['category'])
@@ -160,9 +177,9 @@ def alert_board(rows, filters, page, store=None):
         columns[state][2].append(
             '<a class="alert-card" href="' + e(url) + '" draggable="true" data-alert="' + e(row['alert_id'])
             + '" data-kind="' + e(row['category']) + '" data-from="' + str(columns[state][0]) + '">'
-            '<span class="card-top"><strong><i class="sq ' + e(priority) + '" aria-hidden="true"></i>' + e(title) + '</strong>'
+            '<span class="card-top"><strong><i class="sq ' + e(priority) + '" aria-hidden="true"></i>' + title + '</strong>'
             '<span class="dots" aria-hidden="true">›</span></span>'
-            '<span class="card-sub">' + detail + '</span>' + pair + plan_label
+            + detail + pair + plan_label
             + '<span class="alert-card-meta"><span class="when">' + CALENDAR + '<time datetime="' + e(row['timestamp']) + '">'
             + e(row['timestamp'][:10]) + '</time></span>'
             '<span class="alert-urgency ' + e(priority) + '">' + e(priority.replace('_', ' ').title()) + '</span>'
@@ -196,7 +213,7 @@ def alert_board(rows, filters, page, store=None):
             + '<script src="/static/board.js" defer></script>')
 
 
-def triage_page(store,query,offset):
+def triage_page(store,query,offset,*,public=False):
     alert_id=query.get('alert',[''])[0]
     list_keys = ('category', 'priority', 'acknowledged')
     view = query.get('view', [''])[0]
@@ -251,6 +268,7 @@ def triage_page(store,query,offset):
         body+='<button>Filter alerts</button><a href="' + e(clear_url) + '">Clear filters</a></form>'
         if not rows:
             return body+('<p class="empty">No alerts match these filters. <a href="' + e(clear_url) + '">Clear filters</a>.</p>' if any(filters.values()) else '<p class="empty">No active alerts in stored data. <a href="/network">Inspect imported events</a> or <a href="/settings">check source and collector health</a>. No alerts does not establish safety.</p>'),count
+    names = zone_endpoint_names(store, rows)
     for row in rows:
         asset=row['context'];ctx=asset.get('operational_context',{});urgency=row['urgency'];ev=row['evidence']
         name=asset.get('hostname') or row['ip'];category={'exposure':'Vulnerability exposure','network':'Network policy','endpoint':'Device management'}[row['category']]
@@ -265,7 +283,8 @@ def triage_page(store,query,offset):
         expanded=alert_id or query.get('case',[''])[0]==row['alert_id']
         body+='<details class="triage-case" id="alert-'+e(row['alert_id'])+'"'+(' open' if expanded else '')+'><summary>'
         address=' <span class="mono">'+e(row['ip'])+'</span>' if name!=row['ip'] else ''
-        body+='<span class="case-title">'+verbatim(name)+address+'</span><span class="case-subject">'+e(title)+'</span>'
+        heading = connection_title(row['observed'], names) if zone_violation else verbatim(name)+address
+        body+='<span class="case-title">'+heading+'</span><span class="case-subject">'+e(title)+'</span>'
         body+='<span class="case-state">'+e(priority)+' urgency · '+e(category)+' · '+e(review)+'</span><span class="case-meta">'+e(row['timestamp'])+' UTC · '+e(cue)+'</span><span class="case-inspect">Inspect alert</span></summary><div class="case-detail triage-record">'
         back_values={k:v for k,v in filters.items() if v}
         if not alert_id and history:
@@ -277,49 +296,57 @@ def triage_page(store,query,offset):
             body+='<p class="notice">This policy alert was resolved after reevaluation.</p>'
         elif row['state']=='resolved':
             body+='<p class="notice">This device management alert was resolved.</p>'
-        if zone_violation:
-            obs=row['observed'];policy=ev['policy']
-            body+='<h3>Observed connection</h3><p class="mono">'+e(obs['source_ip']+' → '+obs['destination_ip'])+'</p>'
-            body+='<p>'+e(row['explanation'])+'</p><ul>'+''.join('<li>'+e(line)+'</li>' for line in policy_lines(policy))+'</ul>'
-            body+='<div class="record-actions"><a class="btn" href="'+e(evidence_url(ev['event_ref'],return_to))+'">Original event</a>'
-            body+='<a href="'+e(alert_topology_url(row['alert_id']))+'">Show on topology</a></div>'
-            body+=details_list([('Event / update time UTC',row['timestamp']),('Protocol',obs['protocol']),
-                                ('Destination port',obs['destination_port']),('Severity',row['severity']),
-                                ('Evidence confidence',row['evidence_confidence'])])
-        else:
-            body+='<p class="muted">Owner: '+(verbatim(ctx['owner']) if ctx.get('owner') else e('Unknown'))+' · Supports: '+(verbatim(', '.join(p['name'] for p in asset['processes'])) if asset.get('processes') else e('No confirmed process relationships'))+'</p>'
-            body+='<p>'+e(row['explanation'])+'</p>'
-            body+=details_list([('Address',row['ip']),('Event / update time UTC',row['timestamp']),('Severity',row['severity']),('Applicability',applicability),('Evidence confidence',row['evidence_confidence']),('Review state',review)])
-            body+='<h3>Observed evidence</h3>'
-        if row['category']=='network' and not zone_violation:
-            obs=row['observed']
-            body+=details_list([('Source',obs['source_ip']),('Destination',obs['destination_ip']),('Destination port',obs['destination_port']),('Protocol',obs['protocol']),('Operation',obs['operation']),('Rule',row['rule_id'].replace('_',' ').title())])
-            body+='<h3>Configured policy</h3><ul>'+''.join('<li>'+e(line)+'</li>' for line in policy_lines(ev.get('policy',{})))+'</ul>'
+        body+='<h3>What happened</h3>'
+        if row['category']=='network':
+            obs=row['observed'];policy=ev.get('policy',{})
+            connection = (connection_title(obs, names) if zone_violation
+                          else verbatim(obs['source_ip'])+' → '+verbatim(obs['destination_ip']))
+            body+='<p>'+connection+'</p>'
+            body+='<h3>Why it was flagged</h3>'
+            if zone_violation:
+                reason = ('The rule recorded for this alert disallowed this direction.' if row['state']=='resolved'
+                          else 'The saved rule disallows this connection direction.')
+                body+='<p>'+reason+' <b>'+e(zone_pair(policy))+'</b></p>'
+            else:
+                body+='<p>'+e(row['explanation'])+'</p>'
+            body+='<div class="record-actions"><a class="btn primary" href="'+e(evidence_url(ev['event_ref'],return_to))+'">Original event</a>'
+            if zone_violation:
+                body+='<a href="'+e(alert_topology_url(row['alert_id']))+'">Show on topology</a>'
+                if expanded:
+                    body+=preview_link(store,row['alert_id'],public=public)
+            body+='</div>'
+            technical=details_list([('Source',obs['source_ip']),('Destination',obs['destination_ip']),
+                                    ('Event / update time UTC',row['timestamp']),('Protocol',obs['protocol']),
+                                    ('Destination port',obs['destination_port']),('Severity',row['severity']),
+                                    ('Applicability',applicability),('Evidence confidence',row['evidence_confidence'])])
+            technical+='<h3>Configured policy</h3><ul>'+''.join('<li>'+e(line)+'</li>' for line in policy_lines(policy))+'</ul>'
         elif row['category']=='exposure':
-            body+=evidence_lines(ev)
+            body+='<p>'+e(applicability)+' · '+e(row['cve_id'])+'</p>'
+            body+='<h3>Why it was flagged</h3>'+evidence_lines(ev)
             body+='<h3>Missing evidence</h3><ul>'+''.join('<li>'+e(v)+'</li>' for v in (row.get('missing_evidence') or ['None recorded for this assessment.']))+'</ul>'
-        elif row['category']=='endpoint':
-            body+=details_list([('Monitored subnet',ev.get('subnet','Unknown')),('Observed MAC',ev.get('mac') or 'Unknown; no reliable MAC evidence'),('Management state',ev.get('status','unknown').replace('_',' ').title())])
+            technical='<p>'+e(row['explanation'])+'</p>'+details_list([('Address',row['ip']),('Severity',row['severity']),('Evidence confidence',row['evidence_confidence'])])
+        else:
+            body+='<p>'+e(row['explanation'])+'</p>'
+            body+='<h3>Why it was flagged</h3>'+details_list([('Monitored subnet',ev.get('subnet','Unknown')),('Management state',ev.get('status','unknown').replace('_',' ').title())])
+            technical=details_list([('Observed MAC',ev.get('mac') or 'Unknown; no reliable MAC evidence')])
             observations=ev.get('evidence',[])
-            if observations:body+='<p>Latest identity evidence: '+e(observations[0].get('observed_at','Unknown'))+' · '+e(observations[0].get('source_file','Unknown source'))+'</p>'
+            if observations:technical+='<p>Latest identity evidence: '+e(observations[0].get('observed_at','Unknown'))+' · '+e(observations[0].get('source_file','Unknown source'))+'</p>'
         body+='<h3>Operational context</h3>'+details_list([('Location',' / '.join(v for v in (ctx.get('site'),ctx.get('location')) if v)),('Asset criticality',asset.get('criticality','unknown'))])
-        if zone_violation and (ctx.get('owner') or asset.get('processes')):
+        if ctx.get('owner') or asset.get('processes'):
             body+=details_list([('Owner',ctx.get('owner')),('Supports',', '.join(p['name'] for p in asset['processes']))])
         score=urgency['score']
-        body+='<details class="score-details"><summary>Why '+e(priority.lower())+' urgency'+(' · score '+e(score) if score is not None else '')+'</summary><p>Rule '+e(urgency['rule_version'])+'. Severity, applicability and urgency are separate.</p><ul>'
+        technical+='<h3>Why '+e(priority.lower())+' urgency'+(' · score '+e(score) if score is not None else '')+'</h3><p>Rule '+e(urgency['rule_version'])+'. Severity, applicability and urgency are separate.</p><ul>'
         for factor in urgency['factors']:
             value=factor['value']
             if isinstance(value,bool):value='Yes' if value else 'No'
             else:value=PLAIN_STATUS.get(str(value),str(value))
-            body+='<li>'+e(factor['input'])+': '+e(value)+' · +'+e(factor['points'])+'</li>'
-        body+='</ul>'+''.join('<p class="muted">'+e(v)+'</p>' for v in urgency.get('uncertainty',[]))+'</details>'
+            technical+='<li>'+e(factor['input'])+': '+e(value)+' · +'+e(factor['points'])+'</li>'
+        technical+='</ul>'+''.join('<p class="muted">'+e(v)+'</p>' for v in urgency.get('uncertainty',[]))
         links=[]
         if asset.get('asset_id') and not row.get('finding_id') and row['category'] != 'endpoint':
             links.append('<a href="/assets/edit?'+e(urlencode({'asset_id':asset['asset_id']}))+'">Review device identity</a>')
         if row.get('finding_id'):links.append('<a href="/?'+e(urlencode({'finding_id':row['finding_id']}))+'#finding-'+e(row['finding_id'])+'">Open vulnerability finding</a>')
         if row['category']=='network':
-            if not zone_violation:
-                links.append('<a href="'+e(evidence_url(ev.get('event_ref',''),return_to))+'">Original event</a>')
             links.append('<a href="/policy">Review network policy</a>')
         if row['category']=='endpoint':links.append('<a href="/approvals?'+e(urlencode({'ip':row['ip']}))+'">Review management approval</a>')
         body+='<div class="record-actions">'+' '.join(links)
@@ -333,5 +360,5 @@ def triage_page(store,query,offset):
                     fields += hidden('history', 'yes')
                 fields+=''.join(hidden('filter_category' if k=='category' else k,v) for k,v in filters.items())+hidden('page',query.get('page',['1'])[0])
             body+=form('/triage/ack',fields,'Acknowledge this alert')
-        body+='</div>'+raw_record(row)+'</div></details>'
+        body+='</div><details class="score-details"><summary>Technical details</summary>'+technical+raw_record(row)+'</details></div></details>'
     return body,count

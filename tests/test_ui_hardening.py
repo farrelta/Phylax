@@ -46,8 +46,11 @@ class UIHardeningTests(unittest.TestCase):
     def test_remediation_forms_share_labels_and_valid_transition_choices(self):
         item=self.make_plan()
         overview=page(self.store)
-        self.assertIn('Review plan',overview)
-        self.assertIn('Plan: Recommended',overview)
+        self.assertIn(f'href="/?finding_id={self.fid}#finding-{self.fid}"',overview)
+        self.assertIn('Review finding',overview)
+        finding=page(self.store,finding_id=self.fid)
+        self.assertIn('Review plan',finding)
+        self.assertIn('Plan status: Recommended',finding)
         self.assertNotIn('action="/remediation/update"',overview)
         html=remediation_page(self.store)
         controls=[r for r in Controls(html).controls if r[1].get('name') in {'status','reviewer','change_notes','verification_evidence'}]

@@ -9,7 +9,7 @@ import re
 from urllib.parse import urlencode
 
 NAV = (
-    ("Workspace", (("/", "Dashboard"), ("/assets", "Devices"), ("/network", "Network"),
+    ("Workspace", (("/", "Dashboard"), ("/assets", "Devices"), ("/attack-surface", "Network"),
                    ("/intelligence", "Vulnerabilities"), ("/triage", "Alerts"),
                    ("/reports", "Reports"), ("/settings", "Settings"))),
 )
@@ -19,7 +19,7 @@ SECONDARY_NAV = {
     "/assets": ("Asset tools", (("/assets", "All devices"), ("/approvals", "Approvals"),
         ("/software", "Software"),
         ("/changes", "Changes"), ("/processes", "Owners and use"))),
-    "/network": ("Monitoring views", (("/network", "Traffic"), ("/attack-surface", "Network map"))),
+    "/attack-surface": ("Monitoring views", (("/attack-surface", "Network map"), ("/network", "Traffic"))),
     "/intelligence": ("Intelligence views", (("/intelligence", "Known flaws"), ("/intelligence/ics", "Industrial advisories"))),
     "/triage": ("Triage views", (("/triage", "All alerts"), ("/remediation", "Fix plans"))),
     "/settings": ("Settings views", (("/settings", "Data sources"),
@@ -32,20 +32,20 @@ PAGE_GUIDE = {
     "Inventory": ("Devices", "Every device Phylax knows about. A device can only be checked for flaws once its vendor, product and version are filled in."),
     "Add asset": ("Add asset", "Fill in what you know. Fields you are unsure about can stay empty."),
     "Edit asset": ("Edit asset", "Correct or complete what is known about this device."),
-    "Device management approvals": ("Device approvals", "Decide which devices are allowed on each monitored network. New unknown devices wait here for a decision."),
-    "Software evidence and verification": ("Software on devices", "Software found on your devices, and whether a person has confirmed it."),
+    "Device management approvals": ("Device approvals", "See which devices have a recorded management decision."),
+    "Software evidence and verification": ("Software on devices", "Review imported software, operating systems, and firmware evidence."),
     "Asset change timeline": ("Device changes", "A history of what changed on each device, and who changed it."),
     "Operational context and processes": ("Owners and use", "Who is responsible for each device and which work depends on it."),
-    "Network events": ("Network activity", "Traffic recorded in your network logs. Phylax only reads the files; it never sends anything to your devices."),
-    "Attack surface": ("Network map", "Which devices talk to each other, based on recorded traffic."),
+    "Network events": ("Network activity", "See traffic from imported logs and open the evidence for each event."),
+    "Attack surface": ("Network map", "See which devices communicated in the imported logs."),
     "Alert topology": ("Network map", "Where this alert happened on the network."),
-    "CVE intelligence": ("Known vulnerabilities", "Public security flaws Phylax has downloaded. They are compared with your devices automatically."),
+    "CVE intelligence": ("Known vulnerabilities", "Browse saved security notices and their affected products and versions."),
     "CISA ICS advisories": ("Industrial advisories", "Security notices about industrial equipment, published by CISA."),
     "Unified security triage": ("Alerts", "Everything that needs a person to look at it. Open an alert to see why it was raised and what to do next."),
-    "Remediation plans": ("Fix plans", "Suggested steps to fix a problem. Phylax never changes anything by itself; a person approves each plan."),
+    "Remediation plans": ("Fix plans", "Review recommended actions and record approval or verification."),
     "Reports": ("Reports", "Download what Phylax found, to share with your team or keep as a record."),
     "Settings and data sources": ("Settings", "Where Phylax gets its data from, and whether that data is up to date."),
-    "Passive network policy": ("Network rules", "Which parts of the network may talk to each other. Traffic that breaks a rule becomes an alert."),
+    "Passive network policy": ("Network rules", "See which observed connections Phylax is configured to flag."),
     "Glossary": ("Glossary", "Plain meanings of the words used in Phylax."),
     "Original event evidence": ("Original record", "The raw data an alert was based on, exactly as it was imported."),
     "Vulnerability finding": ("Vulnerability finding", "What was found, why it matters, and what to do about it."),
@@ -284,6 +284,8 @@ input,select,textarea{border-radius:var(--edge);padding:8px 12px}
 .notice{border-left-width:3px}
 .headline{border:1px solid var(--line);border-left:1px solid var(--accent);background:var(--surface)}
 .zone-alert{border-left-color:var(--crit)}
+.zone-alert p{margin:0}
+.zone-alert .btn{margin-top:10px}
 .pill,.st{border-radius:var(--edge)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:16px;margin:0 0 16px}
 .kpi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:end;padding:18px 18px 16px;border:1px solid var(--line);border-radius:var(--edge);background:linear-gradient(180deg,#13150f,#0c0d09);color:var(--text);min-width:0}
@@ -510,12 +512,6 @@ td .empty-state{padding:20px 10px}
 .status-list .sev{grid-row:1/3;margin-top:7px;width:8px;height:8px;border-radius:50%;background:var(--ok)}
 .status-list .sev.amber{background:var(--amber)}.status-list .sev.red{background:var(--red)}
 .status-list small{display:block;color:var(--muted);font-size:12.5px}
-.report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin:0 0 16px}
-.report-grid .cardx{display:grid;align-content:start;gap:8px}
-.report-grid h2{margin:0;font:600 15px var(--sans)}.report-grid p{margin:0;color:var(--muted);font-size:13px}
-.report-grid .btn{justify-self:start;margin-top:6px;display:inline-flex;gap:8px;align-items:center}
-.report-grid .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.report-grid .cardx:first-child .btn{background:var(--olive);border-color:var(--olive);color:#f3f5e6}
 .cardx.workflow>summary{list-style:none;display:flex;justify-content:space-between;align-items:center}
 .cardx.workflow>summary::after{content:"+";color:var(--muted);font-size:18px}.cardx.workflow[open]>summary::after{content:"–"}
 .cardx.workflow[open]>summary{margin-bottom:12px}
@@ -669,16 +665,6 @@ main:has(.alert-board) .filter-bar button{padding:6px 14px;font-size:13px;border
 .cve-group tr:not(.cve-head) td small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
 .panel-note{margin:0 0 8px;color:var(--muted);font-size:13px;line-height:1.45}
 
-/* finding-more disclosure inside table rows */
-.finding-more{margin:6px 0 0}
-.finding-more>summary{color:var(--link);font-size:12px;cursor:pointer}
-.finding-more>summary:hover{text-decoration:underline}
-.finding-more[open]>summary{margin-bottom:8px}
-.finding-more p{margin:4px 0;font-size:13px;color:var(--text-2);line-height:1.5}
-.finding-more p b{color:#fff;font-weight:600}
-.finding-more small{color:var(--muted)}
-.finding-more .btn{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:6px 14px;border-radius:var(--edge);font-size:12.5px;font-weight:600;background:#ffffff0a;border:1px solid var(--line-2);color:#e6e8dc;text-decoration:none}
-.finding-more .btn:hover{background:#ffffff14}
 
 /* card-body: flat inner container, no nested panel border */
 .card-body{padding:0}.card-body p{margin:4px 0}.card-body .alert{padding-inline:0}.card-body .empty{padding:8px 0}
@@ -698,7 +684,7 @@ p,.empty,.panel-note,.lead,.muted{text-wrap:pretty}
 .alert-card-meta .alert-urgency{font-size:12px}
 a:hover{color:#f3f5e6}
 button.primary:hover,.btn.primary:hover,.primary-action:hover{color:#f3f5e6}
-@media(max-width:900px){.chip,.feed a,.steps-next .btn,.row-action .btn,.finding-more>summary,.coverage a,.mini{min-height:44px;display:inline-flex;align-items:center}}
+@media(max-width:900px){.chip,.feed a,.steps-next .btn,.row-action .btn,.finding-review,.coverage a,.mini{min-height:44px;display:inline-flex;align-items:center}}
 
 /* Low green light, translucent panels and a chamfered navigation frame. */
 :root{--panel-glass:#ffffff09;--panel-outline:#ffffff1c;--nav-cut:23px}
@@ -907,7 +893,7 @@ ICONS = {
     'update': '<path d="M4 12a8 8 0 0113.7-5.7L20 8"/><path d="M20 4v4h-4M20 12a8 8 0 01-13.7 5.7L4 16"/><path d="M4 20v-4h4"/>',
 }
 
-NAV_ICONS = {'/': 'grid', '/assets': 'server', '/network': 'pulse', '/intelligence': 'shield', '/triage': 'bell', '/reports': 'file', '/settings': 'gear'}
+NAV_ICONS = {'/': 'grid', '/assets': 'server', '/attack-surface': 'pulse', '/intelligence': 'shield', '/triage': 'bell', '/reports': 'file', '/settings': 'gear'}
 
 
 def icon(name: str) -> str:
@@ -962,7 +948,7 @@ def ring(value: float, maximum: float, label: str, tone: str = "none") -> str:
 def layout(title: str, body: str, active: str = "", lead: str = "", heading: str | None = None, *,
            crumbs: list | None = None, actions: str = '') -> str:
     parent = next((root for root, (_, items) in SECONDARY_NAV.items()
-                   if any(href == active for href, _ in items)), '/network' if active=='/evidence' else active)
+                   if any(href == active for href, _ in items)), '/attack-surface' if active=='/evidence' else active)
     secondary = ""
     if parent in SECONDARY_NAV:
         label, items = SECONDARY_NAV[parent]

@@ -247,7 +247,7 @@ class LocalizedHTTPTests(unittest.TestCase):
         _,body=self.get('/assets');self.assertIn('<span translate="no">Overview</span>',body)
         self.assertIn('<span translate="no">High &lt;script&gt;operator&lt;/script&gt;</span>',body)
         _,body=self.get('/intelligence');self.assertIn('<span translate="no">No records yet.</span>',body)
-        self.assertIn('<span translate="no">High</span>',body)
+        self.assertRegex(body,r'<(span|p) translate="no">High</\1>')
         self.assertIn('<h1>Kerentanan yang diketahui</h1>',body)
 
 

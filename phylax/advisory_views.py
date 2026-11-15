@@ -94,7 +94,7 @@ def passages(records, *, ics=False):
             for entry in dict.fromkeys(entries):
                 facts[f'E{len(facts)+1}'] = (label, entry, source, url)
     if not any(fact[0] == 'Affected versions' for fact in facts.values()):
-        facts[f'E{len(facts)+1}'] = ('Affected version boundaries need verification', '', '', '')
+        facts[f'E{len(facts)+1}'] = ('Affected versions need verification', '', '', '')
     if any(len({frozenset(entries) for entries in by_source.values()}) > 1 for by_source in scopes.values()):
         facts[f'E{len(facts)+1}'] = ('Sources list different affected version statements', '', '', '')
     return facts

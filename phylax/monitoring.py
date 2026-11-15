@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, Iterable, TextIO
 
 from .core import Store, utc_now
+from . import email_alerts
+from .triage import ZONE_RULE
 
 
 WRITE_FUNCTIONS = {5, 6, 15, 16, 21, 22, 23}
@@ -257,7 +259,7 @@ def _zone_detection(event, policy):
     evidence = {'source_zone': source_zone, 'destination_zone': destination_zone,
                 'source_ip': event.source_ip, 'destination_ip': event.destination_ip,
                 'destination_port': event.destination_port, 'conn_state': event.raw['conn_state']}
-    return Detection('zone_policy_violation', 'high', 'Observed connection violates the configured zone policy.', evidence), None
+    return Detection(ZONE_RULE, 'high', 'Observed connection violates the configured zone policy.', evidence), None
 
 
 def _is_maintenance(timestamp: str, windows: list[dict[str, Any]]) -> bool | None:
@@ -352,7 +354,8 @@ def active_policy(store: Store) -> dict[str, Any] | None:
     return json.loads(row[0]) if row else None
 
 
-def evaluate_stored_event(store: Store, event_id: str, event: NetworkEvent, policy: dict[str, Any], policy_id: str) -> tuple[int,list[str]]:
+def evaluate_stored_event(store: Store, event_id: str, event: NetworkEvent, policy: dict[str, Any], policy_id: str,
+                          *, new_event_email: email_alerts.EmailConfig | None = None) -> tuple[int,list[str]]:
     detections, notes = evaluate(event,policy)
     previous = store.connection.execute('SELECT * FROM event_evaluations WHERE event_id=?',(event_id,)).fetchone()
     if previous and previous['policy_id'] != policy_id:
@@ -373,6 +376,9 @@ def evaluate_stored_event(store: Store, event_id: str, event: NetworkEvent, poli
             store.connection.execute('UPDATE network_alerts SET acknowledged=0 WHERE alert_id=?',(alert_id,))
             store.audit('network_alert_reactivated',alert_id,{'policy_id':policy_id})
         store.connection.execute("INSERT INTO network_alert_lifecycle VALUES(?,'active',?,?) ON CONFLICT(alert_id) DO UPDATE SET state='active',policy_id=excluded.policy_id,updated_at=excluded.updated_at",(alert_id,policy_id,utc_now()))
+        if (new_event_email and not existed and detection.rule_id == ZONE_RULE
+                and (evidence['source_zone'], evidence['destination_zone']) == ('IT', 'OT')):
+            email_alerts.enqueue(store, new_event_email, alert_id, event.timestamp)
         created += not bool(existed)
     store.connection.execute('INSERT INTO event_evaluations VALUES(?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET policy_id=excluded.policy_id,diagnostics_json=excluded.diagnostics_json,evaluated_at=excluded.evaluated_at',
         (event_id,policy_id,json.dumps(notes),utc_now()))
@@ -450,6 +456,7 @@ def ingest_file(store: Store, path: str | Path, *, kind: str | None = None, poli
     diagnostics: list[str] = []
     with store.atomic('network_import'):
         policy_id = register_policy(store,policy) if policy is not None else None
+        email_settings = email_alerts.config(store) if policy is not None and kind == 'conn' else None
         with path.open(encoding='utf-8',errors='strict') as stream:
             for event in parse_zeek(stream,kind=kind,source_file=source_file):
                 event_id = str(uuid.uuid5(uuid.NAMESPACE_URL,'phylax:'+event.event_ref))
@@ -463,7 +470,8 @@ def ingest_file(store: Store, path: str | Path, *, kind: str | None = None, poli
                     duplicate += 1
                 # Deduplicating storage never skips policy evaluation.
                 if policy is not None:
-                    created,notes = evaluate_stored_event(store,event_id,event,policy,policy_id)
+                    created,notes = evaluate_stored_event(store,event_id,event,policy,policy_id,
+                                                          new_event_email=email_settings if cursor.rowcount else None)
                     alert_count += created; diagnostic_count += len(notes)
                     diagnostics.extend(notes[:max(0,100-len(diagnostics))])
         store.audit('network_import',source_file,{'events':inserted,'duplicates':duplicate,'policy_id':policy_id})

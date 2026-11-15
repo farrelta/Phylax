@@ -89,9 +89,9 @@ def render_alert_topology(store, alert):
     def endpoint(side):
         ip = alert[side+'_ip']
         hostname = assets.get(ip, {}).get('hostname')
-        return ('<div class="alert-topology-endpoint"><span>'+e(alert['policy'][side+'_zone'])+' zone</span>'
-                + ('<strong>'+verbatim(hostname)+'</strong>' if hostname else '')+
-                '<span class="mono">'+e(ip)+'</span></div>')
+        return ('<div class="alert-topology-endpoint"><strong>'+verbatim(hostname or ip)+'</strong>'
+                + ('<span class="mono">'+e(ip)+'</span>' if hostname else '')
+                + '<span>'+e(alert['policy'][side+'_zone'])+' zone</span></div>')
 
     resolved = '<p class="notice">This policy alert was resolved after reevaluation.</p>' if alert['state'] == 'resolved' else ''
     protocol = alert['protocol'].upper()
@@ -236,8 +236,8 @@ def diagram(data, query):
                +''.join(frames+paths+process_paths+plates+process_shapes)+'</svg>')
     else:
         filtered=any(query.get(k) for k in ('subnet','zone','criticality','management_status','since','until','node'))
-        recovery=('<a href="'+e(url({k:v for k,v in query.items() if k in {'q','selected','zoom','processes'}}))+'">Clear surface filters</a>') if filtered else '<a href="/assets">Import inventory</a> · <a href="/network">Import Zeek logs</a>'
-        graph='<div class="topology-empty"><p>No endpoints observed in this view.</p><p class="muted">Import Zeek logs or widen the filters. Inventory without observed traffic is listed below; silence does not establish removal.</p><p>'+recovery+'</p></div>'
+        recovery=('<a href="'+e(url({k:v for k,v in query.items() if k in {'q','selected','zoom','processes'}}))+'">Clear surface filters</a>') if filtered else '<a class="btn primary" href="/network#network-import">Import a network log</a>'
+        graph='<div class="topology-empty"><p>No observed connections in this view.</p><p>'+recovery+'</p></div>'
     return graph,{'selected':selected,'nodes':len(nodes),'observed':len(observed),'links':min(len(pairs),LINK_LIMIT),
                   'omitted_links':len({(r['source_ip'],r['destination_ip']) for r in data['edges']})-min(len(pairs),LINK_LIMIT),'processes':len(shown_processes),
                   'omitted_processes':max(0,len(processes)-len(shown_processes)) if query.get('processes')!='hide' else 0,
@@ -316,6 +316,7 @@ def render_topology(store,data,query):
     guidance='. Scroll within the diagram to explore. Zone membership comes from inventory; no trust boundaries are inferred.' if stats['nodes'] else '. No diagram is drawn for this observation view.'
     if not stats['nodes']:legend=''
     canvas=('<div class="topology-scale" style="width:'+f'{stats["width"]*zoom:g}'+'px">'+graph+'</div>') if stats['nodes'] else graph
-    return ('<h2 id="topology">Topology overview</h2>'+toolbar+status+'<div class="topology-workspace">'+detail+'<div class="topology-canvas"><div class="topology-scroll" tabindex="0" role="region" aria-label="Topology diagram; scroll to explore">'
+    return ('<h2 id="topology">Recorded connections</h2><div class="topology-workspace">'+detail+'<div class="topology-canvas"><div class="topology-scroll" tabindex="0" role="region" aria-label="Topology diagram; scroll to explore">'
             +canvas+'</div><p class="topology-caption">'+e(caption+guidance)+'</p>'+legend+'</div></div>'
+            + toolbar + status
             + ('<script src="/static/topology.js" defer></script>' if stats['nodes'] else ''))

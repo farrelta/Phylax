@@ -90,8 +90,8 @@ class TopologyTests(unittest.TestCase):
     def test_empty_graph_keeps_inventory_and_useful_recovery(self):
         self.store.connection.execute('DELETE FROM network_events');self.store.connection.commit()
         html=attack_surface_page(self.store)
-        self.assertIn('No endpoints observed in this view.',html)
-        self.assertIn('Import Zeek logs or widen the filters.',html)
+        self.assertIn('No observed connections in this view.',html)
+        self.assertIn('href="/network#network-import">Import a network log',html)
         self.assertIn('Inventory without observed traffic · 3 assets',html)
         self.assertNotIn('topology-svg"',html.split('</style>')[-1])
 

@@ -1,5 +1,6 @@
 """Orient original event records without changing their underlying evidence."""
 import json
+from .triage import asset_index
 from .ui import verbatim,e,raw_record,local_return,evidence_url
 
 
@@ -20,7 +21,10 @@ def event_page(store,query):
         return body+'<p class="empty">No stored event matches this reference.</p>'
     if events:
         event=events[0]
-        body+='<h2>Observed communication</h2>'+facts([
+        addresses=[event['source_ip'],event['destination_ip']]
+        assets=asset_index(store,[address for address in addresses if address])
+        endpoints=[verbatim(assets.get(address,{}).get('hostname') or address) if address else e('Unknown') for address in addresses]
+        body+='<h2>Observed communication</h2><p><b>'+' → '.join(endpoints)+'</b></p>'+facts([
             ('Source',event['source_ip']),('Destination',event['destination_ip']),
             ('Observed UTC',event['timestamp']),('Protocol',event['protocol']),
             ('Source port',event['source_port']),('Destination port',event['destination_port']),
@@ -44,10 +48,10 @@ def event_page(store,query):
                     link=evidence_url(response['event_ref'],back)
                     body+='<li><a href="'+e(link)+'">'+e(response['observed_at'])+'</a> · '+verbatim(response['source_file'])+'</li>'
                 body+='</ul></details>'
-    body+='<p class="muted">Event reference: <span class="mono">'+verbatim(ref)+'</span></p><p>'+str(len(events)+len(observations))+' stored record(s). Normalized records and original payloads are available below.</p>'
+    body+='<details class="workflow"><summary>Technical details</summary><p class="muted">Event reference: <span class="mono">'+verbatim(ref)+'</span></p><p>'+str(len(events)+len(observations))+' stored record(s). Normalized records and original payloads are available below.</p>'
     for event in events:
         body+=raw_record(event,'Network event · '+event['event_type']+' · '+event['source_ip']+' → '+event['destination_ip'])
         body+=raw_record(json.loads(event['raw_json']),'Original imported network payload · '+event['source_file'])
     for row in observations:
         body+=raw_record(row,'Endpoint observation · '+row['kind'].replace('_',' ')+' · '+row['ip']+' · '+row['observed_at'])
-    return body
+    return body+'</details>'

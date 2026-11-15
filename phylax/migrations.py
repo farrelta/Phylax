@@ -71,9 +71,21 @@ CREATE TABLE IF NOT EXISTS wazuh_bindings(
 '''
 
 
+EMAIL_DDL = '''
+CREATE TABLE IF NOT EXISTS alert_email_outbox(
+ alert_id TEXT PRIMARY KEY REFERENCES network_alerts ON DELETE CASCADE,
+ observed_at TEXT NOT NULL, language TEXT NOT NULL, sender TEXT NOT NULL,
+ recipient TEXT NOT NULL, base_url TEXT NOT NULL,
+ status TEXT NOT NULL CHECK(status IN ('preview','queued','sending','sent','failed','unknown')),
+ detail TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS alert_email_status ON alert_email_outbox(status, updated_at);
+'''
+
+
 def migrate(store):
     _migrate(store, VERSION, DDL, 'asset-intelligence')
     _migrate(store, 'offline_sensors_v1', SENSOR_DDL, 'offline-sensors')
+    _migrate(store, 'alert_email_v1', EMAIL_DDL, 'alert-email')
 
 
 def _migrate(store, version, ddl, name):

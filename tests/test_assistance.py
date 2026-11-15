@@ -93,7 +93,7 @@ class AssistanceTests(unittest.TestCase):
                 self.assertEqual(response.response_headers['Location'], expected)
                 page = self.http.handler(expected)
                 page.do_GET()
-                self.assertIn(b'Version and source details', page.wfile.getvalue())
+                self.assertIn(b'Affected versions and action', page.wfile.getvalue())
             self.assertEqual(self.post(task='policy', mode='hosted').response_status, 200)
             model.assert_not_called()
 
@@ -264,7 +264,7 @@ class AssistanceTests(unittest.TestCase):
             'affected_products': [{'vendor': 'Apple', 'product': 'watchOS',
                                    'version_ranges': [{'end_excluding': '10.5'}]}]}
         kev_only = render_facts(passages([kev]))
-        self.assertIn('Affected version boundaries need verification', kev_only)
+        self.assertIn('Affected versions need verification', kev_only)
         self.assertNotIn('contains an improper authentication vulnerability', kev_only)
         html_text = render_facts(passages([kev, apple]))
         self.assertIn('watchOS · &lt; 10.5', html_text)

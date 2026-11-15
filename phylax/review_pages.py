@@ -7,15 +7,15 @@ from .configuration_pages import asset_label
 
 def approvals_page(store,query,offset,submitted=None):
     values=submitted or {};subnets=[dict(r) for r in store.connection.execute('SELECT * FROM monitored_subnets')]
-    body='<p>Unmanaged endpoints need review. Only an explicit block establishes unauthorized status. Approval does not grant scan permission.</p>'
+    action=values.get('_action')
     if subnets:
-        body+='<h2>Record a management decision</h2>'+form('/approvals/decide',
+        decision='<details class="workflow"'+(' open' if action=='/approvals/decide' or query.get('ip',[''])[0] else '')+'><summary>Record a management decision</summary>'+form('/approvals/decide',
             select('subnet_id','Monitored network',[(r['subnet_id'],r['name']+' · '+r['cidr']) for r in subnets],values.get('subnet_id'))
             +'<div class="form-grid">'+field('ip','IP address (optional with MAC)',values.get('ip',query.get('ip',[''])[0]))
             +field('mac','MAC address (optional with IP)',values.get('mac',''))+'</div>'
             +select('decision','Decision',[('approved','Approve management'),('blocked','Explicitly block identity')],values.get('decision','approved'))
-            +actor_fields(values),'Record management decision')
-    else:body+='<p class="notice">Configure a monitored subnet below before recording management decisions or generating unmanaged-endpoint alerts.</p>'
+            +actor_fields(values),'Record management decision')+'</details>'
+    else:decision='<p>Configure a monitored subnet to start recording management decisions.</p>'
     rows=[dict(r) for r in store.connection.execute('SELECT d.*,s.name AS network FROM endpoint_decisions d JOIN monitored_subnets s USING(subnet_id) ORDER BY d.created_at DESC LIMIT 50 OFFSET ?',(offset,))]
     for row in rows:
         row['identity']=row['ip'] or 'Any IP matching MAC';row['mac_label']=row['mac'] or 'IP-only decision'
@@ -25,10 +25,11 @@ def approvals_page(store,query,offset,submitted=None):
         result=raw_record(row,'Decision history and identifiers')
         if row['active']:
             edit=values if values.get('decision_id')==row['decision_id'] else {}
-            result+='<details><summary>Revoke this decision</summary><p>'+e(row['identity'])+' · '+e(row['mac_label'])+' · '+e(row['decision_label'])+'</p>'+form('/approvals/revoke',hidden('decision_id',row['decision_id'])+actor_fields(edit),'Revoke this decision')+'</details>'
+            result+='<details'+(' open' if edit else '')+'><summary>Revoke this decision</summary><p>'+e(row['identity'])+' · '+e(row['mac_label'])+' · '+e(row['decision_label'])+'</p>'+form('/approvals/revoke',hidden('decision_id',row['decision_id'])+actor_fields(edit),'Revoke this decision')+'</details>'
         return result
-    body+='<h2>Management decision history</h2>'+table(rows,[('identity','Address'),('mac_label','MAC scope'),('network','Network'),('decision_label','Decision'),('state','State'),('actor','Recorded by')],actions=actions)
-    body+='<details class="workflow"'+(' open' if not subnets else '')+'><summary>Configure monitored subnets</summary>'+table(subnets,[('name','Network'),('cidr','Subnet')])
+    body='<h2>Management decision history</h2>'+table(rows,[('identity','Address'),('mac_label','MAC scope'),('network','Network'),('decision_label','Decision'),('state','State'),('actor','Recorded by')],actions=actions)
+    body+=decision
+    body+='<details class="workflow"'+(' open' if not subnets or action=='/approvals/subnet' else '')+'><summary>Configure monitored subnets</summary>'+table(subnets,[('name','Network'),('cidr','Subnet')])
     body+=form('/approvals/subnet',field('name','Network name',values.get('name',''),True)+field('cidr','Monitored subnet (CIDR)',values.get('cidr',''),True),'Add monitored subnet')+'</details><p><a href="/triage?category=endpoint">Review unmanaged endpoints in triage</a></p>'
     return body,store.connection.execute('SELECT COUNT(*) FROM endpoint_decisions').fetchone()[0]
 
@@ -55,18 +56,20 @@ def software_page(store,query,offset,submitted=None):
         fields+=select('active','Evidence state',[('true','Active evidence'),('false','Retired evidence')],values.get('active','true' if row['active'] else 'false'))+actor_fields(values)
         body+=form('/software/review',fields,'Save review for this component')+raw_record(row,'Original software evidence and identifiers')+'</section>'
     body += inventory
-    body+='<details class="workflow"><summary>Manage an exact product mapping</summary><p>Use a source product identifier supported by verified mapping evidence. Similar names alone do not establish a match.</p>'+form('/software/map',
+    body+='<details class="workflow" id="wazuh-import"'+(' open' if 'manager' in values else '')+'><summary>Import Wazuh inventory</summary><form method="post" action="/software/wazuh" enctype="multipart/form-data">'
+    body+=field('manager','Wazuh manager name',values.get('manager',''),True)+field('agent_id','Wazuh agent ID',values.get('agent_id',''),True)+field('asset_id','Existing IT asset ID',values.get('asset_id',''),True)
+    body+=select('kind','Syscollector export type',[('packages','Packages'),('os','Operating system')],values.get('kind','packages'))
+    body+='<label>Wazuh inventory file<input required name="file" type="file" accept=".json,application/json"></label><button>Import Wazuh inventory</button></form></details>'
+    action=values.get('_action')
+    body+='<details class="workflow"'+(' open' if action in ('/software/map','/software/modbus-map') else '')+'><summary>Advanced mappings</summary>'
+    body+='<details class="workflow"'+(' open' if action=='/software/map' else '')+'><summary>Manage an exact product mapping</summary><p>Use a source product identifier supported by verified mapping evidence. Similar names alone do not establish a match.</p>'+form('/software/map',
         field('raw_name','Exact observed software name',values.get('raw_name',''),True)+field('vendor','Source product vendor identifier',values.get('vendor',''),True)+field('product','Source product identifier',values.get('product',''),True)+actor_fields(values),'Save exact mapping')+'</details>'
-    body+='<details class="workflow"><summary>Map a Modbus device identity</summary>'+form('/software/modbus-map',
+    body+='<details class="workflow"'+(' open' if action=='/software/modbus-map' else '')+'><summary>Map a Modbus device identity</summary>'+form('/software/modbus-map',
         field('observed_vendor','Captured vendor name',values.get('observed_vendor',''),True)+
         field('product_code','Captured product code',values.get('product_code',''),True)+
         field('vendor','Source product vendor identifier',values.get('vendor',''),True)+
         field('product','Source product identifier',values.get('product',''),True)+
         select('role','Suggested device role',[('unknown','Unknown'),('PLC','PLC')],values.get('role','unknown'))+
         select('firmware','Meaning of reported revision',[('false','Unverified revision meaning'),('true','Firmware version')],values.get('firmware','false'))+
-        actor_fields(values),'Save Modbus mapping')+'</details>'
-    body+='<details class="workflow" id="wazuh-import"'+(' open' if 'manager' in values else '')+'><summary>Import Wazuh inventory</summary><form method="post" action="/software/wazuh" enctype="multipart/form-data">'
-    body+=field('manager','Wazuh manager name',values.get('manager',''),True)+field('agent_id','Wazuh agent ID',values.get('agent_id',''),True)+field('asset_id','Existing IT asset ID',values.get('asset_id',''),True)
-    body+=select('kind','Syscollector export type',[('packages','Packages'),('os','Operating system')],values.get('kind','packages'))
-    body+='<label>Wazuh inventory file<input required name="file" type="file" accept=".json,application/json"></label><button>Import Wazuh inventory</button></form></details>'
+        actor_fields(values),'Save Modbus mapping')+'</details></details>'
     return body,store.connection.execute('SELECT COUNT(*) FROM software_components').fetchone()[0]

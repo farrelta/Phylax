@@ -7,7 +7,8 @@ from .ai import AIConfig, local_config
 from .core import Store,ASSET_FIELDS,ASSET_TYPES,ZONES,CRITICALITIES,CONFIDENCES
 from .theme import layout
 from .monitoring import active_policy
-from .ui import e,error_summary,assist_link
+from .email_views import delivery_summary, settings_section as email_settings_section
+from .ui import e,error_summary,assist_link,verbatim
 
 ASSET_LABELS={name:name.replace('_',' ').capitalize() for name in ASSET_FIELDS}
 ASSET_LABELS.update(asset_id='Asset ID',ip_address='IP address',mac_address='MAC address',last_seen='Last seen (UTC)')
@@ -78,13 +79,26 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     policy=active_policy(store)
     text=submitted.get('policy_json','') if submitted is not None else json.dumps(policy if policy is not None else {},indent=2)
     body=error_summary(error,[('policy-json','Review policy JSON')]) if error else ''
-    body+='<p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
-    body+='<p>'+assist_link('policy', 'Edit zone rules')+'</p>'
-    body+='<p>Keys: protected_assets, allowed_communications, authorized_writers, maintenance_windows_utc. Day numbers: Monday 0 through Sunday 6. Times are UTC.</p>'
     body+='<section aria-labelledby="current-policy-summary"><h2 id="current-policy-summary">Current saved policy</h2>'
     if policy is None:
-        body+='<p>No active policy is saved. The editor below has not been applied.</p>'
+        body+='<p>No active policy is saved.</p>'
     else:
+        zones=policy.get('zone_subnets',{})
+        if any(zones.values()):
+            body+='<dl class="facts">'+''.join('<div><dt>'+e(zone)+'</dt><dd>'+verbatim(', '.join(ranges))+'</dd></div>'
+                for zone,ranges in zones.items() if ranges)+'</dl>'
+        else:
+            body+='<p>No zone ranges are saved.</p>'
+        denied=policy.get('denied_zone_pairs',[])
+        if denied:
+            body+='<h3>Denied directions</h3><ul>'+''.join('<li>'+e(source)+' → '+e(destination)+'</li>' for source,destination in denied)+'</ul>'
+        else:
+            body+='<p>No denied zone directions are saved.</p>'
+    body+='</section><p>'+assist_link('policy', 'Edit zone rules')+'</p>'
+    body+='<details class="workflow"'+(' open' if error else '')+'><summary>Advanced</summary>'
+    body+='<p>Policies apply only to stored passive observations. An absent rule is not a deny-all rule. An explicit empty maintenance window list prohibits writes at all times; omit that key if no maintenance restriction is configured. Overnight windows use the start day; end times are exclusive.</p>'
+    body+='<p>Day numbers run from Monday (0) through Sunday (6). Times use UTC.</p>'
+    if policy is not None:
         protected=policy.get('protected_assets',[]);communications=policy.get('allowed_communications',[]);writers=policy.get('authorized_writers',{})
         def preview(items):
             return '; '.join(items[:3])+(' · '+str(len(items)-3)+' more in the policy JSON' if len(items)>3 else '')
@@ -106,10 +120,7 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
             days=('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')
             windows=[(', '.join(days[day] for day in window['days']) or 'No days')+' · '+window['start']+'–'+window['end']+' UTC' for window in policy['maintenance_windows_utc']]
             body+='<li>Maintenance windows: '+e(preview(windows))+'.</li>'
-        for source,destination in policy.get('denied_zone_pairs',[]):
-            body+='<li>Denied zone pair: '+e(source)+' → '+e(destination)+'</li>'
-        body+='</ul><p class="muted">This summary describes the saved policy. Edits below take effect only after saving and reevaluating stored events.</p>'
-    body+='</section>'
+        body+='</ul>'
     body+='<details class="workflow"'+(' open' if error else '')+'><summary>Advanced policy editor (JSON)</summary>'
     example={'protected_assets':['192.0.2.10'],'allowed_communications':[{'source_ip':'192.0.2.30','destination_ip':'192.0.2.10','protocol':'tcp','destination_port':502}],'authorized_writers':{'192.0.2.10':['192.0.2.30']},'maintenance_windows_utc':[{'days':[0,1,2,3,4],'start':'01:00','end':'02:00'}]}
     example.update(zone_subnets={'IT':['198.51.100.0/24'],'DMZ':['203.0.113.0/24'],'OT':['192.0.2.0/24']},
@@ -121,16 +132,39 @@ def policy_page(store: Store,*,submitted=None,error='') -> str:
     body+='</label><button class="primary">Save policy and reevaluate stored events</button></form>'
     body+='</details>'
     rows=store.connection.execute('SELECT policy_id,created_at FROM network_policies ORDER BY created_at DESC LIMIT 20').fetchall()
-    body+='<h2>Stored policy versions</h2><ul>'+''.join(f'<li>{r["policy_id"]} · {r["created_at"]}</li>' for r in rows)+'</ul>'
+    body+='<h2>Stored policy versions</h2><ul>'+''.join(f'<li>{r["policy_id"]} · {r["created_at"]}</li>' for r in rows)+'</ul></details>'
     return shell('Passive network policy',body)
 
 
-def settings_page(store: Store, *, notice: str = "", source_values=None, source_error='') -> str:
+def _data_status(store, sources, *, public):
+    no_data = 'No data received yet'
+    db = store.connection
+    has_traffic = db.execute('SELECT 1 FROM network_events LIMIT 1').fetchone()
+    received = db.execute("""SELECT MAX(created_at) FROM audit_events
+        WHERE kind='network_import' AND json_extract(details_json,'$.events') > 0""").fetchone()[0]
+    traffic = '<span>Saved network records available</span>' if has_traffic else e(no_data)
+    if has_traffic and received:
+        traffic += '<br><small>Last import · '+e(received)+'</small>'
+    advisories = db.execute('SELECT (SELECT COUNT(*) FROM vulnerabilities)+(SELECT COUNT(*) FROM ics_advisories)').fetchone()[0]
+    intel = '<span>Cached advisory records available</span>' if advisories else e(no_data)
+    latest_sync = max((row['last_success_at'] for row in sources if row.get('last_success_at')), default='')
+    if advisories and latest_sync:
+        intel += '<br><small>Last successful sync · '+e(latest_sync)+'</small>'
+    return '<dl class="facts">'+''.join('<div><dt>'+e(label)+'</dt><dd>'+status+'</dd></div>' for label,status in (
+        ('Network data received', traffic), ('Advisories loaded', intel),
+        ('Email delivery', e(delivery_summary(store, public=public))),
+    ))+'</dl>'
+
+
+def settings_page(store: Store, *, notice: str = "", source_values=None, source_error='', public=False) -> str:
     config=AIConfig.from_env()
     local = local_config()
     description=f'Configured: {config.provider} · requested model {config.model} · timeout {config.timeout_seconds} seconds' if config else 'Hosted AI disabled: configure a provider, model and key in the server environment or project .env.'
-    body='<h2 id="data-sources">Public intelligence sources</h2>'
-    body+=(''.join('<p>'+html.escape(f"{r['source']} · {r['health']} · last success {r['last_success_at'] or 'never'} · {r['message']}")+'</p>' for r in store.source_health()) or '<p>No feed synchronization recorded.</p>')
+    sources=store.source_health()
+    body=_data_status(store,sources,public=public)
+    body+=email_settings_section(store,public=public)
+    body+='<details class="workflow" id="data-sources"'+(' open' if source_error else '')+'><summary>Advisory sources</summary><h2>Public intelligence sources</h2>'
+    body+=(''.join('<p>'+html.escape(f"{r['source']} · {r['health']} · last success {r['last_success_at'] or 'never'} · {r['message']}")+'</p>' for r in sources) or '<p>No feed synchronization recorded.</p>')
     body+='<p>Source health is based on stored attempts and becomes stale after 24 hours. Opening this page performs no connectivity check.</p>'
     from .ui import form,field,select,table
     from .asset_intelligence import collectors
@@ -140,8 +174,9 @@ def settings_page(store: Store, *, notice: str = "", source_values=None, source_
     body+=form('/sources/csaf',field('url','Official CSAF document HTTPS URL',source_values.get('url',''),required=True,control_id='advisory-url')
                +select('enabled','Source',[('true','Enabled'),('false','Disabled')],source_values.get('enabled','true')),'Save advisory source')
     body+=table([dict(r) for r in store.connection.execute('SELECT url,enabled,retrieved_at FROM csaf_documents')],[('url','Document'),('enabled','Enabled'),('retrieved_at','Retrieved UTC')])
-    body+='<h2>Collection health</h2>'+table(collectors(store),[(k,k.replace('_',' ').title()) for k in ('kind','status','heartbeat','last_success','message')])
+    body+='</details><details class="workflow"><summary>Network collectors</summary><h2>Collection health</h2>'+table(collectors(store),[(k,k.replace('_',' ').title()) for k in ('kind','status','heartbeat','last_success','message')])
     body+='<h2>Recent finalized-log imports</h2>'+table([dict(r) for r in store.connection.execute('SELECT path,status,message,processed_at FROM ingestion_files ORDER BY processed_at DESC LIMIT 50')],[('path','Local file'),('status','Outcome'),('message','Diagnostics'),('processed_at','Processed UTC')])
+    body+='</details>'
     body+='<details class="workflow"><summary>Advanced assessment tools</summary><p>Inventory and intelligence imports reassess findings automatically. Use manual correlation to rebuild assessments from stored evidence when troubleshooting.</p>'+form('/correlate','','Reassess stored findings')+'</details>'
     body+='<details class="workflow"><summary>Report AI providers</summary><h2>Local AI</h2><p>'+e(local.model if local else 'Local AI is not configured.')+'</p>'
     body+='<h2>Hosted AI</h2><p>'+e(description)+'</p><p>Hosted requests require confirmation of the redacted request.</p></details>'
@@ -150,12 +185,8 @@ def settings_page(store: Store, *, notice: str = "", source_values=None, source_
 
 
 def reports_page(store: Store) -> str:
-    from .theme import icon
-    down=icon('download')
-    cards=[('Readable report','Best for reading, printing or sharing with your team.','/report.md','Markdown report'),
-           ('Spreadsheet','Open in Excel to sort and filter the evidence.','/report.csv','CSV report'),
-           ('Complete data','Everything, including uncertainty and sources, for other tools or archiving.','/report.json','JSON report')]
-    body='<section class="cardx wide"><header><h2>Selected findings report</h2></header><p>Choose findings, optionally use AI to organize the review, and download a Markdown report.</p><p>'+assist_link('report', 'Create investigation report')+'</p></section>'
-    body+='<h2>Full investigation exports</h2><div class="report-grid">'+''.join('<section class="cardx"><h2>'+e(title)+'</h2><p>'+e(text)+'</p><a class="btn" href="'+href+'">'+down+e(label)+'</a></section>' for title,text,href,label in cards)+'</div>'
+    body='<section class="cardx wide"><h2>Full investigation report</h2><p>Download findings, alerts, and their supporting evidence.</p><p><a class="btn primary" href="/report.md">Download Markdown report</a></p></section>'
+    body+='<section class="cardx wide"><h2>Selected findings report</h2><p>Choose findings for a shorter report. AI assistance is optional.</p><p>'+assist_link('report', 'Create investigation report')+'</p></section>'
+    body+='<section class="cardx wide"><h2>Data exports</h2><p>Use CSV for spreadsheets or JSON for structured evidence.</p><div class="record-actions"><a class="btn" href="/report.csv">Download CSV</a><a class="btn" href="/report.json">Download JSON</a></div></section>'
     body+='<p class="muted">Exports contain locally stored evidence. Findings do not establish compromise.</p>'
     return shell('Reports',body)

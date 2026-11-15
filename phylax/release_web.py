@@ -18,13 +18,13 @@ ACTIONS={'/approvals/subnet','/approvals/decide','/approvals/revoke','/software/
 TITLES={'/approvals':'Device management approvals','/changes':'Asset change timeline','/software':'Software evidence and verification','/processes':'Operational context and processes','/triage':'Unified security triage','/evidence':'Original event evidence'}
 
 
-def page(store,path,query,submitted=None,error=''):
+def page(store,path,query,submitted=None,error='',*,public=False):
     try:page_number=max(1,int(query.get('page',['1'])[0]))
     except ValueError:page_number=1
     offset=(page_number-1)*50;total=0
     views={'/processes':context_page,'/approvals':approvals_page,'/software':software_page}
     if path in views:body,total=views[path](store,query,offset,submitted)
-    elif path=='/triage':body,total=triage_page(store,query,offset)
+    elif path=='/triage':body,total=triage_page(store,query,offset,public=public)
     elif path=='/changes':
         ip=query.get('ip',[''])[0];where=' WHERE ip=?' if ip else '';params=[ip] if ip else []
         rows=[dict(r) for r in store.connection.execute('SELECT * FROM asset_changes'+where+' ORDER BY observed_at DESC LIMIT 50 OFFSET ?',params+[offset])]
@@ -48,7 +48,9 @@ def error_page(store,path,values,error):
     base='/'+path.split('/')[1]
     if base not in PAGES:return layout('Input needs attention','<p class="notice error" role="alert">'+e(error)+'</p><p><a href="/settings">Return to settings</a></p>','/settings')
     query={k:[v[0]] for k,v in values.items() if v and k in {'asset_id','component_id','ip','category','priority','acknowledged','q','page','view','history','alert','case'}}
-    try:return page(store,base,query,{k:v[0] for k,v in values.items()},str(error))
+    submitted={k:v[0] for k,v in values.items() if v}
+    submitted['_action']=path
+    try:return page(store,base,query,submitted,str(error))
     except ValueError:return layout('Input needs attention','<p class="notice error" role="alert">'+e(error)+'</p><p><a href="'+base+'">Reload the current records</a></p>',base)
 
 

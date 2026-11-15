@@ -84,6 +84,7 @@ class OperatorWorkflowTests(unittest.TestCase):
             self.assertEqual(h.response_status,400)
             body=h.wfile.getvalue().decode()
             self.assertIn('role="alert"',body);self.assertIn('&lt;script&gt;typed value&lt;/script&gt;',body)
+            self.assertIn('id="device-context" open',body)
             self.assertIn('SYNTHETIC banner regression',body)
             self.assertNotIn('<script>typed',body);self.assertIn('name="csrf_token"',body)
             self.assertEqual(helper.store.connection.execute('SELECT owner FROM asset_context').fetchone()[0],'Saved context')
@@ -96,7 +97,10 @@ class OperatorWorkflowTests(unittest.TestCase):
         html=page(self.store,'/triage',{'category':['network']})
         visible=html.split('<summary>Raw record</summary>')[0]
         self.assertIn('Fictional facility maintainer',visible);self.assertIn('Simulated facility cooling',visible)
-        self.assertIn('Observed evidence',visible);self.assertIn('Configured policy',visible)
+        self.assertLess(visible.index('What happened'),visible.index('Why it was flagged'))
+        self.assertLess(visible.index('Why it was flagged'),visible.index('Original event'))
+        self.assertLess(visible.index('Original event'),visible.index('Technical details'))
+        self.assertIn('Configured policy',visible)
         self.assertIn('Not assessed (network / management alert)',visible)
         self.assertIn('Unacknowledged',visible);self.assertNotIn('acknowledged: False',visible)
         self.assertIn('/evidence?',visible);self.assertIn('/policy',visible)
@@ -120,7 +124,7 @@ class OperatorWorkflowTests(unittest.TestCase):
         s=Store(':memory:')
         try:
             html=overview(s)
-            self.assertIn('Open asset inventory',html);self.assertNotIn('0/0',html)
+            self.assertIn('Open device inventory',html);self.assertNotIn('0/0',html)
             self.assertIn('Skip to main content',html);self.assertIn('mobile-navigation',html)
             self.assertNotIn('<details class="site-navigation mobile-navigation" open',html)
             self.assertIn('aria-label="Workspace"',html);self.assertNotIn('<p class="eyebrow">',html)
@@ -129,7 +133,7 @@ class OperatorWorkflowTests(unittest.TestCase):
 
     def test_surface_filters_collapsed_and_finding_link_is_addressable(self):
         html=attack_surface_page(self.store)
-        self.assertIn('<summary>Filter observed surface',html)
+        self.assertIn('<summary>Filter recorded connections',html)
         self.assertNotIn('<details class="workflow" open',html)
         self.assertNotIn('Next assets',html)
         finding=self.store.connection.execute('SELECT finding_id FROM findings LIMIT 1').fetchone()[0]
