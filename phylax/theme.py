@@ -332,7 +332,7 @@ footer{margin-top:24px}
 /* ---- CyFocus layout layer ---- */
 :root{--bg:#070806;--card:#0e100b;--card-2:#13150f;--line:#22261a;--line-2:#ffffff14;--muted:#9a9d88;--text-2:#dcdfcf;--text-3:#c3c6b2;--overlay-1:#ffffff06;--overlay-2:#ffffff08;--overlay-3:#ffffff0d;--sans:"Segoe UI Variable Text","Segoe UI",Inter,Helvetica,Arial,sans-serif;--display:"Segoe UI Variable Display","Segoe UI",Inter,Helvetica,Arial,sans-serif}
 body{grid-template-columns:248px minmax(0,1fr);gap:0;font-size:14px;background:radial-gradient(760px 520px at -4% -6%,#4b53205c,transparent 62%),radial-gradient(900px 600px at 105% 110%,#2b301533,transparent 70%),var(--bg);background-attachment:fixed}
-aside{position:sticky;top:14px;height:calc(100vh - 28px);margin:14px 0 14px 14px;padding:22px 14px 14px;border:1px solid var(--line-2);border-radius:18px;background:linear-gradient(180deg,#11130df2,#0b0c08f2);box-shadow:0 20px 50px #00000080}
+aside{position:sticky;top:40px;align-self:start;height:auto;max-height:calc(100dvh - 54px);margin:40px 0 14px 14px;padding:22px 14px 14px;border:1px solid var(--line-2);border-radius:18px;background:linear-gradient(180deg,#11130df2,#0b0c08f2);box-shadow:0 20px 50px #00000080}
 .brand{padding:0 6px 22px;gap:9px}.brand svg{width:22px;height:22px}.brand small{display:none}
 .brand b{font:600 15px/1 var(--display);letter-spacing:.26em}
 .brand b::after{content:none}
@@ -746,7 +746,10 @@ button,.btn,input,select,textarea{border-radius:var(--edge)}
 .language-control button:hover{background:#38513b;color:#fff}
 .language-control button:focus-visible{outline:2px solid #b8da9a;outline-offset:1px}
 @media(min-width:901px){
-    aside::before{
+    aside{
+        min-height:min(50dvh,calc(100dvh - 54px));
+        padding-bottom:34px;
+        box-shadow:none;
         clip-path:polygon(0 0,calc(100% - var(--nav-cut)) 0,100% var(--nav-cut),100% 100%,0 100%);
     }
 }

@@ -78,6 +78,11 @@ class OfflineSensorTests(unittest.TestCase):
             with self.subTest(route=route):
                 self.assertIn(expected, get(route))
         self.assertIn('Loaded saved Schneider Electric and CISA advisories offline.', get('/settings'))
+        board = get('/triage')
+        self.assertIn('Fix plan recorded', board)
+        self.assertIn('data-kind="exposure" data-from="3"', board)
+        self.assertIn('>Plan drafted</span>', board)
+        self.assertNotIn('Plan in progress', board)
         alert = zone_alert(self.store)
         self.assertEqual((alert['source_ip'], alert['destination_ip']), (IT, PLC))
         self.assertEqual(len(self.store.dashboard()['network_alerts']), 1)

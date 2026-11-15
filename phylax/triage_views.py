@@ -129,12 +129,17 @@ BOARD_JS = r'''(function () {
 def alert_board(rows, filters, page, store=None):
     # Column ids stay stable (0 review, 1 acknowledged, 2 resolved); 3 is added for planned fixes.
     columns = {'Needs review': (0, 'open', []), 'Acknowledged': (1, 'triaged', []),
-               'Plan in progress': (3, 'progress', []), 'Resolved': (2, 'resolved', [])}
+               'Fix plan recorded': (3, 'progress', []), 'Resolved': (2, 'resolved', [])}
     for row in rows:
-        planned = bool(store and row.get('finding_id') and row['state'] != 'resolved'
-                       and store.get_remediation_plan(row['finding_id']))
+        plan = None
+        if store and row.get('finding_id') and row['state'] != 'resolved':
+            plan = store.get_remediation_plan(row['finding_id'])
         state = 'Resolved' if row['state'] == 'resolved' else (
-            'Plan in progress' if planned else 'Acknowledged' if row['acknowledged'] else 'Needs review')
+            'Fix plan recorded' if plan else 'Acknowledged' if row['acknowledged'] else 'Needs review')
+        plan_label = ''
+        if plan:
+            status = 'Plan drafted' if plan['status'] == 'Recommended' else plan['status']
+            plan_label = '<span class="card-pair">' + e(status) + '</span>'
         priority = row['urgency']['priority']
         score = row['urgency'].get('score')
         name = row['context'].get('hostname') or row['ip']
@@ -157,14 +162,14 @@ def alert_board(rows, filters, page, store=None):
             + '" data-kind="' + e(row['category']) + '" data-from="' + str(columns[state][0]) + '">'
             '<span class="card-top"><strong><i class="sq ' + e(priority) + '" aria-hidden="true"></i>' + e(title) + '</strong>'
             '<span class="dots" aria-hidden="true">›</span></span>'
-            '<span class="card-sub">' + detail + '</span>' + pair
+            '<span class="card-sub">' + detail + '</span>' + pair + plan_label
             + '<span class="alert-card-meta"><span class="when">' + CALENDAR + '<time datetime="' + e(row['timestamp']) + '">'
             + e(row['timestamp'][:10]) + '</time></span>'
             '<span class="alert-urgency ' + e(priority) + '">' + e(priority.replace('_', ' ').title()) + '</span>'
             '<span class="zone-badge zone-' + e(zone.lower()) + '" title="' + e(zone) + ' zone">' + e(zone[:3]) + '</span></span></a>' + acknowledge_card)
     sections = []
-    hints = {'open': 'New. Nobody has looked at these yet.', 'triaged': 'Seen by someone, no fix planned yet.',
-             'progress': 'A remediation plan exists.', 'resolved': 'No longer active.'}
+    hints = {'open': 'New. Nobody has looked at these yet.', 'triaged': 'Someone has acknowledged the alert.',
+             'progress': 'Open a card to review the finding and its saved plan.', 'resolved': 'No longer active.'}
     for label, (index, kind, cards) in columns.items():
         heading = f'alert-column-{index}'
         sections.append(
@@ -180,7 +185,7 @@ def alert_board(rows, filters, page, store=None):
                 '<span data-msg="saving">Marking the alert as acknowledged…</span>'
                 '<span data-msg="undo">An acknowledgement cannot be undone. It stays as a record that someone reviewed the alert.</span>'
                 '<span data-msg="resolve">Alerts move to Resolved by themselves when the evidence no longer shows the problem, for example after a policy change.</span>'
-                '<span data-msg="plan">Open the alert and draft a fix plan. The card moves to Plan in progress once a plan exists.</span>'
+                '<span data-msg="plan">To draft a fix plan, open the vulnerability finding.</span>'
                 '<span data-msg="locked">This card cannot be moved by hand. Open it to see its details.</span></div>')
     tip = ('<p class="board-tip board-tip-drag">Tip: drag a card from Needs review to Acknowledged to mark it as seen. '
            'You can also open a card and use its button.</p>'
