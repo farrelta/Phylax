@@ -1,0 +1,8 @@
+*
+!phylax/
+!phylax/**
+!data/
+!data/first-demo/
+!data/first-demo/phylax-demo.db
+**/__pycache__
+**/*.pyc
