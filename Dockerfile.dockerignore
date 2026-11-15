@@ -6,3 +6,9 @@
 !data/first-demo/phylax-demo.db
 **/__pycache__
 **/*.pyc
+!scripts/
+!scripts/prepare_sensor_demo.py
+!scripts/generate_passive_demo.py
+!tests/
+!tests/fixtures/
+!tests/fixtures/public_cisa_icsa_24_004_01.json
