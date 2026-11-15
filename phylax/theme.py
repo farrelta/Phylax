@@ -541,6 +541,7 @@ td .empty-state{padding:20px 10px}
 .search-row input[name=q]{flex:1 1 280px;max-width:460px}
 .search-row .inline-check{margin:0;color:var(--muted)}
 .device-table td{vertical-align:middle;max-width:none}
+.device-table thead th:last-child{text-align:right;white-space:nowrap}
 .device-table td:first-child{min-width:220px}
 .device-table .device b{display:block;font-size:14px;font-weight:600}
 .device-table .device small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
@@ -761,9 +762,10 @@ button,.btn,input,select,textarea{border-radius:var(--edge)}
 
 /* Keep long evidence and form controls within their own layout. */
 .record-label,.mobile-language,.board-ack,.board-tip-touch{display:none}
-.record-table th,.record-value{overflow-wrap:anywhere}
-.record-table th{white-space:normal}
-.record-value{min-width:0}
+.record-table th{white-space:normal;overflow-wrap:normal}
+.record-value{min-width:0;overflow-wrap:anywhere}
+.record-value :is(.state,.st,.flag){max-width:100%;white-space:normal}
+.record-value .st::before,.record-value .imp::before{flex:none}
 .topbar>*,.toolbar-actions,.quick-tabs,.page-actions,.form-grid>*{min-width:0;max-width:100%}
 .toolbar-actions,.quick-tabs,.page-actions{flex-wrap:wrap}
 form select,form textarea,form input:not([type=checkbox]):not([type=radio]){min-width:0;max-width:100%}
@@ -839,9 +841,8 @@ form select,form textarea,form input:not([type=checkbox]):not([type=radio]){min-
         display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:6px 12px;align-items:start;
     }
     .record-table td .record-label{
-        display:block;color:var(--muted);font:600 12px/1.5 var(--sans);overflow-wrap:anywhere;
+        display:block;color:var(--muted);font:600 12px/1.5 var(--sans);overflow-wrap:normal;
     }
-    .record-table .state,.record-table .st,.record-table .flag{white-space:normal;max-width:100%}
     .record-table .zone-badge{display:inline-grid}
     .record-table .row-action .btn{margin:0}
     .topbar{align-items:flex-start;gap:8px}
