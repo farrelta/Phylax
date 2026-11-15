@@ -54,6 +54,19 @@ class TopologyTests(unittest.TestCase):
         self.assertTrue(all(a['href'].startswith('/evidence?event_ref=ref-') for a in edges))
         self.assertIn('marker-end="url(#topology-arrow)"',graph)
 
+    def test_workstation_and_unknown_peer_have_distinct_icons(self):
+        result = self.store.import_csv(io.StringIO(
+            'ip_address,hostname,asset_type,zone\n192.0.2.50,Office workstation,workstation,IT\n'))
+        self.assertEqual(result['errors'], [])
+        self.event('workstation', '192.0.2.50', '192.0.2.10', 502, 'tcp')
+        graph, _ = diagram(self.store.attack_surface(), {})
+        workstation = re.search(r'<a\b[^>]*aria-label="Inspect Office workstation[^>]*>.*?</a>', graph)
+        unknown = re.search(r'<a\b[^>]*aria-label="Inspect Unknown peer[^>]*>.*?</a>', graph)
+        self.assertIsNotNone(workstation)
+        self.assertIsNotNone(unknown)
+        self.assertIn('M9 21h6', workstation.group())
+        self.assertIn('M9 9a3', unknown.group())
+
     def test_unknown_peer_details_retain_missing_identity_and_port(self):
         self.event('c','192.0.2.99','192.0.2.10',None,'')
         html=render_topology(self.store,self.store.attack_surface(),{'selected':['192.0.2.99']})

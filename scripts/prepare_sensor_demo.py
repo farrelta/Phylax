@@ -139,11 +139,11 @@ def stage_presentation(directory, database):
 
         assets = {asset['ip_address']: asset for asset in store.assets()}
         inventory = (
-            'asset_id,ip_address,hostname,zone,criticality,identification_source\n'
-            f"{assets[PLC]['asset_id']},{PLC},Simulated Cooling Controller,OT,critical,zeek_passive\n"
-            f"{assets[FIXED]['asset_id']},{FIXED},Simulated Backup Controller,OT,medium,zeek_passive\n"
-            f"{assets[IT]['asset_id']},{IT},Simulated IT Workstation,IT,medium,zeek_passive\n"
-            f"{assets[DMZ]['asset_id']},{DMZ},Simulated DMZ Host,DMZ,medium,zeek_passive\n"
+            'asset_id,ip_address,hostname,asset_type,zone,criticality,identification_source\n'
+            f"{assets[PLC]['asset_id']},{PLC},Simulated Cooling Controller,{assets[PLC]['asset_type']},OT,critical,zeek_passive\n"
+            f"{assets[FIXED]['asset_id']},{FIXED},Simulated Backup Controller,{assets[FIXED]['asset_type']},OT,medium,zeek_passive\n"
+            f"{assets[IT]['asset_id']},{IT},Simulated IT Workstation,workstation,IT,medium,zeek_passive\n"
+            f"{assets[DMZ]['asset_id']},{DMZ},Simulated DMZ Host,{assets[DMZ]['asset_type']},DMZ,medium,zeek_passive\n"
         )
         result = store.import_csv(io.StringIO(inventory))
         if result['errors']:

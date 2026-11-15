@@ -119,7 +119,7 @@ def short(text, length):
 def icon(kind):
     if kind in {'PLC','RTU'}:
         return '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M7 8h3m4 0h3M7 12h3m4 0h3M7 16h3m4 0h3"/>'
-    if kind in {'server','HMI','engineering workstation'}:
+    if kind in {'server','HMI','workstation','engineering workstation'}:
         return '<rect x="3" y="4" width="18" height="13" rx="1"/><path d="M9 21h6m-3-4v4"/>'
     if kind in {'network device','gateway'}:
         return '<rect x="2" y="6" width="20" height="12" rx="1"/><path d="M6 11v2m4-2v2m4-2v2m4-2v2"/>'

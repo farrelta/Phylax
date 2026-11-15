@@ -47,6 +47,7 @@ class OfflineSensorTests(unittest.TestCase):
         assets = {asset['ip_address']: asset for asset in self.store.assets()}
         self.assertEqual(len(assets), 5)
         self.assertEqual(assets[UNKNOWN]['product'], '')
+        self.assertEqual(assets[IT]['asset_type'], 'workstation')
 
         http = http_regressions.HTTPAndGuidanceRegressionTests()
         http.setUp()

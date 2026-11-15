@@ -23,7 +23,7 @@ ASSET_FIELDS = (
     "product", "version", "operating_system", "zone", "criticality",
     "identification_source", "identity_confidence", "last_seen", "notes", "verified",
 )
-ASSET_TYPES = {"PLC", "RTU", "HMI", "engineering workstation", "server", "network device", "gateway", "unknown"}
+ASSET_TYPES = {"PLC", "RTU", "HMI", "workstation", "engineering workstation", "server", "network device", "gateway", "unknown"}
 ZONES = {"IT", "OT", "DMZ", "unknown"}
 CRITICALITIES = {"low", "medium", "high", "critical"}
 CONFIDENCES = {"low", "medium", "high"}

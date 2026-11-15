@@ -45,7 +45,7 @@ def inventory_form(store: Store, asset_id: str = '', *, submitted=None,error='',
         'identity_confidence':'How certain is the vendor and product identity? High confidence requires supporting identity evidence. Confidence is separate from whether an operator has reviewed it.',
         'verified':'Records an operator review of the identity evidence. Verified and high confidence are both required for confirmed applicability. Verification does not approve management or grant scan permission.',
     }
-    option_labels={'true':'Verified by operator','false':'Not verified','high':'High','medium':'Medium','low':'Low','critical':'Critical','unknown':'Unknown','engineering workstation':'Engineering workstation','server':'Server','network device':'Network device','gateway':'Gateway'}
+    option_labels={'true':'Verified by operator','false':'Not verified','high':'High','medium':'Medium','low':'Low','critical':'Critical','unknown':'Unknown','workstation':'Workstation','engineering workstation':'Engineering workstation','server':'Server','network device':'Network device','gateway':'Gateway'}
     def control(name):
         value=str(asset.get(name,''))
         if name=='verified' and (submitted is None or name not in submitted):value='true' if asset.get(name) else 'false'
