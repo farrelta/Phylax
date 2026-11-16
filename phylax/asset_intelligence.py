@@ -175,6 +175,9 @@ def evaluate_endpoint(store,ip):
     lifecycle='resolved' if state['status']=='approved' else 'active'
     store.connection.execute('INSERT INTO endpoint_alerts VALUES(?,?,?,?,?,?,?,0,?,?) ON CONFLICT(subnet_id,ip) DO UPDATE SET state=excluded.state,status=excluded.status,severity=excluded.severity,evidence_json=excluded.evidence_json,last_seen=excluded.last_seen,acknowledged=CASE WHEN endpoint_alerts.state=\'resolved\' AND excluded.state=\'active\' THEN 0 ELSE endpoint_alerts.acknowledged END',
         (key,state['subnet_id'],ip,lifecycle,state['status'],severity,json.dumps(state),times[0],times[1]))
+    if lifecycle == 'active':
+        from .alert_fix_plans import reopen_endpoint
+        reopen_endpoint(store, key, times[1])
 
 
 def reevaluate_endpoints(store):

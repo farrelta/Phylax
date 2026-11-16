@@ -5,6 +5,9 @@ from .triage import ZONE_RULE, asset_index, triage, zone_pair
 from .theme import PLAIN_STATUS
 from .topology import alert_topology_url
 from .email_views import preview_link
+from .alert_fix_plans import draft_revision, plan_url
+from .remediation_presenter import closure_summary
+from .remediation_views import alert_plan_fields
 
 
 def details_list(pairs):
@@ -149,11 +152,16 @@ def alert_board(rows, filters, page, store=None):
         plan = None
         if store and row.get('finding_id') and row['state'] != 'resolved':
             plan = store.get_remediation_plan(row['finding_id'])
+        plan_status = plan['status'] if plan else row.get('plan_status')
+        if row.get('plan_revision') and row['state'] == 'active' and row['plan_revision'] != draft_revision(row):
+            plan_status = 'Needs More Evidence'
+        awaiting_review = row.get('plan_status') and plan_status == 'Needs More Evidence' and not row['acknowledged']
         state = 'Resolved' if row['state'] == 'resolved' else (
-            'Fix plan recorded' if plan else 'Acknowledged' if row['acknowledged'] else 'Needs review')
+            'Fix plan recorded' if plan_status and not awaiting_review else 'Acknowledged' if row['acknowledged'] else 'Needs review')
         plan_label = ''
-        if plan:
-            status = 'Plan drafted' if plan['status'] == 'Recommended' else plan['status']
+        if plan_status:
+            status = ('Closed by operator' if row.get('closed_at') else
+                      'Plan drafted' if plan_status == 'Recommended' else plan_status)
             plan_label = '<span class="card-pair">' + e(status) + '</span>'
         priority = row['urgency']['priority']
         score = row['urgency'].get('score')
@@ -186,7 +194,7 @@ def alert_board(rows, filters, page, store=None):
             '<span class="zone-badge zone-' + e(zone.lower()) + '" title="' + e(zone) + ' zone">' + e(zone[:3]) + '</span></span></a>' + acknowledge_card)
     sections = []
     hints = {'open': 'New. Nobody has looked at these yet.', 'triaged': 'Someone has acknowledged the alert.',
-             'progress': 'Open a card to review the finding and its saved plan.', 'resolved': 'No longer active.'}
+             'progress': 'Open a card to review the evidence and saved fix plan.', 'resolved': 'No longer active.'}
     for label, (index, kind, cards) in columns.items():
         heading = f'alert-column-{index}'
         sections.append(
@@ -201,8 +209,8 @@ def alert_board(rows, filters, page, store=None):
     messages = ('<div class="board-msgs" hidden>'
                 '<span data-msg="saving">Marking the alert as acknowledged…</span>'
                 '<span data-msg="undo">An acknowledgement cannot be undone. It stays as a record that someone reviewed the alert.</span>'
-                '<span data-msg="resolve">Alerts move to Resolved by themselves when the evidence no longer shows the problem, for example after a policy change.</span>'
-                '<span data-msg="plan">To draft a fix plan, open the vulnerability finding.</span>'
+                '<span data-msg="resolve">Alerts move to Resolved after reevaluation or when an operator closes a case with verified evidence.</span>'
+                '<span data-msg="plan">Open the alert to create or review its fix plan.</span>'
                 '<span data-msg="locked">This card cannot be moved by hand. Open it to see its details.</span></div>')
     tip = ('<p class="board-tip board-tip-drag">Tip: drag a card from Needs review to Acknowledged to mark it as seen. '
            'You can also open a card and use its button.</p>'
@@ -292,7 +300,11 @@ def triage_page(store,query,offset,*,public=False):
         back_values.update(view='list',page=query.get('page',['1'])[0],case=row['alert_id'])
         case_values = {'alert': alert_id, **board_context} if alert_id else back_values
         return_to = '/triage?' + urlencode(case_values) + '#alert-' + row['alert_id']
-        if row['state']=='resolved' and row['category']=='network':
+        if row.get('closed_at'):
+            body+=closure_summary(row)
+            if row.get('closure_event_ref'):
+                body+='<p><a href="'+e(evidence_url(row['closure_event_ref'], return_to))+'">Recorded device evidence</a></p>'
+        elif row['state']=='resolved' and row['category']=='network':
             body+='<p class="notice">This policy alert was resolved after reevaluation.</p>'
         elif row['state']=='resolved':
             body+='<p class="notice">This device management alert was resolved.</p>'
@@ -349,6 +361,11 @@ def triage_page(store,query,offset,*,public=False):
         if row['category']=='network':
             links.append('<a href="/policy">Review network policy</a>')
         if row['category']=='endpoint':links.append('<a href="/approvals?'+e(urlencode({'ip':row['ip']}))+'">Review management approval</a>')
+        if row.get('plan_status'):
+            links.append('<a class="btn" href="'+e(plan_url(row['category'], row['alert_id']))+'">Review fix plan</a>')
+        elif row['category'] in {'network', 'endpoint'} and row['state'] == 'active':
+            case = {'category': row['category'], 'alert_id': row['alert_id'], 'revision': draft_revision(row)}
+            links.append(form('/remediation/create', alert_plan_fields({'alert': case}), 'Create fix plan'))
         body+='<div class="record-actions">'+' '.join(links)
         if not row['acknowledged'] and row['state']=='active':
             fields=hidden('category',row['category'])+hidden('alert_id',row['alert_id'])

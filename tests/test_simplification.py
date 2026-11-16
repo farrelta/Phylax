@@ -124,9 +124,10 @@ class SimplifiedWorkflowTests(unittest.TestCase):
         self.assertEqual(h.response_status,404)
 
     def test_lifecycle_returns_to_selected_plan_without_changing_finding_or_ack(self):
-        self.make_plan(); before=self.store.finding(self.fid)
+        plan=self.make_plan(); before=self.store.finding(self.fid)
         ack=tuple(self.store.connection.execute('SELECT alert_id,acknowledged FROM alerts').fetchone())
-        h=self.http.handler('/remediation/update',urlencode({'csrf_token':self.http.Handler.csrf_token,'finding_id':self.fid,'status':'Under Review'})); h.do_POST()
+        h=self.http.handler('/remediation/update',urlencode({'csrf_token':self.http.Handler.csrf_token,'finding_id':self.fid,
+                                                            'status':'Under Review','plan_id':plan['plan_id'],'plan_version':len(plan['history'])})); h.do_POST()
         self.assertEqual(h.response_status,303)
         self.assertTrue(h.response_headers['Location'].startswith('/remediation?'+urlencode({'finding_id':self.fid})))
         self.assertEqual(self.store.finding(self.fid),before)

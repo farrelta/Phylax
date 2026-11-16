@@ -122,7 +122,7 @@ class PassiveSurfaceAndAITests(unittest.TestCase):
         self.store.update_remediation_plan(finding_id, "Under Review", reviewer="operator", change_notes="Checking source evidence")
         with self.assertRaisesRegex(ValueError, "Reviewer is required"):
             self.store.update_remediation_plan(finding_id, "Approved")
-        self.store.update_remediation_plan(finding_id, "Approved", reviewer="OT owner", change_notes="Approved for scheduled maintenance review")
+        self.store.update_remediation_plan(finding_id, "Approved", reviewer="OT owner", change_notes="Record the simulated mitigation in the approved maintenance window")
         self.store.update_remediation_plan(finding_id, "Implemented", reviewer="OT owner", change_notes="Simulated change recorded")
         with self.assertRaisesRegex(ValueError, "Verification evidence"):
             self.store.update_remediation_plan(finding_id, "Verified")

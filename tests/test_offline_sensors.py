@@ -95,7 +95,7 @@ class OfflineSensorTests(unittest.TestCase):
         board = get('/triage')
         self.assertIn('Fix plan recorded', board)
         self.assertIn('data-kind="exposure" data-from="3"', board)
-        self.assertIn('>Plan drafted</span>', board)
+        self.assertIn('>Needs More Evidence</span>', board)
         self.assertNotIn('Plan in progress', board)
         alert = zone_alert(self.store)
         self.assertEqual((alert['source_ip'], alert['destination_ip']), (IT, PLC))
@@ -134,6 +134,13 @@ class OfflineSensorTests(unittest.TestCase):
             self.assertIn(row['ip_address'], get(target))
         self.assertEqual(overview.count('>Review finding</a>'), 2)
         self.assertIn('Possibly affected', get(finding_path))
+        plan_path = '/remediation?' + urlencode({'finding_id': finding_id})
+        draft = get(plan_path)
+        self.assertIn('Fix plan checklist', draft)
+        self.assertEqual(draft.count('<li aria-current="step">'), 1)
+        self.assertIn('Verify device identity and version.', draft)
+        self.assertIn('No review recorded yet.', draft)
+        self.assertNotIn('value="Approved"', draft)
         component_id = self.store.connection.execute(
             'SELECT component_id FROM modbus_identity_components WHERE asset_id=?',
             (assets[PLC]['asset_id'],),
@@ -146,6 +153,41 @@ class OfflineSensorTests(unittest.TestCase):
         review.do_POST()
         self.assertEqual(review.response_status, 303, review.wfile.getvalue().decode())
         self.assertIn('Confirmed affected', get(finding_path))
+        self.assertIn('Generate a replacement plan using the current finding evidence', get(plan_path))
+        saved = self.store.get_remediation_plan(finding_id)
+        replacement = http.handler('/remediation/create', urlencode({
+            'csrf_token': http.Handler.csrf_token, 'finding_id': finding_id,
+            'replace_plan_id': saved['plan_id'], 'replace_plan_version': len(saved['history']),
+        }))
+        replacement.do_POST()
+        self.assertEqual(replacement.response_status, 303)
+        self.assertEqual(self.store.get_remediation_plan(finding_id)['status'], 'Recommended')
+
+        def transition(status, **fields):
+            saved = self.store.get_remediation_plan(finding_id)
+            review = http.handler('/remediation/update', urlencode({
+                'csrf_token': http.Handler.csrf_token, 'finding_id': finding_id, 'status': status,
+                'plan_id': saved['plan_id'], 'plan_version': len(saved['history']), **fields,
+            }))
+            review.do_POST()
+            self.assertEqual(review.response_status, 303, status)
+            return get(plan_path)
+
+        in_review = transition('Under Review')
+        self.assertIn('value="Approved"', in_review)
+        self.assertIn('Check the maintenance window and rollback plan', in_review)
+        approved = transition('Approved', reviewer='Demo operator', change_notes='Simulated action recorded')
+        self.assertIn('Record implementation.', approved)
+        implemented = transition('Implemented', change_notes='Simulated implementation recorded')
+        self.assertIn('Implementation recorded.', implemented)
+        self.assertIn('Record verification evidence.', implemented)
+        verified = transition('Verified', verification_evidence='Simulated verification evidence')
+        self.assertIn('Verification evidence recorded.', verified)
+        self.assertNotIn('<li aria-current="step">', verified)
+        reopened = transition('Under Review')
+        self.assertNotIn('Implementation recorded.', reopened)
+        self.assertNotIn('Verification evidence recorded.', reopened)
+        self.assertEqual(self.store.get_remediation_plan(finding_id)['verification_evidence'], '')
 
         fresh_directory = self.directory.parent / 'new-presentation'
         fresh_database = prepare(fresh_directory)

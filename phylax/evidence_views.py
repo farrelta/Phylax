@@ -1,6 +1,6 @@
 """Orient original event records without changing their underlying evidence."""
 import json
-from .triage import asset_index
+from .triage import alert_url, asset_index
 from .ui import verbatim,e,raw_record,local_return,evidence_url
 
 
@@ -29,9 +29,17 @@ def event_page(store,query):
             ('Observed UTC',event['timestamp']),('Protocol',event['protocol']),
             ('Source port',event['source_port']),('Destination port',event['destination_port']),
             ('Operation',event['operation']),('Imported source',event['source_file'])])
-        alerts=[dict(r) for r in store.connection.execute("SELECT a.rule_id,a.severity,a.explanation,COALESCE(l.state,'active') AS lifecycle,l.policy_id FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE a.event_id=?",(event['event_id'],))]
+        alerts=store.connection.execute("""SELECT a.alert_id,a.rule_id,a.severity,a.explanation,s.condition_state AS lifecycle,s.policy_id,s.closed_at
+            FROM network_alerts a JOIN network_case_states s USING(alert_id) WHERE a.event_id=?""",(event['event_id'],)).fetchall()
         if alerts:
-            body+='<h2>Policy conclusions associated with this event</h2><ul>'+''.join('<li><b>'+e(r['rule_id'].replace('_',' ').title())+'</b> · '+e(r['severity'])+' · '+('Active conclusion' if r['lifecycle']=='active' else 'Historical conclusion · '+e(r['lifecycle']))+'<p>'+e(r['explanation'])+'</p><small>Stored policy: '+e(r['policy_id'] or 'Not recorded')+'</small></li>' for r in alerts)+'</ul>'
+            body+='<h2>Policy conclusions associated with this event</h2><ul>'
+            for row in alerts:
+                status = 'Active conclusion' if row['lifecycle']=='active' else 'Historical conclusion · '+e(row['lifecycle'])
+                if row['closed_at']:
+                    status += ' · <a href="'+e(alert_url(row['alert_id']))+'">Closed by operator</a>'
+                body+='<li><b>'+e(row['rule_id'].replace('_',' ').title())+'</b> · '+e(row['severity'])+' · '+status
+                body+='<p>'+e(row['explanation'])+'</p><small>Stored policy: '+e(row['policy_id'] or 'Not recorded')+'</small></li>'
+            body+='</ul>'
     else:
         body+='<h2>Observed endpoint evidence</h2>'+facts([('Addresses',', '.join(dict.fromkeys(r['ip'] for r in observations))),('Observed UTC',observations[0]['observed_at']),('Imported source',observations[0]['source_file'])])
         if observations[0]['kind']=='modbus-identity':

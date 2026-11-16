@@ -37,8 +37,9 @@ def correlate(store,asset_ids=None,cve_ids=None,commit=True):
             if old['cve_id'] not in candidates and (scope is None or old['cve_id'] in scope):
                 store._archive_plan(old['finding_id'],'Asset/product applicability changed');db.execute('DELETE FROM findings WHERE finding_id=?',(old['finding_id'],))
         for cve,vuln in candidates.items():
-            documents=[json.loads(vuln['affected_products'])]
-            documents += [json.loads(r[0]).get('affected_products',[]) for r in db.execute('SELECT record_json FROM vulnerability_sources WHERE cve_id=?',(cve,))]
+            sources = [(row['source'], bool(row['public_trusted']), json.loads(row['record_json']))
+                       for row in db.execute('SELECT source,public_trusted,record_json FROM vulnerability_sources WHERE cve_id=?',(cve,))]
+            documents = [json.loads(vuln['affected_products'])] + [record.get('affected_products', []) for _, _, record in sources]
             results=[]
             for identity in identities:
                 matches={json.dumps(p,sort_keys=True):p for products in documents for p in products if _normalized(p['vendor'])==_normalized(identity['vendor']) and _normalized(p['product'])==_normalized(identity['product'])}
@@ -64,13 +65,19 @@ def correlate(store,asset_ids=None,cve_ids=None,commit=True):
                     result['status']='NEEDS_REVIEW';result['missing'].append('competing active software versions; retire obsolete evidence or verify installation scope')
             status=min((r['status'] for r in results),key=ORDER.get)
             evidence=[e for r in results for e in r['evidence']]
-            evidence.append('Advisory content fingerprint: '+hashlib.sha256(json.dumps({k:vuln[k] for k in ('summary','mitigation','modified','references_json')},sort_keys=True).encode()).hexdigest()[:16])
+            advisory = {key: vuln[key] for key in ('summary', 'mitigation', 'modified', 'references_json')}
+            kev_action = next((record.get('mitigation') for source, trusted, record in sources
+                               if source == 'CISA KEV' and trusted and not record.get('synthetic')), None)
+            if kev_action and kev_action != advisory['mitigation']:
+                advisory['cisa_required_action'] = kev_action
+            evidence.append('Advisory content fingerprint: '+hashlib.sha256(json.dumps(advisory,sort_keys=True).encode()).hexdigest()[:16])
             missing=sorted({m for r in results for m in r['missing']})
             priority=store._priority(asset,vuln,status)
             fid=str(uuid.uuid5(uuid.NAMESPACE_URL,f"{asset['asset_id']}:{cve}"))
             current=db.execute('SELECT * FROM findings WHERE asset_id=? AND cve_id=?',(asset['asset_id'],cve)).fetchone()
             if current:fid=current['finding_id']
-            if current and (current['status']!=status or json.loads(current['evidence'])!=evidence or current['priority']!=priority):
+            if current and (current['status']!=status or json.loads(current['evidence'])!=evidence
+                            or json.loads(current['missing_evidence'])!=missing or current['priority']!=priority):
                 plan=store.get_remediation_plan(fid)
                 if plan:
                     store._archive_plan(fid,'Supporting finding evidence changed')

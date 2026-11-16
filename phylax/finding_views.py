@@ -4,6 +4,8 @@ from urllib.parse import urlencode
 from .ui import verbatim, e,evidence_lines,reference_links,evidence_url,form,hidden
 from .theme import layout,status_marker,icon
 from .prioritization import prioritize
+from .remediation import CONFIRMED, EXCLUDED, next_step, plan_finding_context, stored_mitigation
+from .remediation_lifecycle import plan_review_block
 
 
 AXES = (('KEV membership', 'Known exploitation', 3), ('Source severity', 'Flaw severity', 3),
@@ -73,10 +75,18 @@ def finding_case(store,finding,kev_label,notice=''):
         body+=' · <a href="'+e(review)+'">Review evidence</a></p>'
     missing=json.loads(f['missing_evidence'])
     body+='<h3>Missing evidence</h3><ul>'+''.join('<li>'+e(v)+'</li>' for v in (missing or ['None recorded for this assessment.']))+'</ul></section>'
-    body+='<section class="cardx" id="case-fix"><h3>Stored mitigation guidance</h3><p>'+(verbatim(f['mitigation']) if f['mitigation'] else e('No verified vendor guidance supplied.'))+'</p><div class="record-actions">'
+    mitigation = stored_mitigation(f)
+    body+='<section class="cardx" id="case-fix"><h3>Next step</h3><p>'+e(next_step(f['status'], mitigation))+'</p>'
+    if mitigation:
+        body+='<details><summary>Advisory guidance for reference</summary><p>'+verbatim(mitigation)+'</p></details>'
+    if plan and f['status'] == CONFIRMED and (reason := plan_review_block(plan | plan_finding_context(f))):
+        body+='<p>'+e(reason)+'</p>'
+    body+='<div class="record-actions">'
     if plan:
         body+='<span>Plan status: '+e(plan['status'])+'</span><a class="btn primary" href="/remediation?'+e(urlencode({'finding_id':fid}))+'">Review plan</a>'
-    else:body+=form('/remediation/create', hidden('finding_id', fid), 'Create remediation plan')
+    elif f['status'] != EXCLUDED:
+        label = 'Create remediation plan' if f['status'] == CONFIRMED else 'Create review draft'
+        body+=form('/remediation/create', hidden('finding_id', fid), label)
     body+='</div></section></div>'
     refs=json.loads(f['references_json'])
     body+='<section class="cardx" id="case-sources"><details><summary>Source provenance and references</summary><p>'+e(f['source'])+' · published '+e(f['published'] or 'Unknown')+' · modified '+e(f['modified'] or 'Unknown')+'</p><p>'+(reference_links(refs) or 'No references supplied.')+'</p></details></section>'

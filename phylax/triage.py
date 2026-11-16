@@ -11,11 +11,11 @@ def zone_alert(store, alert_id=None):
     """Find the leading active zone alert, or one exact alert for investigation."""
     sql = '''SELECT a.alert_id,a.explanation,a.policy_evidence,
         e.source_ip,e.destination_ip,e.destination_port,e.protocol,e.timestamp,
-        COALESCE(l.state,'active') AS state
+        s.state,s.closed_at
         FROM network_alerts a JOIN network_events e USING(event_id)
-        LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE a.rule_id=?'''
+        JOIN network_case_states s USING(alert_id) WHERE a.rule_id=?'''
     if alert_id is None:
-        sql += " AND COALESCE(l.state,'active')='active' ORDER BY a.acknowledged,e.timestamp DESC,a.alert_id LIMIT 1"
+        sql += " AND s.state='active' ORDER BY a.acknowledged,e.timestamp DESC,a.alert_id LIMIT 1"
         params = (ZONE_RULE,)
     else:
         sql += ' AND a.alert_id=?'
@@ -80,13 +80,19 @@ def _hydrate_evidence(store,items):
             if category=='exposure':
                 sql='SELECT a.alert_id,f.evidence,f.missing_evidence FROM alerts a JOIN findings f USING(finding_id) WHERE a.alert_id IN ('+marks+')'
             elif category=='network':sql='SELECT alert_id,policy_evidence FROM network_alerts WHERE alert_id IN ('+marks+')'
-            else:sql='SELECT alert_id,evidence_json FROM endpoint_alerts WHERE alert_id IN ('+marks+')'
+            else:sql='''SELECT a.alert_id,a.evidence_json,json_extract(h.snapshot_json,'$.alert.event_ref') AS closure_event_ref
+                FROM endpoint_alerts a LEFT JOIN alert_fix_plans p
+                    ON p.alert_id=a.alert_id AND p.category='endpoint' AND p.closed_at!=''
+                LEFT JOIN alert_fix_plan_events h ON h.plan_id=p.plan_id AND h.version=p.version
+                WHERE a.alert_id IN ('''+marks+')'
             for row in store.connection.execute(sql,batch):
                 item=selected[row['alert_id']]
                 if category=='exposure':
                     item['evidence']=json.loads(row['evidence']);item['missing_evidence']=json.loads(row['missing_evidence'])
                 elif category=='network':item['evidence']['policy']=json.loads(row['policy_evidence'])
-                else:item['evidence']=json.loads(row['evidence_json'])
+                else:
+                    item['evidence']=json.loads(row['evidence_json'])
+                    item['closure_event_ref']=row['closure_event_ref']
 
 
 def triage(store,*,limit=None,offset=0,history=False,filters=None,alert_id=None):
@@ -113,28 +119,36 @@ def _triage(store,*,limit=None,offset=0,history=False,filters=None,alert_id=None
                           'applicability':row['status'],'acknowledged':bool(row['acknowledged']),'state':'active','timestamp':row['updated_at'],
                           'explanation':row['explanation'],'urgency':urgency,'finding_id':row['finding_id'],'cve_id':row['cve_id']})
     if category in (None,'','network'):
-        sql="SELECT a.alert_id,a.rule_id,a.event_id,a.severity,a.explanation,a.acknowledged,e.source_ip,e.destination_ip,e.source_port,e.destination_port,e.protocol,e.operation,e.timestamp,e.event_ref,e.source_file,COALESCE(l.state,'active') AS lifecycle FROM network_alerts a JOIN network_events e USING(event_id) LEFT JOIN network_alert_lifecycle l USING(alert_id)"+where
+        sql="""SELECT a.alert_id,a.rule_id,a.event_id,a.severity,a.explanation,a.acknowledged,
+            e.source_ip,e.destination_ip,e.source_port,e.destination_port,e.protocol,e.operation,e.timestamp,e.event_ref,e.source_file,
+            s.state,s.plan_status,s.plan_revision,s.closed_at,s.closed_by,s.closure_reason
+            FROM network_alerts a JOIN network_events e USING(event_id) JOIN network_case_states s USING(alert_id)"""+where
         conditions=[];params=[]
         if alert_id:
             conditions.append('a.alert_id=?');params.append(alert_id)
-        if not history:conditions.append("COALESCE(l.state,'active')='active'")
+        if not history:conditions.append("s.state='active'")
         if conditions:sql+=(' AND ' if where else ' WHERE ')+' AND '.join(conditions)
         for row in store.connection.execute(sql,params):
             row=dict(row)
             items.append({'category':'network','alert_id':row['alert_id'],'ip':row['destination_ip'],'severity':row['severity'],
-                          'applicability':'not_assessed','acknowledged':bool(row['acknowledged']),'state':row['lifecycle'],'timestamp':row['timestamp'],
+                          'applicability':'not_assessed','acknowledged':bool(row['acknowledged']),'timestamp':row['timestamp'],
+                          **{key:row[key] for key in ('state','plan_status','plan_revision','closed_at','closed_by','closure_reason')},
                           'explanation':row['explanation'],'evidence':{'event_ref':row['event_ref'],'source_file':row['source_file']},
                           'event_id':row['event_id'],'rule_id':row['rule_id'],'observed':{k:row[k] for k in ('source_ip','destination_ip','source_port','destination_port','protocol','operation')}})
     if category in (None,'','endpoint'):
-        sql='SELECT a.alert_id,a.ip,a.severity,a.acknowledged,a.state,a.last_seen,a.status FROM endpoint_alerts a'+where
-        conditions = ["a.state='active'"] if not history else []
+        sql="""SELECT a.alert_id,a.ip,a.subnet_id,a.severity,a.acknowledged,a.last_seen,a.status,
+            s.state,s.plan_status,s.plan_revision,s.closed_at,s.closed_by,s.closure_reason
+            FROM endpoint_alerts a JOIN endpoint_case_states s USING(alert_id)"""+where
+        conditions = ["s.state='active'"] if not history else []
         if alert_id:conditions.append('a.alert_id=?')
         if conditions:sql+=(' AND ' if where else ' WHERE ')+' AND '.join(conditions)
         labels={'unmanaged':'Unmanaged endpoint—needs review','unauthorized':'Unauthorized endpoint—explicitly blocked','needs_identity_review':'Endpoint identity needs review','approved':'Approved endpoint'}
         for row in store.connection.execute(sql, (alert_id,) if alert_id else ()):
             row=dict(row)
             items.append({'category':'endpoint','alert_id':row['alert_id'],'ip':row['ip'],'severity':row['severity'],'applicability':'not_assessed',
-                          'acknowledged':bool(row['acknowledged']),'state':row['state'],'timestamp':row['last_seen'],'explanation':labels[row['status']]})
+                          'acknowledged':bool(row['acknowledged']),'timestamp':row['last_seen'],'explanation':labels[row['status']],
+                          'subnet_id':row['subnet_id'],'management_status':row['status'],
+                          **{key:row[key] for key in ('state','plan_status','plan_revision','closed_at','closed_by','closure_reason')}})
     identities=asset_index(store,(r['ip'] for r in items))
     term=filters.get('q','')[:200].casefold()
     matching=[]

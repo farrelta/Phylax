@@ -16,6 +16,7 @@ from typing import Any
 
 from .validation import vulnerability, utc_timestamp, csv_value
 from .prioritization import prioritize
+from .remediation import CONFIRMED, EXCLUDED, plan_finding_context
 
 
 ASSET_FIELDS = (
@@ -299,7 +300,7 @@ class Store:
 
     def recent_network_events(self, *, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
         count = self.connection.execute("SELECT COUNT(*) FROM network_events").fetchone()[0]
-        rows = [dict(row) for row in self.connection.execute("""SELECT e.*,GROUP_CONCAT(a.rule_id) AS rule_ids,GROUP_CONCAT(a.alert_id) AS alert_ids,ev.diagnostics_json FROM network_events e LEFT JOIN network_alerts a ON a.event_id=e.event_id AND COALESCE((SELECT state FROM network_alert_lifecycle WHERE alert_id=a.alert_id),'active')='active' LEFT JOIN event_evaluations ev ON ev.event_id=e.event_id GROUP BY e.event_id ORDER BY e.timestamp DESC LIMIT ? OFFSET ?""", (min(max(1, limit), 100), max(0, offset)))]
+        rows = [dict(row) for row in self.connection.execute("""SELECT e.*,GROUP_CONCAT(a.rule_id) AS rule_ids,GROUP_CONCAT(a.alert_id) AS alert_ids,ev.diagnostics_json FROM network_events e LEFT JOIN network_alerts a ON a.event_id=e.event_id AND (SELECT state FROM network_case_states WHERE alert_id=a.alert_id)='active' LEFT JOIN event_evaluations ev ON ev.event_id=e.event_id GROUP BY e.event_id ORDER BY e.timestamp DESC LIMIT ? OFFSET ?""", (min(max(1, limit), 100), max(0, offset)))]
         return rows, count
 
     def attack_surface(self, filters=None) -> dict[str, Any]:
@@ -343,19 +344,23 @@ class Store:
             'SELECT source,record_json,retrieved_at,public_trusted FROM vulnerability_sources WHERE cve_id=? ORDER BY source',(cve_id,))]
 
     def create_remediation_plan(self, finding_id: str, provider: str, model: str, plan: dict[str, Any], source_urls: list[str], *, commit: bool = True) -> dict[str, Any]:
-        if not self.connection.execute("SELECT 1 FROM findings WHERE finding_id=?", (finding_id,)).fetchone():
+        finding = self.connection.execute("SELECT status FROM findings WHERE finding_id=?", (finding_id,)).fetchone()
+        if not finding:
             raise ValueError("Finding not found")
+        if finding['status'] == EXCLUDED:
+            raise ValueError('No fix needed for this advisory.')
+        status = 'Recommended' if finding['status'] == CONFIRMED else 'Needs More Evidence'
         existing = self.connection.execute("SELECT plan_id,status FROM remediation_plans WHERE finding_id=?", (finding_id,)).fetchone()
         now = utc_now()
         if existing:
             self._archive_plan(finding_id, "Plan regenerated")
             plan_id = existing["plan_id"]
-            self.connection.execute("UPDATE remediation_plans SET provider=?,model=?,plan_json=?,source_urls_json=?,status='Recommended',reviewer='',change_notes='',verification_evidence='',updated_at=? WHERE plan_id=?", (provider, model, json.dumps(plan), json.dumps(source_urls), now, plan_id))
-            self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), plan_id, existing["status"], "Recommended", "system", "Plan regenerated; prior review and verification were cleared.", now))
+            self.connection.execute("UPDATE remediation_plans SET provider=?,model=?,plan_json=?,source_urls_json=?,status=?,reviewer='',change_notes='',verification_evidence='',updated_at=? WHERE plan_id=?", (provider, model, json.dumps(plan), json.dumps(source_urls), status, now, plan_id))
+            self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), plan_id, existing["status"], status, "system", "Plan regenerated; prior review and verification were cleared.", now))
         else:
             plan_id = str(uuid.uuid4())
-            self.connection.execute("INSERT INTO remediation_plans VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (plan_id, finding_id, provider, model, json.dumps(plan), json.dumps(source_urls), "Recommended", "", "", "", now, now))
-            self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), plan_id, "New", "Recommended", "system", "Plan generated; no operational change was made.", now))
+            self.connection.execute("INSERT INTO remediation_plans VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (plan_id, finding_id, provider, model, json.dumps(plan), json.dumps(source_urls), status, "", "", "", now, now))
+            self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), plan_id, "New", status, "system", "Plan generated; no operational change was made.", now))
         if commit:
             self.connection.commit()
         return self.get_remediation_plan(finding_id)  # type: ignore[return-value]
@@ -370,20 +375,37 @@ class Store:
         result["history"] = [dict(item) for item in self.connection.execute("SELECT old_status,new_status,actor,notes,created_at FROM remediation_plan_events WHERE plan_id=? ORDER BY created_at", (result["plan_id"],))]
         return result
 
-    def update_remediation_plan(self, finding_id: str, status: str, *, reviewer: str = "", change_notes: str = "", verification_evidence: str = "") -> dict[str, Any]:
-        from .remediation_lifecycle import TRANSITIONS
-        row = self.connection.execute("SELECT plan_id,status FROM remediation_plans WHERE finding_id=?", (finding_id,)).fetchone()
-        if not row:
-            raise ValueError("Remediation plan not found")
-        if status not in TRANSITIONS.get(row["status"], ()):
-            raise ValueError(f"Invalid remediation transition: {row['status']} → {status}")
-        if status == "Approved" and not reviewer.strip():
-            raise ValueError("Reviewer is required for approval")
-        if status == "Verified" and not verification_evidence.strip():
-            raise ValueError("Verification evidence is required before marking a plan verified")
-        now = utc_now()
-        self.connection.execute("UPDATE remediation_plans SET status=?,reviewer=CASE WHEN ?!='' THEN ? ELSE reviewer END,change_notes=CASE WHEN ?!='' THEN ? ELSE change_notes END,verification_evidence=CASE WHEN ?='Under Review' THEN '' WHEN ?!='' THEN ? ELSE verification_evidence END,updated_at=? WHERE plan_id=?", (status, reviewer.strip(), reviewer.strip(), change_notes.strip(), change_notes.strip(), status, verification_evidence.strip(), verification_evidence.strip(), now, row["plan_id"]))
-        self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), row["plan_id"], row["status"], status, reviewer.strip(), change_notes.strip() or verification_evidence.strip(), now))
+    def update_remediation_plan(self, finding_id: str, status: str, *, reviewer: str = "", change_notes: str = "", verification_evidence: str = "",
+                                expected_plan_id: str | None = None, expected_plan_version: str | None = None) -> dict[str, Any]:
+        from .remediation_lifecycle import ADVANCES, TRANSITIONS, plan_review_block
+
+        reviewer, change_notes, verification_evidence = reviewer.strip(), change_notes.strip(), verification_evidence.strip()
+        with self.atomic('remediation_status'):
+            # Acquire the write lock before reading evidence that another importer could update.
+            self.connection.execute('UPDATE remediation_plans SET status=status WHERE finding_id=?', (finding_id,))
+            plan = self.get_remediation_plan(finding_id)
+            finding = self.finding(finding_id)
+            if not plan or not finding:
+                raise ValueError('Remediation plan not found')
+            if expected_plan_id is not None or expected_plan_version is not None:
+                if (expected_plan_id, expected_plan_version) != (plan['plan_id'], str(len(plan['history']))):
+                    raise ValueError('The fix plan changed while this form was open. Review the current plan before saving.')
+            if status not in TRANSITIONS.get(plan['status'], ()):
+                raise ValueError(f"Invalid remediation transition: {plan['status']} → {status}")
+            context = plan_finding_context(finding)
+            if status in ADVANCES:
+                if reason := plan_review_block(plan | context):
+                    raise ValueError(reason)
+            if status == 'Approved':
+                if not reviewer:
+                    raise ValueError('Reviewer is required for approval')
+                if not context['current_mitigation'] and not change_notes:
+                    raise ValueError('Enter the specific mitigation or compensating control in the approval notes.')
+            if status == 'Verified' and not verification_evidence:
+                raise ValueError('Verification evidence is required before marking a plan verified')
+            now = utc_now()
+            self.connection.execute("UPDATE remediation_plans SET status=?,reviewer=CASE WHEN ?!='' THEN ? ELSE reviewer END,change_notes=CASE WHEN ?!='' THEN ? ELSE change_notes END,verification_evidence=CASE WHEN ?='Under Review' THEN '' WHEN ?!='' THEN ? ELSE verification_evidence END,updated_at=? WHERE plan_id=?", (status, reviewer, reviewer, change_notes, change_notes, status, verification_evidence, verification_evidence, now, plan['plan_id']))
+            self.connection.execute("INSERT INTO remediation_plan_events VALUES (?,?,?,?,?,?,?)", (str(uuid.uuid4()), plan['plan_id'], plan['status'], status, reviewer, change_notes or verification_evidence, now))
         self.connection.commit()
         return self.get_remediation_plan(finding_id)  # type: ignore[return-value]
 
@@ -640,16 +662,19 @@ class Store:
 
     def dashboard(self, *, limit: int | None = None, offset: int = 0) -> dict[str, Any]:
         paging = f' LIMIT {min(100,max(1,limit))} OFFSET {max(0,offset)}' if limit is not None else ''
-        network_alerts = [dict(r) for r in self.connection.execute("""SELECT a.*,e.event_ref,e.timestamp AS event_timestamp,e.source_ip,e.destination_ip,e.source_file,asset.asset_id AS destination_asset_id,asset.hostname AS destination_hostname FROM network_alerts a JOIN network_events e USING(event_id) LEFT JOIN assets asset ON asset.asset_id=(SELECT asset_id FROM assets WHERE ip_address=e.destination_ip ORDER BY verified DESC,identity_confidence DESC LIMIT 1) LEFT JOIN network_alert_lifecycle l ON l.alert_id=a.alert_id WHERE COALESCE(l.state,'active')='active' ORDER BY a.created_at DESC""" + paging)]
+        network_alerts = [dict(r) for r in self.connection.execute("""SELECT a.*,e.event_ref,e.timestamp AS event_timestamp,e.source_ip,e.destination_ip,e.source_file,asset.asset_id AS destination_asset_id,asset.hostname AS destination_hostname FROM network_alerts a JOIN network_events e USING(event_id) LEFT JOIN assets asset ON asset.asset_id=(SELECT asset_id FROM assets WHERE ip_address=e.destination_ip ORDER BY verified DESC,identity_confidence DESC LIMIT 1) JOIN network_case_states s ON s.alert_id=a.alert_id WHERE s.state='active' ORDER BY a.created_at DESC""" + paging)]
         identity_review_assets = [dict(r) for r in self.connection.execute("""SELECT asset_id,ip_address,hostname,asset_type,vendor,product,version,identity_confidence,verified,identification_source
             FROM assets WHERE TRIM(vendor)='' OR TRIM(product)='' OR identity_confidence!='high' OR verified=0 ORDER BY ip_address,asset_id""" + paging)]
         remediation_plans = []
-        plan_rows = self.connection.execute("""SELECT p.finding_id,f.cve_id,f.asset_id,f.status AS finding_status,f.priority,f.missing_evidence,a.ip_address,a.hostname,a.identity_confidence
-            FROM remediation_plans p JOIN findings f USING(finding_id) JOIN assets a USING(asset_id) ORDER BY p.updated_at DESC""" + paging)
+        plan_rows = self.connection.execute("""SELECT p.finding_id,f.cve_id,f.asset_id,f.status,f.priority,f.evidence,f.missing_evidence,
+            a.ip_address,a.hostname,a.identity_confidence,v.mitigation,v.references_json
+            FROM remediation_plans p JOIN findings f USING(finding_id) JOIN assets a USING(asset_id)
+            JOIN vulnerabilities v USING(cve_id) ORDER BY p.updated_at DESC""" + paging)
         for row in plan_rows:
             plan = self.get_remediation_plan(row["finding_id"])
             if plan:
-                remediation_plans.append(plan | {"cve_id": row["cve_id"], "asset_id": row["asset_id"], "ip_address": row["ip_address"], "hostname": row["hostname"], "finding_status": row["finding_status"], "priority": row["priority"], "current_identity_confidence":row['identity_confidence'], "current_missing_evidence":json.loads(row['missing_evidence'])})
+                remediation_plans.append(plan | {key: row[key] for key in ('cve_id', 'asset_id', 'ip_address', 'hostname')}
+                                         | plan_finding_context(dict(row)))
         stale_sources = sum(1 for item in self.source_health() if item["health"] == "stale")
         communication_relationships = self.connection.execute("""SELECT COUNT(*) FROM (SELECT 1 FROM network_events GROUP BY source_ip,source_port,destination_ip,destination_port,protocol,operation,event_type,source_file)""").fetchone()[0]
         return {
@@ -659,13 +684,13 @@ class Store:
             "advisories_count": self.connection.execute('SELECT COUNT(*) FROM vulnerabilities').fetchone()[0],
             "plans_count": self.connection.execute('SELECT COUNT(*) FROM remediation_plans').fetchone()[0],
             "exposure_alerts_count": self.connection.execute('SELECT COUNT(*) FROM alerts').fetchone()[0],
-            "network_alerts_count": self.connection.execute("SELECT COUNT(*) FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE COALESCE(l.state,'active')='active'").fetchone()[0],
+            "network_alerts_count": self.connection.execute("SELECT COUNT(*) FROM network_case_states WHERE state='active'").fetchone()[0],
             "identity_review_assets": identity_review_assets,
             "confirmed_assets": self.connection.execute("SELECT COUNT(DISTINCT asset_id) FROM findings WHERE status='CONFIRMED_MATCH'").fetchone()[0],
             "potential_assets": self.connection.execute("SELECT COUNT(DISTINCT asset_id) FROM findings WHERE status='POTENTIAL_MATCH'").fetchone()[0],
             "kev_findings": self.connection.execute("SELECT COUNT(*) FROM findings f JOIN vulnerabilities v USING(cve_id) WHERE v.kev=1 AND f.status IN ('CONFIRMED_MATCH','POTENTIAL_MATCH')").fetchone()[0],
             "critical_exposed_assets": self.connection.execute("SELECT COUNT(DISTINCT f.asset_id) FROM findings f JOIN assets a USING(asset_id) WHERE a.criticality='critical' AND f.status IN ('CONFIRMED_MATCH','POTENTIAL_MATCH')").fetchone()[0],
-            "unacknowledged_alerts": self.connection.execute("SELECT (SELECT COUNT(*) FROM alerts WHERE acknowledged=0)+(SELECT COUNT(*) FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id) WHERE a.acknowledged=0 AND COALESCE(l.state,'active')='active')+(SELECT COUNT(*) FROM endpoint_alerts WHERE acknowledged=0 AND state='active')").fetchone()[0],
+            "unacknowledged_alerts": self.connection.execute("SELECT (SELECT COUNT(*) FROM alerts WHERE acknowledged=0)+(SELECT COUNT(*) FROM network_alerts a JOIN network_case_states s USING(alert_id) WHERE a.acknowledged=0 AND s.state='active')+(SELECT COUNT(*) FROM endpoint_alerts a JOIN endpoint_case_states s USING(alert_id) WHERE a.acknowledged=0 AND s.state='active')").fetchone()[0],
             "findings": [dict(r) for r in self.connection.execute("""SELECT f.*,a.ip_address,a.hostname,a.vendor,a.product,a.version,a.criticality,a.identity_confidence,a.zone,v.summary,v.severity,v.kev,v.source,v.source_url,v.references_json,v.published,v.modified,v.mitigation,v.synthetic,v.cvss FROM findings f JOIN assets a USING(asset_id) JOIN vulnerabilities v USING(cve_id) ORDER BY CASE f.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, f.updated_at DESC""" + paging)],
             "alerts": [dict(r) for r in self.connection.execute("SELECT * FROM alerts ORDER BY created_at DESC" + paging)] + network_alerts,
             "network_alerts": network_alerts,

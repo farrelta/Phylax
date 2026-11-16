@@ -26,6 +26,7 @@ LIMITATIONS = [
 
 def report_data(store: Store) -> dict[str, Any]:
     from .core import utc_now
+    from .alert_fix_plans import read_plan as read_alert_plan
     data = store.dashboard()
     findings=[]
     for item in data['findings']:
@@ -48,8 +49,9 @@ def report_data(store: Store) -> dict[str, Any]:
         findings.append(row)
     network=[]
     for row in store.connection.execute("""SELECT a.*,e.event_ref,e.timestamp AS event_timestamp,e.source_ip,e.destination_ip,e.source_file,
-        COALESCE(l.state,'active') AS lifecycle_state,l.policy_id FROM network_alerts a JOIN network_events e USING(event_id)
-        LEFT JOIN network_alert_lifecycle l USING(alert_id) ORDER BY a.created_at DESC"""):
+        s.state AS lifecycle_state,s.condition_state,s.policy_id,s.closed_at,s.closed_by,s.closure_reason
+        FROM network_alerts a JOIN network_events e USING(event_id)
+        JOIN network_case_states s USING(alert_id) ORDER BY a.created_at DESC"""):
         item=dict(row);item['policy_evidence']=json.loads(item['policy_evidence'])
         asset=store.connection.execute('SELECT asset_id,identity_confidence FROM assets WHERE ip_address=? ORDER BY verified DESC LIMIT 1',(item['destination_ip'],)).fetchone()
         item['asset_id']=asset['asset_id'] if asset else ''
@@ -67,9 +69,12 @@ def report_data(store: Store) -> dict[str, Any]:
         FROM network_events WHERE event_type='suricata_flow'
         ORDER BY observed_at,event_ref''')]
     label=store.connection.execute("SELECT value FROM schema_meta WHERE key='dataset_label'").fetchone()
+    alert_plans = [read_alert_plan(store, row['category'], row['alert_id']) for row in store.connection.execute(
+        'SELECT category,alert_id FROM alert_fix_plans ORDER BY updated_at DESC,category,alert_id')]
     return {'dataset_label':label[0] if label else '', 'asset_intelligence':extension,'generated_at':utc_now(),'scope':'local inventory and locally stored intelligence','known_limitations':LIMITATIONS,
             'findings':findings,'asset_identity_reviews':data['identity_review_assets'],'network_alerts':network,
             'evaluation_diagnostics':diagnostics,'remediation_plans':data['remediation_plans'],
+            'alert_fix_plans':alert_plans,
             'source_health':data['source_health'],'priority_rule_version':'2',
             'archived_plans':[dict(r) | {'snapshot':json.loads(r['snapshot_json'])} for r in store.connection.execute('SELECT * FROM archived_plans ORDER BY created_at DESC')]}
 
@@ -138,6 +143,26 @@ def export_report(store: Store, format: str, *, language: str = 'en') -> str:
         for row in payload['network_alerts']:
             lines.extend([f"- {row['rule_id']} · {t(row['lifecycle_state'])} · {row['event_timestamp']} · {t('Event')} {html.escape(row['event_ref'])}",
                           '  '+html.escape(t(row['explanation'])), '  '+t('Next steps:')+' '+t(row['recommended_next_steps'])])
+        if payload['alert_fix_plans']:
+            from .triage import alert_url
+            lines.extend(['', t('## Alert fix plans')])
+            for row in payload['alert_fix_plans']:
+                label = t('Network policy') if row['category'] == 'network' else t('Device management')
+                alert = row['alert']
+                path = alert_url(row['alert_id'])
+                lines.extend([f"- [{label}]({path}) · {t(row['status'])} · {t(alert['state'])}",
+                              '  ' + t('Event') + ' ' + html.escape(alert['event_ref'] or t('Not recorded'))])
+                for key, title in (('change_notes', 'Recorded change notes'), ('verification_evidence', 'Recorded verification evidence')):
+                    if row[key]:
+                        lines.append('  ' + t(title) + ' · ' + html.escape(' '.join(row[key].split())))
+                for event in row['history']:
+                    if event['action'] == 'Closed by operator':
+                        closure = event['snapshot']
+                        details = [closure[key] for key in ('closed_at','closed_by','closure_reason','verification_evidence')]
+                        lines.append('  ' + t(event['action']) + ' · ' +
+                                     ' · '.join(html.escape(' '.join(value.split())) for value in details))
+                    elif event['action'] == 'New device activity reopened the alert':
+                        lines.append('  ' + t(event['action']) + ' · ' + event['recorded_at'])
         lines.extend(['',t('## Asset intelligence and operational context')])
         extension=payload['asset_intelligence']
         for category in ('management','asset_context','processes','process_links','asset_changes','software_components','sensor_evidence','scan_runs','triage','collectors'):
@@ -158,6 +183,10 @@ def export_report(store: Store, format: str, *, language: str = 'en') -> str:
         write({**row,'record_type':'asset_identity_review','status':'NEEDS_REVIEW','summary':'Asset identity needs review. No CVE conclusion was made.', 'missing_evidence':[k for k in ('vendor','product') if not row[k]],'recommended_next_steps':'Verify inventory identity with its owner.'})
     for row in payload['network_alerts']:write({**row,'record_type':'network_alert','timestamp':row['event_timestamp'],'summary':row['explanation']})
     for row in payload['remediation_plans']:write({**row,'record_type':'remediation_plan','status':row['finding_status'],'remediation_status':row['status'],'summary':row['plan']['finding_summary'],'references':row['source_urls']})
+    for row in payload['alert_fix_plans']:
+        alert = row['alert']
+        write({**row, 'record_type':'alert_fix_plan', 'event_ref':alert['event_ref'], 'rule_id':alert.get('rule_id',''),
+               'lifecycle_state':alert['state'], 'remediation_status':row['status'], 'record_data':row})
     for category,rows in payload['asset_intelligence'].items():
         for row in rows:
             write({'record_type':category,'asset_id':row.get('asset_id',''),'ip_address':row.get('ip',''),'status':row.get('status',''),

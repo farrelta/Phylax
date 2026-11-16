@@ -213,7 +213,8 @@ class LocalizedHTTPTests(unittest.TestCase):
 
     def test_remediation_rejects_invalid_transition_in_indonesian(self):
         before=self.store.get_remediation_plan(self.fid)
-        handler=self.handler('/remediation/update',{'finding_id':self.fid,'status':'Verified','reviewer':'operator'})
+        handler=self.handler('/remediation/update',{'finding_id':self.fid,'status':'Verified','reviewer':'operator',
+                                                    'plan_id':before['plan_id'],'plan_version':len(before['history'])})
         handler.do_POST();body=handler.wfile.getvalue().decode()
         self.assertEqual(handler.response_status,400);self.assertIn('Peralihan status remediasi tidak valid',body)
         self.assertEqual(before,self.store.get_remediation_plan(self.fid))

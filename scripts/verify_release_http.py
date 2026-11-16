@@ -66,11 +66,12 @@ def verify():
                 fid=finding['finding_id']
                 for key in ('evidence','missing_evidence'):finding[key]=json.loads(finding[key])
                 plan=compose_plan(finding,check.public_vulnerability_for_finding(fid))
-                check.create_remediation_plan(fid,'template-fallback','',plan,plan['source_references'])
+                saved=check.create_remediation_plan(fid,'template-fallback','',plan,plan['source_references'])
                 with urlopen(base+'/remediation?'+urlencode({'finding_id':fid,'page':99}),timeout=10) as response:
                     results['focused_plan']=response.status
                     if ('id="plan-'+fid+'"').encode() not in response.read():raise RuntimeError('Focused plan lost outside first page')
-                results['plan_review_saved']=post('/remediation/update',{'csrf_token':Handler.csrf_token,'finding_id':fid,'status':'Under Review'})
+                results['plan_review_saved']=post('/remediation/update',{'csrf_token':Handler.csrf_token,'finding_id':fid,'status':'Under Review',
+                                                                        'plan_id':saved['plan_id'],'plan_version':len(saved['history'])})
                 if check.get_remediation_plan(fid)['status']!='Under Review':raise RuntimeError('Plan review was not saved')
                 try:
                     with urlopen(base+'/remediation?finding_id=missing',timeout=10) as response:results['missing_plan']=response.status

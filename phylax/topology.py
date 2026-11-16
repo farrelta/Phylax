@@ -93,7 +93,10 @@ def render_alert_topology(store, alert):
                 + ('<span class="mono">'+e(ip)+'</span>' if hostname else '')
                 + '<span>'+e(alert['policy'][side+'_zone'])+' zone</span></div>')
 
-    resolved = '<p class="notice">This policy alert was resolved after reevaluation.</p>' if alert['state'] == 'resolved' else ''
+    resolved = ''
+    if alert['state'] == 'resolved':
+        reason = 'Closed by operator' if alert.get('closed_at') else 'This policy alert was resolved after reevaluation.'
+        resolved = '<p class="notice">' + e(reason) + '</p>'
     protocol = alert['protocol'].upper()
     if alert['destination_port'] is not None:
         protocol += ' '+str(alert['destination_port'])

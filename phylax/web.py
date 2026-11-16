@@ -17,7 +17,9 @@ from .web_security import CSP, valid_host, valid_origin, valid_token, multipart_
 from .prioritization import prioritize
 from .jobs import Jobs
 from .remediation_service import generate_plan
-from .remediation_presenter import plan_card
+from .remediation_presenter import alert_plan_card, plan_card
+from .remediation import plan_finding_context
+from .alert_fix_plans import plan_url as alert_plan_url, read_plan as read_alert_plan, save_plan as save_alert_plan
 from .finding_views import finding_case
 from .advisory_views import advisory_summary, passages, render_facts
 from .operator_pages import inventory_form,policy_page,settings_page,reports_page
@@ -681,22 +683,37 @@ def attack_surface_page(store: Store, query=None, *, filter_error='') -> str:
     return layout("Attack surface", content, "/attack-surface", lead="Inventory identity joined with relationships from imported Zeek logs. The map shows recorded traffic.", heading="Passive attack surface")
 
 
-def remediation_page(store: Store, page_number: int = 1, *, finding_id='',submitted=None,error='',notice='') -> str:
+def remediation_page(store: Store, page_number: int = 1, *, finding_id='', category='', alert_id='', submitted=None,error='',notice='') -> str:
     page_number=max(1,page_number)
-    data=store.dashboard(limit=50,offset=(page_number-1)*50)
-    plans = data["remediation_plans"]
-    finding_id = submitted.get("finding_id", "") if submitted else finding_id
-    if finding_id:
-        selected=store.get_remediation_plan(finding_id)
-        finding=store.finding(finding_id)
+    if submitted:
+        finding_id = submitted.get('finding_id', finding_id)
+        category = submitted.get('category', category)
+        alert_id = submitted.get('alert_id', alert_id)
+
+    def render_finding(finding_key):
+        selected=store.get_remediation_plan(finding_key)
+        finding=store.finding(finding_key)
         if not selected or not finding:raise ValueError('Remediation plan not found')
-        plans=[{**selected,**{k:finding[k] for k in ("cve_id","hostname","ip_address")},"finding_status":finding["status"],"priority":finding["priority"],"current_identity_confidence":finding['identity_confidence'],"current_missing_evidence":json.loads(finding['missing_evidence'])}]
-    blocks = [plan_card(item, submitted if submitted and submitted.get('finding_id')==item['finding_id'] else None, error) for item in plans]
-    pager=(f'<a href="/remediation?page={page_number-1}">Previous</a> ' if page_number>1 else '')
-    if page_number*50 < data["plans_count"]:pager+=f'<a href="/remediation?page={page_number+1}">Next</a>'
-    if finding_id:
-        pager = '<p><a href="/remediation">All remediation plans</a> · <a href="/?'+urlencode({'finding_id':finding_id})+'#finding-'+html.escape(finding_id,quote=True)+'">Back to finding</a></p>'
-    body = pager + "".join(blocks) or '<section class="panel empty">No remediation plans yet. <a href="/#findings">Open an exposure finding on the overview</a> to request a plan.</section>'
+        item=selected | {key:finding[key] for key in ('cve_id','hostname','ip_address')} | plan_finding_context(finding)
+        return plan_card(item, submitted, error)
+
+    pager = ''
+    if alert_id or category:
+        body = alert_plan_card(read_alert_plan(store, category, alert_id), submitted, error)
+        pager = '<p><a href="/remediation">All remediation plans</a></p>'
+    elif finding_id:
+        body = render_finding(finding_id)
+        target = '/?' + urlencode({'finding_id': finding_id}) + '#finding-' + finding_id
+        pager = '<p><a href="/remediation">All remediation plans</a> · <a href="'+html.escape(target, quote=True)+'">Back to finding</a></p>'
+    else:
+        rows=store.connection.execute('''SELECT 'exposure' AS category,finding_id AS subject,updated_at FROM remediation_plans
+            UNION ALL SELECT category,alert_id,updated_at FROM alert_fix_plans ORDER BY updated_at DESC,category,subject
+            LIMIT 51 OFFSET ?''', ((page_number-1)*50,)).fetchall()
+        body=''.join(render_finding(row['subject']) if row['category'] == 'exposure' else
+                     alert_plan_card(read_alert_plan(store, row['category'], row['subject'])) for row in rows[:50])
+        if page_number>1:pager=f'<a href="/remediation?page={page_number-1}">Previous</a> '
+        if len(rows)==51:pager+=f'<a href="/remediation?page={page_number+1}">Next</a>'
+    body = pager + body if body else pager + '<section class="panel empty">No remediation plans yet. <a href="/triage">Open an alert</a> to start a plan.</section>'
     if notice:body='<p class="notice success" role="status">'+html.escape(notice)+'</p>'+body
     return layout("Remediation plans", body, "/remediation", lead="Recommendations are separate from approvals, implementation, and verified outcomes. No infrastructure changes are performed by Phylax.")
 
@@ -870,7 +887,9 @@ class Handler(BaseHTTPRequestHandler):
             query=parse_qs(urlparse(self.path).query)
             try: page_number=int(query.get("page",["1"])[0])
             except ValueError: page_number=1
-            try:self._send(remediation_page(self.store,page_number,finding_id=query.get("finding_id",[""])[0],notice=query.get("notice",[""])[0]).encode())
+            try:self._send(remediation_page(self.store,page_number,finding_id=query.get("finding_id",[""])[0],
+                                            category=query.get('category',[''])[0],alert_id=query.get('alert_id',[''])[0],
+                                            notice=query.get("notice",[""])[0]).encode())
             except ValueError as exc:self._send(str(exc).encode(),'text/plain; charset=utf-8',404)
         elif path == "/assets.csv":
             from io import StringIO
@@ -968,6 +987,19 @@ class Handler(BaseHTTPRequestHandler):
                 job_id = self.server.jobs.submit('Sync public sources',sync_work)
                 self.send_response(303);self.send_header('Location','/jobs/'+job_id);self.end_headers()
                 return
+            elif path in {'/remediation/create','/remediation/update','/remediation/close'} and (
+                     path == '/remediation/close' or parse_qs(raw.decode('utf-8','replace')).get('alert_id')):
+                fields = {key: vals[0] for key, vals in parse_qs(raw.decode('utf-8','replace'), keep_blank_values=True).items()}
+                action = path.rsplit('/', 1)[-1]
+                save_alert_plan(self.store, action, fields)
+                alert_id = fields['alert_id']
+                if action == 'close':
+                    destination = alert_url(alert_id)
+                else:
+                    notice = 'Fix plan draft saved.' if action == 'create' else 'Fix plan status updated.'
+                    destination = alert_plan_url(fields['category'], alert_id, notice=notice)
+                self.send_response(303);self.send_header('Location',destination);self.end_headers()
+                return
             elif path == "/remediation/create":
                 form = parse_qs(raw.decode("utf-8", "replace"))
                 finding_id = form.get("finding_id", [""])[0]
@@ -1004,7 +1036,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/remediation/update":
                 form = parse_qs(raw.decode("utf-8", "replace"))
                 finding_id = form.get("finding_id", [""])[0]
-                self.store.update_remediation_plan(finding_id, form.get("status", [""])[0], reviewer=form.get("reviewer", [""])[0][:120], change_notes=form.get("change_notes", [""])[0][:2000], verification_evidence=form.get("verification_evidence", [""])[0][:4000])
+                self.store.update_remediation_plan(finding_id, form.get("status", [""])[0], reviewer=form.get("reviewer", [""])[0][:120],
+                                                   change_notes=form.get("change_notes", [""])[0][:2000], verification_evidence=form.get("verification_evidence", [""])[0][:4000],
+                                                   expected_plan_id=form.get('plan_id', [''])[0], expected_plan_version=form.get('plan_version', [''])[0])
                 notice = "Remediation lifecycle updated and recorded. Finding applicability and risk are unchanged."
             elif path in {"/assets/import", "/intelligence/import", "/network/import", "/software/wazuh"}:
                 if parts is None:
@@ -1080,8 +1114,15 @@ class Handler(BaseHTTPRequestHandler):
                 body = release_web.page(self.store, '/software', {},
                                         submitted=locals().get('wazuh_fields', {'manager': ''}), error=str(exc))
             elif path=='/policy/apply':body=policy_page(self.store,submitted=submitted,error=str(exc))
+            elif path.startswith('/remediation/') and submitted.get('alert_id'):
+                try:body=remediation_page(self.store,submitted=submitted,error=str(exc))
+                except ValueError:
+                    body=release_web.page(self.store,'/triage',{'alert':[submitted['alert_id']]},error=str(exc),
+                                          public=getattr(self,'public',False))
             elif path == '/remediation/create' and self.store.get_remediation_plan(submitted.get('finding_id', '')):
                 body = remediation_page(self.store, finding_id=submitted['finding_id'], notice=str(exc))
+            elif path == '/remediation/create' and self.store.finding(submitted.get('finding_id', '')):
+                body = page(self.store, f"Input error: {exc}", finding_id=submitted['finding_id'])
             elif path=='/remediation/update' and self.store.get_remediation_plan(submitted.get('finding_id','')):
                 body=remediation_page(self.store,submitted=submitted,error=str(exc))
             else:body=page(self.store,f"Input error: {exc}")

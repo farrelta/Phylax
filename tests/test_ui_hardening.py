@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 
 import test_review_regressions as regression_tests
 from phylax.remediation import compose_plan
+from phylax.i18n import translate_html
 from phylax.remediation_views import lifecycle_form
 from phylax.remediation_lifecycle import TRANSITIONS
 from phylax.theme import CSS,term,status_marker
@@ -33,6 +34,9 @@ class UIHardeningTests(unittest.TestCase):
     def tearDown(self):self.http.tearDown()
 
     def post(self,path,values,**kwargs):
+        if path == '/remediation/update':
+            plan = self.store.get_remediation_plan(values['finding_id'])
+            values = {'plan_id': plan['plan_id'], 'plan_version': len(plan['history']), **values}
         handler=self.http.handler(path,urlencode({'csrf_token':self.http.Handler.csrf_token,**values}),**kwargs)
         handler.do_POST()
         return handler,handler.wfile.getvalue().decode()
@@ -103,6 +107,142 @@ class UIHardeningTests(unittest.TestCase):
         self.assertEqual(h.response_status,400)
         self.assertIn('unavailable; choose a valid next status',body)
         self.assertEqual(self.store.get_remediation_plan(self.fid)['status'],'Recommended')
+
+    def test_fix_plan_and_finding_show_current_next_step_in_both_languages(self):
+        self.make_plan()
+        scenarios = [
+            ('POTENTIAL_MATCH', 'fixture mitigation', 'Verify device identity and version.', 'Verifikasi identitas dan versi perangkat.'),
+            ('POTENTIAL_MATCH', '', 'Verify device identity and version.', 'Verifikasi identitas dan versi perangkat.'),
+            ('NEEDS_REVIEW', 'fixture mitigation', 'Resolve missing or conflicting evidence.', 'Periksa bukti yang belum lengkap atau saling bertentangan.'),
+            ('NEEDS_REVIEW', '', 'Resolve missing or conflicting evidence.', 'Periksa bukti yang belum lengkap atau saling bertentangan.'),
+            ('CONFIRMED_MATCH', 'fixture mitigation', 'Review vendor guidance.', 'Tinjau panduan vendor.'),
+            ('CONFIRMED_MATCH', '', 'Consult the advisory or document a mitigation.', 'Baca advisori atau dokumentasikan tindakan mitigasi.'),
+            ('NO_MATCH_TO_THIS_ADVISORY', 'fixture mitigation', 'No fix needed for this advisory.', 'Tidak diperlukan perbaikan untuk advisori ini.'),
+            ('NO_MATCH_TO_THIS_ADVISORY', '', 'No fix needed for this advisory.', 'Tidak diperlukan perbaikan untuk advisori ini.'),
+        ]
+        for status, mitigation, english, indonesian in scenarios:
+            with self.subTest(status=status, mitigation=mitigation):
+                self.store.connection.execute('UPDATE findings SET status=?, missing_evidence=? WHERE finding_id=?',
+                                              (status, json.dumps(['Fixture version evidence is incomplete.']), self.fid))
+                self.store.connection.execute('UPDATE vulnerabilities SET mitigation=?', (mitigation,))
+                if status == 'CONFIRMED_MATCH':
+                    self.make_plan()
+                plan = remediation_page(self.store, finding_id=self.fid)
+                finding = page(self.store, finding_id=self.fid)
+                for markup in (plan, finding):
+                    self.assertIn(english, markup)
+                    self.assertIn(indonesian, translate_html(markup, 'id'))
+                self.assertNotIn('fixture mitigation', plan.split('class="plan-review"', 1)[0])
+                if status in {'POTENTIAL_MATCH', 'NEEDS_REVIEW'}:
+                    self.assertIn('Fixture version evidence is incomplete.', plan)
+                    self.assertIn('#case-evidence', plan)
+                    self.assertIn('<details><summary>Advisory guidance for reference</summary>', plan)
+                if status == 'NO_MATCH_TO_THIS_ADVISORY':
+                    self.assertNotIn('Fix plan checklist', plan)
+                    self.assertIn('#case-evidence', plan)
+                    self.assertNotIn('Generate replacement plan</button>', plan)
+                    before = self.store.get_remediation_plan(self.fid)
+                    handler, _ = self.post('/remediation/create', {'finding_id': self.fid,
+                                           'replace_plan_id': before['plan_id'], 'replace_plan_version': len(before['history'])})
+                    self.assertEqual(handler.response_status, 400)
+                    self.assertEqual(before, self.store.get_remediation_plan(self.fid))
+        self.store.connection.execute('DELETE FROM remediation_plans WHERE finding_id=?', (self.fid,))
+        self.assertNotIn('action="/remediation/create"', page(self.store, finding_id=self.fid))
+        handler, _ = self.post('/remediation/create', {'finding_id': self.fid})
+        self.assertEqual(handler.response_status, 400)
+        self.assertIsNone(self.store.get_remediation_plan(self.fid))
+
+    def test_paused_or_outdated_plan_does_not_claim_active_checklist_progress(self):
+        for status, label in (('Deferred', 'Plan deferred.'), ('Rejected', 'Plan rejected.')):
+            with self.subTest(status=status):
+                self.make_plan()
+                self.store.update_remediation_plan(self.fid, status)
+                markup = remediation_page(self.store, finding_id=self.fid)
+                checklist = markup.split('class="plan-checklist"', 1)[1].split('</section>', 1)[0]
+                self.assertIn(label, checklist)
+                self.assertIn(f'href="#plan-{self.fid}-status"', checklist)
+                self.assertNotIn('aria-current="step"', checklist)
+        plan = self.make_plan()['plan']
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy):
+                outdated = {key: value for key, value in plan.items() if key != 'finding_revision'}
+                if not legacy:
+                    outdated['finding_revision'] = 'stale'
+                self.store.connection.execute("UPDATE remediation_plans SET status='Verified', verification_evidence='Previous review', plan_json=? WHERE finding_id=?",
+                                              (json.dumps(outdated), self.fid))
+                markup = remediation_page(self.store, finding_id=self.fid)
+                checklist = markup.split('class="plan-checklist"', 1)[1].split('</section>', 1)[0]
+                self.assertIn('Generate replacement plan', checklist)
+                self.assertNotIn('Implementation recorded.', checklist)
+                self.assertNotIn('Verification evidence recorded.', checklist)
+                self.assertEqual(checklist.count('aria-current="step"'), 1)
+                self.assertIn('Previous review', markup)
+
+    def test_updated_advisory_action_reopens_plan_even_when_still_confirmed(self):
+        finding = self.store.finding(self.fid)
+        advisory = {'cve_id': finding['cve_id'], 'source': 'CISA KEV', 'summary': 'Test advisory',
+                    'kev': True, 'synthetic': False, 'affected_products': [], 'mitigation': 'First recorded action'}
+        self.store.ingest_normalized([advisory], trusted_public=True)
+        plan = self.make_plan()
+        self.assertEqual(plan['plan']['cisa_required_action'], 'First recorded action')
+        self.store.update_remediation_plan(self.fid, 'Under Review')
+        self.store.ingest_normalized([advisory | {'mitigation': 'Revised recorded action'}], trusted_public=True)
+        current = self.store.get_remediation_plan(self.fid)
+        self.assertEqual(self.store.finding(self.fid)['status'], 'CONFIRMED_MATCH')
+        self.assertEqual(current['status'], 'Needs More Evidence')
+        self.assertEqual(current['history'][-1]['notes'], 'Supporting finding evidence changed; review required')
+        self.assertIn('Generate a replacement plan using the current finding evidence', remediation_page(self.store, finding_id=self.fid))
+
+    def test_lifecycle_rejects_unconfirmed_stale_and_legacy_plan_advancement(self):
+        original = self.make_plan()
+        evidence = self.store.finding(self.fid)['evidence']
+        legacy = dict(original['plan'])
+        del legacy['finding_revision']
+        transitions = [('Under Review', 'Approved'), ('Approved', 'Implemented'), ('Implemented', 'Verified')]
+        for reason, finding_status, finding_evidence, snapshot in (
+            ('potential', 'POTENTIAL_MATCH', evidence, original['plan']),
+            ('needs evidence', 'NEEDS_REVIEW', evidence, original['plan']),
+            ('excluded', 'NO_MATCH_TO_THIS_ADVISORY', evidence, original['plan']),
+            ('changed evidence', 'CONFIRMED_MATCH', '["Different evidence"]', original['plan']),
+            ('legacy', 'CONFIRMED_MATCH', evidence, legacy),
+        ):
+            for from_status, to_status in transitions:
+                with self.subTest(reason=reason, transition=to_status):
+                    self.store.connection.execute('UPDATE findings SET status=?, evidence=? WHERE finding_id=?',
+                                                  (finding_status, finding_evidence, self.fid))
+                    self.store.connection.execute('UPDATE remediation_plans SET status=?, plan_json=? WHERE finding_id=?',
+                                                  (from_status, json.dumps(snapshot), self.fid))
+                    before = self.store.get_remediation_plan(self.fid)
+                    handler, text = self.post('/remediation/update', {'finding_id': self.fid, 'status': to_status,
+                                              'reviewer': 'Operator', 'change_notes': 'Simulated change',
+                                              'verification_evidence': 'Recorded outcome'})
+                    self.assertEqual(handler.response_status, 400)
+                    self.assertEqual(before, self.store.get_remediation_plan(self.fid))
+                    self.assertNotIn(f'<option value="{to_status}">', text)
+
+    def test_approval_without_stored_mitigation_requires_action_and_current_form(self):
+        self.store.connection.execute("UPDATE vulnerabilities SET mitigation=''")
+        self.make_plan()
+        self.store.update_remediation_plan(self.fid, 'Under Review', change_notes='Initial review')
+        before = self.store.get_remediation_plan(self.fid)
+        fields = {'finding_id': self.fid, 'status': 'Approved', 'reviewer': 'Operator',
+                  'plan_id': before['plan_id'], 'plan_version': len(before['history'])}
+        handler, text = self.post('/remediation/update', fields)
+        self.assertEqual(handler.response_status, 400)
+        self.assertIn('Enter the specific mitigation or compensating control', text)
+        self.assertEqual(before, self.store.get_remediation_plan(self.fid))
+        self.make_plan()
+        current = self.store.update_remediation_plan(self.fid, 'Under Review')
+        fields['change_notes'] = 'Use the approved isolation procedure for the simulated device.'
+        handler, text = self.post('/remediation/update', fields)
+        self.assertEqual(handler.response_status, 400)
+        self.assertIn('The fix plan changed while this form was open.', text)
+        self.assertEqual(current, self.store.get_remediation_plan(self.fid))
+        fields['plan_version'] = len(current['history'])
+        handler, _ = self.post('/remediation/update', fields)
+        self.assertEqual(handler.response_status, 303)
+        saved = self.store.get_remediation_plan(self.fid)
+        self.assertEqual((saved['status'], saved['change_notes']), ('Approved', fields['change_notes']))
 
     def test_recovery_does_not_bypass_request_protections(self):
         for kwargs,values in (({'origin':'https://untrusted.example'},{}),({}, {'csrf_token':'bad'})):

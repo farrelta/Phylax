@@ -81,11 +81,38 @@ CREATE TABLE IF NOT EXISTS alert_email_outbox(
 CREATE INDEX IF NOT EXISTS alert_email_status ON alert_email_outbox(status, updated_at);
 '''
 
+ALERT_FIX_PLAN_DDL = '''
+CREATE TABLE IF NOT EXISTS alert_fix_plans(
+ plan_id TEXT NOT NULL UNIQUE, category TEXT NOT NULL CHECK(category IN ('network','endpoint')),
+ alert_id TEXT NOT NULL, evidence_revision TEXT NOT NULL, status TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1,
+ reviewer TEXT NOT NULL DEFAULT '', change_notes TEXT NOT NULL DEFAULT '', verification_evidence TEXT NOT NULL DEFAULT '',
+ closed_by TEXT NOT NULL DEFAULT '', closure_reason TEXT NOT NULL DEFAULT '', closed_at TEXT NOT NULL DEFAULT '',
+ closed_last_seen TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL,
+ PRIMARY KEY(category,alert_id));
+CREATE INDEX IF NOT EXISTS alert_fix_plans_updated ON alert_fix_plans(updated_at);
+CREATE TABLE IF NOT EXISTS alert_fix_plan_events(
+ plan_id TEXT NOT NULL REFERENCES alert_fix_plans(plan_id) ON DELETE CASCADE,
+ version INTEGER NOT NULL, action TEXT NOT NULL, snapshot_json TEXT NOT NULL, recorded_at TEXT NOT NULL,
+ PRIMARY KEY(plan_id,version));
+CREATE VIEW IF NOT EXISTS network_case_states AS
+ SELECT a.alert_id, COALESCE(l.state,'active') AS condition_state, l.policy_id,
+        CASE WHEN p.closed_at!='' THEN 'resolved' ELSE COALESCE(l.state,'active') END AS state,
+        p.status AS plan_status, p.evidence_revision AS plan_revision, p.closed_at, p.closed_by, p.closure_reason
+ FROM network_alerts a LEFT JOIN network_alert_lifecycle l USING(alert_id)
+ LEFT JOIN alert_fix_plans p ON p.category='network' AND p.alert_id=a.alert_id;
+CREATE VIEW IF NOT EXISTS endpoint_case_states AS
+ SELECT a.alert_id, a.state AS condition_state,
+        CASE WHEN p.closed_at!='' THEN 'resolved' ELSE a.state END AS state,
+        p.status AS plan_status, p.evidence_revision AS plan_revision, p.closed_at, p.closed_by, p.closure_reason
+ FROM endpoint_alerts a LEFT JOIN alert_fix_plans p ON p.category='endpoint' AND p.alert_id=a.alert_id;
+'''
+
 
 def migrate(store):
     _migrate(store, VERSION, DDL, 'asset-intelligence')
     _migrate(store, 'offline_sensors_v1', SENSOR_DDL, 'offline-sensors')
     _migrate(store, 'alert_email_v1', EMAIL_DDL, 'alert-email')
+    _migrate(store, 'alert_fix_plans_v1', ALERT_FIX_PLAN_DDL, 'alert-fix-plans')
 
 
 def _migrate(store, version, ddl, name):
